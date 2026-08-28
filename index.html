@@ -472,7 +472,16 @@ for(let s=2;s<=6;s++){ const seen={};
   }});
 }
 const PATHOF={}; PATHS.forEach(p=>PATHOF[p.dest+'|'+p.res]=p);
+const PATHBYID={}; PATHS.forEach(p=>PATHBYID[p.id]=p);
 const pathFor=(s,k)=>PATHOF[s+'|'+k];
+
+/* Amélioration de stockage : un entrepôt par ressource/étape (pas de conteneurs multiples),
+   courbe de coût croissante classique. S'applique uniquement à la capacité du tampon
+   utilisée pendant le déchargement — aucun changement à la state machine véhicule. */
+PATHS.forEach(p=>{
+  MACH.push({id:'store_'+p.id, s:p.dest, n:'Entrepôt '+RES[p.res].n, store:p.id,
+             c:{[p.res]:Math.max(50,Math.round(180*RES[p.res].v))}, g:1.22});
+});
 const circDist=(a,b)=>{ let d=b-a; if(d<0)d+=1; return d; };
 
 /* lecture / prélèvement : tampon si la ressource arrive par la route, sinon stock global */
@@ -518,7 +527,7 @@ function tickPaths(dt){
     const capBase=dem>0?Math.max(1,dem*1.3/(N*spd)):1;
     const cap=capBase*(cache.cap[p.dest]||1);             // capacité/véhicule, upgradable
     const xfer=Math.max(.25,capBase/4)*(cache.xfer[p.dest]||1); // débit charge+décharge, upgradable
-    const bufMax=Math.max(1,cap*N*2);
+    const bufMax=Math.max(1,cap*N*2)*Math.pow(1.3,state.cnt['store_'+p.id]||0); // entrepôt : capacité de tampon
     p.dem=dem; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
     arr.sort((a,b)=>a.p-b.p);
@@ -601,6 +610,7 @@ function recompute(){
   MACH.forEach(m=>{ const n=state.cnt[m.id]||0; if(!n)return;
     if(m.boost)c.stage[m.boost.s]*=Math.pow(1+m.boost.p,n);      // duplication : multiplicative
     else if(m.global)c.global*=Math.pow(1+m.global,n);
+    else if(m.store){/* capacité de stockage : appliquée directement dans tickPaths */}
     else c.mach[m.id]*=Math.pow(2,Math.floor(n/MILESTONE));       // palier : ×2 tous les 25
   });
   // prestige + astro
@@ -654,7 +664,7 @@ function tick(dt){
 
   for(const m of MACH){
     const n=state.cnt[m.id]||0;
-    if(!n||m.boost||m.global){m.eff=1;continue;}
+    if(!n||m.boost||m.global||m.store){m.eff=1;continue;}
     let cyc=n*(m.r||0)*dt*mMult(m);
     if(m.colon){
       const gain=n*m.colon*dt*cache.colon;
@@ -662,12 +672,13 @@ function tick(dt){
       m.eff=1; m.flowc=gain/dt; continue;
     }
     if(m.in){
-      let lim=1,miss=null;
+      // tout ou rien : il faut TOUS les inputs en pleine quantité, sinon aucun n'est consommé
+      let ok=true, miss=null;
       for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
-        const r=poolGet(m.s,k)/need; if(r<lim){lim=r;miss=k;} }
-      lim=Math.max(0,Math.min(1,lim)); if(!isFinite(lim))lim=0;
-      cyc*=lim; m.eff=lim; m.miss=lim<0.995?miss:null;
-    } else { m.eff=1; m.miss=null; }
+        if(poolGet(m.s,k)<need-1e-9){ ok=false; miss=miss||k; } }
+      if(!ok){ cyc=0; m.eff=0; m.miss=miss; } else { m.eff=1; m.miss=null; }
+      m.effDisp=(m.effDisp===undefined?m.eff:m.effDisp)*0.85+m.eff*0.15;   // lissage visuel seulement
+    } else { m.eff=1; m.miss=null; m.effDisp=1; }
     if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
     if(m.out)for(const k in m.out){ const q=m.out[k]*cyc; state.res[k]+=q; add(prod,k,q); state.valeur+=q*RES[k].v; }
   }
@@ -798,6 +809,9 @@ function machRow(m){
                 '<br>+1 véhicule sur chaque boucle de l\'étape et +3 % de vitesse de flotte';
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n)+' système/s au total · '+m.colon+' par unité';
+  else if(m.store){ const path=PATHBYID[m.store];
+    io='<em>Entrepôt</em> : capacité du tampon ×1,3 par unité — actuellement ×'+fmt(Math.pow(1.3,n))+
+       (path?'<br>tampon actuel : '+fmt(state.buf[m.store]||0)+' / '+fmt(path.bufMax||0):''); }
   else{
     const f=o=>Object.keys(o).map(k=>RES[k].i+' '+o[k]).join(' + ');
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+m.r+' cycle/s'+
@@ -806,8 +820,8 @@ function machRow(m){
   const q=state.buyMode==='max'?Math.max(1,maxBuy(m)):state.buyMode;
   const c=bulkCost(m,q), can=afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
-  const eff=Math.round((m.eff===undefined?1:m.eff)*100);
-  const bar=(!m.boost&&!m.global&&!m.colon)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
+  const eff=Math.round((m.effDisp===undefined?1:m.effDisp)*100);
+  const bar=(!m.boost&&!m.global&&!m.colon&&!m.store)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   return '<div class="mach'+(can?' buyable':'')+'" data-m="'+m.id+'">'+
     '<div class="top"><span class="nm">'+m.n+'</span><span class="ct" data-c="'+m.id+'">'+fmt(n)+'</span></div>'+
     '<div class="io">'+io+'</div>'+bar+
@@ -905,8 +919,12 @@ function render(){
     h+='<div class="sec">Transport<span class="hint">file au départ = manque en amont · file à l\'arrivée = aval saturé</span></div>'+
        '<canvas id="loopsC" width="900" height="150"></canvas>';
   }
+  const stores=MACH.filter(m=>m.store&&m.s===s);
+  if(stores.length){
+    h+='<div class="sec">Stockage<span class="hint">agrandit le tampon de déchargement, sans toucher aux véhicules</span></div><div class="grid">'+stores.map(machRow).join('')+'</div>';
+  }
 
-  const ms=MACH.filter(m=>m.s===s&&(!m.need||state.stage>=m.need));
+  const ms=MACH.filter(m=>m.s===s&&!m.store&&(!m.need||state.stage>=m.need));
   if(ms.length){
     h+='<div class="sec">Machines<span class="hint">la barre verte indique le taux d\'alimentation</span></div><div class="grid">'+ms.map(machRow).join('')+'</div>';
   }
@@ -967,7 +985,7 @@ function paint(){
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(flow['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.global*cache.stage[1]); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
-  document.querySelectorAll('[data-eff]').forEach(el=>{ const m=M[el.dataset.eff]; const e=(m.eff===undefined?1:m.eff);
+  document.querySelectorAll('[data-eff]').forEach(el=>{ const m=M[el.dataset.eff]; const e=(m.effDisp===undefined?1:m.effDisp);
     el.style.width=(e*100).toFixed(0)+'%'; el.style.background=e>0.98?'#5fb87a':e>0.4?'#d8a13c':'#c5533f'; });
   document.querySelectorAll('[data-w]').forEach(el=>{ const m=M[el.dataset.w];
     if(!m.miss||!(state.cnt[m.id]||0)){el.textContent='';return;}
