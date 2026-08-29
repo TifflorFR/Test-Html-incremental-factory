@@ -265,7 +265,7 @@ footer{
 <footer>
   <div class="fw">
     <button class="mini" id="buyMode">achat ×1</button>
-    <button class="mini prestige" id="btnPrestige">restructurer</button>
+    <button class="mini prestige" id="btnPrestige" style="display:none">restructurer</button>
     <div class="sp"></div>
     <button class="mini" id="btnExport">sauvegarde</button>
     <button class="mini" id="btnDev">test</button>
@@ -798,9 +798,11 @@ function brevetsGain(){
   const total=Math.floor(10*Math.log10(v/1e6));   // +10 brevets par ordre de grandeur
   return Math.max(0,total-state.brevets);
 }
+const PRESTIGE_STAGE=3;                       // restructuration disponible dès l'Usine
+function prestigeReady(){ return state.stage>=PRESTIGE_STAGE && brevetsGain()>=1; }
 function doPrestige(){
   const g=brevetsGain();
-  if(state.stage<5){toast('Restructuration disponible à partir de l\'international');return;}
+  if(state.stage<PRESTIGE_STAGE){toast('Restructuration disponible à partir de l\'usine');return;}
   if(g<1){toast('Pas encore assez de valeur produite');return;}
   if(!confirm('Restructurer ?\n\nTu perds ressources, machines et améliorations.\nTu gardes '+(state.brevets+g)+' brevets (+6 % de production globale chacun).'))return;
   const nb=state.brevets+g, vt=state.valeurTot+state.valeur;
@@ -1115,6 +1117,13 @@ function paint(){
   $('hGlobal').textContent=fmt(cache.global);
   $('hValeur').textContent=fmt(state.valeur+state.valeurTot);
   $('hBrevets').textContent=state.brevets+(brevetsGain()>0?' (+'+brevetsGain()+')':'');
+  // le bouton n'apparaît que lorsqu'une restructuration est réellement possible
+  const pOK=prestigeReady();
+  const pb=$('btnPrestige');
+  if(pb){
+    pb.style.display=pOK?'':'none';
+    if(pOK)pb.textContent='restructurer +'+brevetsGain();
+  }
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(flow['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.global*cache.stage[1]); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
