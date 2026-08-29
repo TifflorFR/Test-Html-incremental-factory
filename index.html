@@ -175,6 +175,11 @@ nav::-webkit-scrollbar{display:none}
 .buy:disabled{opacity:.42;cursor:not-allowed}
 .buy .px{color:var(--brass);font-variant-numeric:tabular-nums}
 .buy:disabled .px{color:var(--bad)}
+.toggles{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.tg{background:#152a41;border:1px solid #2f4d6e;color:var(--ok);border-radius:2px;
+    padding:5px 9px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
+.tg:hover{border-color:var(--brass-dim)}
+.tg.off{color:var(--bad);border-color:#5a2c22;background:#1a0f0c}
 .rbh{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f97ad;margin:12px 0 6px}
 .up.rn.spine{border-left:3px solid var(--ember)}
 .up.rn .lv{color:#7f97ad;font-size:10px}
@@ -627,6 +632,9 @@ function tickPaths(dt){
     const bufMax=Math.max(1,cap*N*2)*Math.pow(1.3,state.cnt['store_'+p.id]||0); // entrepôt : capacité de tampon
     p.dem=dem; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
+    // boucle mise en pause par le joueur : rien ne bouge, rien ne se transfère
+    p.paused=!!state.off['path_'+p.id];
+    if(p.paused){ arr.forEach(v=>v.blocked=false); state.buf[p.id]=state.buf[p.id]||0; continue; }
     arr.sort((a,b)=>a.p-b.p);
     const step=new Array(N).fill(0);
     for(let i=0;i<N;i++){                                 // seuls les trajets avancent
@@ -788,6 +796,8 @@ function pipeStats(){
 function tickPipe(dt){
   const st=pipeStats();
   const p=state.pipe;
+  p.paused=!!state.off['pipe'];
+  if(p.paused){ p.flow=0; p.jam=false; p.starved=false; return; }
   const src=state.res[PIPE.res]||0;
   let bf=state.buf[PIPE.id]||0;
   // amorçage : le tube doit se remplir avant de délivrer (latence initiale)
@@ -1243,6 +1253,7 @@ function drawLoops(){
   ps.forEach((p,idx)=>{
     const col=idx%cols, row=Math.floor(idx/cols);
     const cx=slot*(col+.5), cy=row*rowH+R+12;
+    x.globalAlpha=p.paused?0.42:1;
     const angAt=t=>-Math.PI/2+t*Math.PI*2;
     const pt=t=>{const a=angAt(t); return [cx+Math.cos(a)*R, cy+Math.sin(a)*R];};
     x.strokeStyle='#1c2f45'; x.lineWidth=Math.max(6,R*0.22); x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
@@ -1279,6 +1290,7 @@ function drawLoops(){
         }
       }
     });
+    x.globalAlpha=1;
     // étiquettes
     x.textAlign='center'; x.font='10px ui-monospace,monospace';
     x.fillStyle='#8fa8bf'; x.fillText(RES[p.res].n+' · '+(p.n||1)+' véh.', cx, cy+R+15);
@@ -1286,7 +1298,8 @@ function drawLoops(){
     x.fillStyle='#16253a'; x.fillRect(bx,by,bw,4);
     x.fillStyle=f>.92?'#c5533f':f>.05?'#5fb87a':'#d8a13c'; x.fillRect(bx,by,bw*f,4);
     x.font='9px ui-monospace,monospace';
-    if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
+    if(p.paused){ x.fillStyle='#7f97ad'; x.fillText('⏸ boucle à l\'arrêt', cx, by+15); }
+    else if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
       x.fillText(p.jamOut?'▲ aval saturé':'▼ rien à charger', cx, by+15); }
     else { x.fillStyle='#5b7691'; x.fillText(Math.round(f*100)+'% tampon', cx, by+15); }
   });
@@ -1382,16 +1395,21 @@ function drawGalaxy(){
 }
 
 /* --- jauge électrique + chantiers Dyson + arbre de recherche --- */
+function poffState(){ return !!state.off['pipe']; }
 function pipePanel(){
   const st=pipeStats(), p=state.pipe;
   const f=Math.max(0,Math.min(1,(state.buf[PIPE.id]||0)/st.bufMax));
   const primed=p.prime>=st.vol-1e-6;
-  const etat = p.jam?'<span style="color:#c5533f">▲ aval saturé — la raffinerie ne suit pas</span>'
+  const etat = poffState()?'<span style="color:#7f97ad">⏸ oléoduc à l\'arrêt</span>'
+             : p.jam?'<span style="color:#c5533f">▲ aval saturé — la raffinerie ne suit pas</span>'
              : p.starved?'<span style="color:#d8a13c">▼ derrick à sec</span>'
              : primed?'<span style="color:#5fb87a">flux nominal</span>'
              : '<span style="color:#d8a13c">amorçage '+Math.round(p.prime/st.vol*100)+' %</span>';
+  const poff=!!state.off['pipe'];
   return '<div class="sec">Oléoduc<span class="hint">transport direct derrick → raffinerie · ni véhicule ni étape intermédiaire</span></div>'+
     '<canvas id="pipeC"></canvas>'+
+    '<div class="toggles"><button class="tg'+(poff?' off':'')+'" data-pipeoff="1">'+
+      (poff?'⏸':'⏵')+' '+RES[PIPE.res].i+' '+RES[PIPE.res].n+'</button></div>'+
     '<div class="ms"><div class="msr"><span class="msn">Débit réel</span>'+
     '<span class="msb"><i style="width:'+Math.min(100,(p.flow/st.rate*100||0)).toFixed(0)+'%;background:'+(p.jam?'#c5533f':'#5fb87a')+'"></i></span>'+
     '<span class="msv">'+fmt(p.flow)+' / '+fmt(st.rate)+' par s</span></div>'+
@@ -1412,10 +1430,12 @@ function drawPipe(){
   x.beginPath(); x.moveTo(x0,y); x.lineTo(x1,y); x.stroke();
   x.strokeStyle=p.jam?'#c5533f':'#22384f'; x.lineWidth=1;
   x.beginPath(); x.moveTo(x0,y-7); x.lineTo(x1,y-7); x.moveTo(x0,y+7); x.lineTo(x1,y+7); x.stroke();
-  const ratio=st.rate>0?Math.min(1,p.flow/st.rate):0;
+  const ratio=(p.paused||!(st.rate>0))?0:Math.min(1,p.flow/st.rate);
   const off=(Date.now()/1000*ratio*60)%18;
   x.fillStyle=p.jam?'#c5533f':(ratio>0.02?'#c9963f':'#2a445f');
   for(let px=x0+off;px<x1-3;px+=18){ x.fillRect(px,y-3.5,7,7); }
+  if(p.paused){ x.fillStyle='#7f97ad'; x.font='9px ui-monospace,monospace'; x.textAlign='center';
+    x.fillText('⏸ à l\'arrêt', W/2, y-14); }
   x.fillStyle='#8fa8bf'; x.font='9px ui-monospace,monospace';
   x.textAlign='left';  x.fillText('DERRICK',4,y+3);
   x.textAlign='right'; x.fillText('RAFFINERIE',W-4,y+3);
@@ -1529,7 +1549,12 @@ function render(){
   const ps=PATHS.filter(x=>x.dest===s);
   if(ps.length){
     h+='<div class="sec">Transport<span class="hint">file au départ = manque en amont · file à l\'arrivée = aval saturé</span></div>'+
-       '<canvas id="loopsC"></canvas>';
+       '<canvas id="loopsC"></canvas>'+
+       '<div class="toggles">'+ps.map(x=>{
+         const off=!!state.off['path_'+x.id];
+         return '<button class="tg'+(off?' off':'')+'" data-pathoff="'+x.id+'">'+
+                (off?'⏸':'⏵')+' '+RES[x.res].i+' '+RES[x.res].n+'</button>';
+       }).join('')+'</div>';
   }
   const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.boost||m.pipeUp)&&m.s===s);
   if(vehM.length){
@@ -1560,6 +1585,10 @@ function render(){
 }
 
 function bind(){
+  $('panel').querySelectorAll('[data-pathoff]').forEach(b=>b.onclick=()=>{
+    const k='path_'+b.dataset.pathoff; state.off[k]=!state.off[k]; structuralDirty=true; });
+  $('panel').querySelectorAll('[data-pipeoff]').forEach(b=>b.onclick=()=>{
+    state.off['pipe']=!state.off['pipe']; structuralDirty=true; });
   $('panel').querySelectorAll('[data-res-node]').forEach(b=>b.onclick=()=>rBuy(b.dataset.resNode));
   $('panel').querySelectorAll('[data-dyson]').forEach(b=>b.onclick=()=>{
     const st=state.dyson[b.dataset.dyson]; if(st&&!st.done){ st.running=!st.running; structuralDirty=true; }
