@@ -153,7 +153,12 @@ nav::-webkit-scrollbar{display:none}
 
 .mach{border:1px solid #22384f;background:#0c1826;padding:9px 10px;position:relative;overflow:hidden}
 .mach.buyable{border-color:#39597c}
-.mach .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mach.offed{border-color:#3a2a24;opacity:.72}
+.pwr{width:22px;height:22px;flex:0 0 auto;background:#152a41;border:1px solid #2f4d6e;color:var(--ok);
+     border-radius:2px;font-size:11px;line-height:1;padding:0;margin-right:auto;margin-left:8px}
+.pwr.off{color:var(--bad);border-color:#5a2c22;background:#1a0f0c}
+.mach .top{display:flex;justify-content:flex-start;gap:8px;align-items:baseline;flex-wrap:nowrap}
+.mach .ct{margin-left:auto}
 .mach .nm{font-size:13px;color:var(--ink)}
 .mach .ct{font-size:15px;color:var(--brass);font-variant-numeric:tabular-nums}
 .mach .io{font-size:10px;color:#7f97ad;margin:4px 0 6px;line-height:1.5}
@@ -334,10 +339,10 @@ const STAGES=[
 const UNLOCK={
  2:{pct:.10,from:1,res:{fer:500}},
  3:{pct:.15,from:2,res:{acier:400}},
- 4:{pct:.20,from:3,res:{module:800}},
+ 4:{pct:.30,from:3,res:{module:2500}},
  5:{pct:.25,from:4,res:{moteur:120}},
  6:{pct:.30,from:5,res:{fusee:40}},
- 7:{pct:.35,from:6,res:{science:4000}},
+ 7:{pct:.45,from:6,res:{science:20000}},
  8:{planets:3},
 };
 
@@ -358,10 +363,10 @@ const MACH=[
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
  {id:'camion',s:3,n:'Camion-benne',     boost:{s:2,p:.15},                     c:{module:40,acier:2000},        g:1.48},
  // --- 4 logistique nationale
- {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:180,acier:9000},                 g:1.11},
- {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:350,circuit:90},      g:1.11},
- {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:900,circuit:400},g:1.12},
- {id:'train', s:4,n:'Train de fret',    boost:{s:3,p:.15},                     c:{moteur:15,module:3000},       g:1.5},
+ {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
+ {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
+ {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
+ {id:'train', s:4,n:'Train de fret',    boost:{s:3,p:.15},                     c:{moteur:40,module:9000},       g:1.55},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'avion', s:5,n:'Avion cargo',      boost:{s:4,p:.15},                     c:{moteur:120,plastique:5000},   g:1.52},
@@ -370,7 +375,7 @@ const MACH=[
  {id:'labo',  s:6,n:'Labo en microgravité',in:{circuit:8,plastique:10},out:{science:3},r:.4,c:{fusee:180,science:800},g:1.13},
  {id:'navette',s:6,n:'Navette de relève',boost:{s:5,p:.15},                    c:{fusee:60,science:300},        g:1.55},
  // --- 7 colonisation
- {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:25000,fusee:400},                      g:1.30},
+ {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:90000,fusee:1500},                     g:1.36},
  // --- 8 expansion
  {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0002,     c:{science:2e6,fusee:20000},                      g:1.13},
 ];
@@ -405,12 +410,12 @@ const UP=[
  {id:'u3g',s:3,n:'Bennes renforcées',  d:'Capacité des camions ×2.', c:{module:6000,circuit:2000},    e:{cap:{3:2}}},
  {id:'u3h',s:3,n:'Quais robotisés',    d:'Débit de charge/décharge des camions ×2.', c:{acier:15000},  e:{xfer:{3:2}}},
  // 4
- {id:'u4a',s:4,n:'Craquage catalytique',d:'Raffineries ×2,5.', c:{plastique:3000},                    e:{mult:{raff:2.5}}},
- {id:'u4b',s:4,n:'Forage profond',    d:'Puits de pétrole ×3.', c:{petrole:20000,module:15000},       e:{mult:{puits:3}}},
- {id:'u4c',s:4,n:'Bancs d\'essai',    d:'Usines de moteurs ×2.', c:{moteur:80},                       e:{mult:{moteurs:2}}},
- {id:'u4d',s:4,n:'Cadencement national',d:'Tout le réseau ×2.', c:{moteur:400,plastique:80000},       e:{stage:{4:2}}},
- {id:'u4e',s:4,n:'Ratio piloté',      d:'Usine ×2 et fonderie ×2 : le réseau lisse les à-coups.', c:{moteur:1500},e:{stage:{3:2,2:2}}},
- {id:'u4f',s:4,n:'Consortium',        d:'Production globale ×1,4.', c:{moteur:6000},                  e:{global:1.4}},
+ {id:'u4a',s:4,n:'Craquage catalytique',d:'Raffineries ×2,5.', c:{plastique:9000},                    e:{mult:{raff:2.5}}},
+ {id:'u4b',s:4,n:'Forage profond',    d:'Puits de pétrole ×3.', c:{petrole:60000,module:45000},       e:{mult:{puits:3}}},
+ {id:'u4c',s:4,n:'Bancs d\'essai',    d:'Usines de moteurs ×2.', c:{moteur:250},                      e:{mult:{moteurs:2}}},
+ {id:'u4d',s:4,n:'Cadencement national',d:'Tout le réseau ×2.', c:{moteur:1400,plastique:250000},     e:{stage:{4:2}}},
+ {id:'u4e',s:4,n:'Ratio piloté',      d:'Usine ×2 et fonderie ×2 : le réseau lisse les à-coups.', c:{moteur:5000},e:{stage:{3:2,2:2}}},
+ {id:'u4f',s:4,n:'Consortium',        d:'Production globale ×1,4.', c:{moteur:20000},                 e:{global:1.4}},
  {id:'u4g',s:4,n:'Wagons-citernes',   d:'Capacité des trains ×2,5.', c:{module:20000,plastique:8000},  e:{cap:{4:2.5}}},
  {id:'u4h',s:4,n:'Gares automatisées',d:'Débit de charge/décharge des trains ×2,5.', c:{circuit:9000}, e:{xfer:{4:2.5}}},
  // 5
@@ -431,9 +436,9 @@ const UP=[
  {id:'u6g',s:6,n:'Soutes cryogéniques',d:'Capacité des navettes ×3.', c:{science:400000},              e:{cap:{6:3}}},
  {id:'u6h',s:6,n:'Arrimage automatique',d:'Débit de charge/décharge des navettes ×3.', c:{fusee:8000}, e:{xfer:{6:3}}},
  // 7
- {id:'u7a',s:7,n:'Ascenseur spatial', d:'Production globale ×2,5.', c:{science:5e7},                  e:{global:2.5}},
- {id:'u7b',s:7,n:'Moissonneurs d\'astéroïdes',d:'Extraction ×100.', c:{science:2e8},                  e:{stage:{1:100}}},
- {id:'u7c',s:7,n:'Industrie interplanétaire',d:'Production globale ×4.', c:{science:1e9},             e:{global:4}},
+ {id:'u7a',s:7,n:'Ascenseur spatial', d:'Production globale ×2,5.', c:{science:2e8},                  e:{global:2.5}},
+ {id:'u7b',s:7,n:'Moissonneurs d\'astéroïdes',d:'Extraction ×100.', c:{science:8e8},                  e:{stage:{1:100}}},
+ {id:'u7c',s:7,n:'Industrie interplanétaire',d:'Production globale ×4.', c:{science:5e9},             e:{global:4}},
  // 8
  {id:'u8a',s:8,n:'Voiles de distorsion',d:'Colonisation ×5.', c:{science:1e10},                       e:{colon:5}},
  {id:'u8b',s:8,n:'Essaim auto-réplicant',d:'Colonisation ×20.', c:{science:5e11},                     e:{colon:20}},
@@ -580,7 +585,7 @@ function freshState(brevets=0,valeurTot=0){
   const res={}; for(const k in RES) res[k]=0;
   return {
     res, cnt:{}, ups:{}, planets:{}, systemes:0,
-    buf:{}, veh:{},
+    buf:{}, veh:{}, off:{},
     stage:1, tab:1, seen:{1:true},
     click:1, auto:0,
     valeur:0, valeurTot, brevets,
@@ -665,6 +670,8 @@ function tick(dt){
   for(const m of MACH){
     const n=state.cnt[m.id]||0;
     if(!n||m.boost||m.global||m.store){m.eff=1;continue;}
+    if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
+      m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
     let cyc=n*(m.r||0)*dt*mMult(m);
     if(m.colon){
       const gain=n*m.colon*dt*cache.colon;
@@ -822,8 +829,10 @@ function machRow(m){
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
   const eff=Math.round((m.effDisp===undefined?1:m.effDisp)*100);
   const bar=(!m.boost&&!m.global&&!m.colon&&!m.store)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
-  return '<div class="mach'+(can?' buyable':'')+'" data-m="'+m.id+'">'+
-    '<div class="top"><span class="nm">'+m.n+'</span><span class="ct" data-c="'+m.id+'">'+fmt(n)+'</span></div>'+
+  const off=!!state.off[m.id];
+  const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
+  return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
+    '<div class="top"><span class="nm">'+m.n+'</span>'+pwr+'<span class="ct" data-c="'+m.id+'">'+fmt(n)+'</span></div>'+
     '<div class="io">'+io+'</div>'+bar+
     '<div class="warnl" data-w="'+m.id+'"></div>'+
     '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
@@ -943,6 +952,9 @@ function render(){
 }
 
 function bind(){
+  $('panel').querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.toggle; state.off[id]=!state.off[id]; structuralDirty=true;
+  });
   $('panel').querySelectorAll('[data-click]').forEach(b=>b.onclick=e=>{
     const r=b.dataset.click, g=state.click*cache.click*cache.global*cache.stage[1];
     state.res[r]+=g; state.valeur+=g*RES[r].v; floatNum(e,'+'+fmt(g));
@@ -989,6 +1001,7 @@ function paint(){
     el.style.width=(e*100).toFixed(0)+'%'; el.style.background=e>0.98?'#5fb87a':e>0.4?'#d8a13c':'#c5533f'; });
   document.querySelectorAll('[data-w]').forEach(el=>{ const m=M[el.dataset.w];
     if(!m.miss||!(state.cnt[m.id]||0)){el.textContent='';return;}
+    if(m.miss==='__off__'){ el.textContent='⏸ production coupée par le joueur'; return; }
     const pa=pathFor(m.s,m.miss);
     el.textContent='⚠ '+(pa?'tampon '+RES[m.miss].n.toLowerCase()+' vide — '+(pa.jamIn?'rien à charger en amont':'transport en retard')
                           :'manque de '+RES[m.miss].n.toLowerCase()); });
@@ -1030,7 +1043,7 @@ async function save(){ try{ await STORE.set(snapshot()); }catch(e){} }
 function restore(raw){
   const d=JSON.parse(raw);
   Object.assign(state,d.state);
-  state.buf=state.buf||{}; state.veh=state.veh||{}; state.speed=1;
+  state.buf=state.buf||{}; state.veh=state.veh||{}; state.off=state.off||{}; state.speed=1;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
   recompute();
   return d.ts?(Date.now()-d.ts)/1000:0;
