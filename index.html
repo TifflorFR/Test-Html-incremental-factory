@@ -417,9 +417,27 @@ const MACH=[
  {id:'xfer_s6',  s:6, n:'Débit — fusée-navette', xferUp:6,
              c:{fusee:1950,science:750}, g:1.17},
  // --- 7 colonisation
+ {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{science:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
+ {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
+             c:{science:120000,fusee:2000}, g:4.8},
+ {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
+             c:{science:45000}, g:1.17},
+ {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
+             c:{fusee:900}, g:1.17},
+ {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
+             c:{science:58000,fusee:450}, g:1.17},
  // --- 8 expansion
+ {id:'forge', s:8,n:'Forge d\'essaim',      in:{fusee:4,circuit:50},out:{science:900},r:.3,c:{science:500000,fusee:6000},g:1.14},
  {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
+ {id:'fleet_s8', s:8, n:'Vaisseau de distorsion supplémentaire', fleet:8, maxCount:4,
+             c:{science:900000,fusee:15000}, g:4.9},
+ {id:'spd_s8',   s:8, n:'Vitesse — vaisseau de distorsion', spdUp:8,
+             c:{science:320000}, g:1.18},
+ {id:'cap_s8',   s:8, n:'Capacité — vaisseau de distorsion', capUp:8,
+             c:{fusee:6000}, g:1.18},
+ {id:'xfer_s8',  s:8, n:'Débit — vaisseau de distorsion', xferUp:8,
+             c:{science:420000,fusee:3000}, g:1.18},
 ];
 
 /* améliorations. e = effet : click, auto, mult{machine}, stage{n}, global */
@@ -496,12 +514,12 @@ const CLICKABLE=[
    de la position (arc chargé → décharge → arc à vide → chargement).
    Vitesse partagée par flotte. Un véhicule ralentit s'il rattrape celui devant.
    ========================================================================== */
-const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',6:'fleet_s6'};  // flotte de l'étape (achat dédié, plafonné)
+const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',6:'fleet_s6',7:'fleet_s7',8:'fleet_s8'};  // flotte de l'étape (achat dédié, plafonné)
 const FLEET_MAX=30;                                               // plafond de sprites simulés
 const PRODSTAGE={};
 MACH.forEach(m=>{ if(m.out)for(const k in m.out) if(PRODSTAGE[k]===undefined||m.s<PRODSTAGE[k])PRODSTAGE[k]=m.s; });
 const PATHS=[];
-for(let s=2;s<=6;s++){ const seen={};
+for(let s=2;s<=8;s++){ const seen={};
   MACH.filter(m=>m.s===s&&m.in).forEach(m=>{ for(const k in m.in){
     if(PRODSTAGE[k]===s||seen[k])continue; seen[k]=1;
     PATHS.push({id:'p'+s+'_'+k, res:k, dest:s, src:PRODSTAGE[k],
@@ -902,6 +920,13 @@ function drawVehicleIcon(x,cx,cy,angleRad,color,stageNum){
     case 6: // Fusée-navette : ogive + corps
       x.beginPath(); x.moveTo(0,-7); x.lineTo(3,1); x.lineTo(-3,1); x.closePath(); x.fill();
       x.fillRect(-2,1,4,4); break;
+    case 7: // Vaisseau colonial rudimentaire : capsule trapue + réservoirs latéraux
+      x.beginPath(); x.moveTo(0,-6); x.lineTo(2.5,-1); x.lineTo(2.5,4); x.lineTo(-2.5,4); x.lineTo(-2.5,-1); x.closePath(); x.fill();
+      x.fillRect(-5,0,2,4); x.fillRect(3,0,2,4); break;
+    case 8: // Vaisseau de distorsion avancé : flèche effilée + ailes en delta
+      x.beginPath(); x.moveTo(0,-8); x.lineTo(2,-1); x.lineTo(2,3); x.lineTo(-2,3); x.lineTo(-2,-1); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(-2,-1); x.lineTo(-7,5); x.lineTo(-2,3); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(2,-1); x.lineTo(7,5); x.lineTo(2,3); x.closePath(); x.fill(); break;
     default:
       x.fillRect(-3,-3,6,6);
   }
