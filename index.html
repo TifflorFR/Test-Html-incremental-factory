@@ -175,6 +175,19 @@ nav::-webkit-scrollbar{display:none}
 .buy:disabled{opacity:.42;cursor:not-allowed}
 .buy .px{color:var(--brass);font-variant-numeric:tabular-nums}
 .buy:disabled .px{color:var(--bad)}
+.rbh{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f97ad;margin:12px 0 6px}
+.up.rn.spine{border-left:3px solid var(--ember)}
+.up.rn .lv{color:#7f97ad;font-size:10px}
+.up.rn.locked{opacity:.5}
+.stack{font-size:9px;color:#5b7691;margin-top:5px;line-height:1.5;font-variant-numeric:tabular-nums}
+.ms{border:1px solid #2a445f;background:#0c1826;padding:10px;margin-top:8px}
+.msh{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);margin-bottom:8px}
+.msr{display:flex;align-items:center;gap:8px;font-size:11px;color:#9fb4c8;margin-bottom:5px}
+.msn{flex:0 0 40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msb{flex:1;height:4px;background:#16253a;display:block}
+.msb i{display:block;height:100%;transition:width .3s}
+.msv{flex:0 0 auto;font-variant-numeric:tabular-nums;color:#7f97ad}
+.msv.ok{color:var(--ok)}
 .maxed{width:100%;text-align:center;background:#152a1f;border:1px solid #2f6e4d;color:var(--ok);
        padding:7px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border-radius:2px}
 
@@ -267,6 +280,7 @@ footer{
     <button class="mini" id="buyMode">achat ×1</button>
     <button class="mini prestige" id="btnPrestige" style="display:none">restructurer</button>
     <div class="sp"></div>
+    <button class="mini" id="btnFmt">nombres : court</button>
     <button class="mini" id="btnExport">sauvegarde</button>
     <button class="mini" id="btnDev">test</button>
   </div>
@@ -290,10 +304,17 @@ footer{
 /* ==========================================================================
    1. UTILITAIRES
    ========================================================================== */
-const SUF=['','K','M','G','T','P','E','Z','Y','Qa','Qi','Sx','Sp','Oc','No','Dc','Ud','Dd','Td'];
+const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc','Ud','Dd','Td'];  // échelle courte US
+let numFmt='court';   // 'court' | 'sci' | 'ing'
+let numMode='court';                       // 'court' | 'sci' | 'ing'
 function fmt(n){
   if(n===undefined||n===null||isNaN(n))return'0';
   if(n<0)return'-'+fmt(-n);
+  if(numFmt==='sci'){ if(n<1000)return n<10?(Math.round(n*10)/10+''):Math.floor(n)+'';
+    return n.toExponential(2).replace('e+','e'); }
+  if(numFmt==='ing'){ if(n<1000)return n<10?(Math.round(n*10)/10+''):Math.floor(n)+'';
+    const e=Math.floor(Math.log10(n)/3)*3, m=n/Math.pow(10,e);
+    return (m<10?m.toFixed(2):m<100?m.toFixed(1):Math.floor(m))+'e'+e; }
   if(n<1000)return n<10?(Math.round(n*10)/10+''):Math.floor(n)+'';
   let t=Math.floor(Math.log10(n)/3);
   if(t>=SUF.length)return n.toExponential(2).replace('e+','e');
@@ -338,15 +359,22 @@ const STAGES=[
 ];
 
 /* déblocage : % d'améliorations achetées dans l'étape + un seuil de ressource */
+/* JALONS — étapes 2 à 6 : seuil de production multi-ressources.
+   Mesure : moyenne glissante 10 s, calcul interne en /s (affichage en /min).
+   Condition : TOUTES les ressources cibles au-dessus du seuil, maintenues 30 s.
+   Décrochage = reset dégressif (la barre redescend, pas de remise à zéro sèche).
+   Étapes 7 et 8 : jalons de l'arbre de recherche (B2 et B5). */
 const UNLOCK={
- 2:{pct:.10,from:1,res:{fer:500}},
- 3:{pct:.15,from:2,res:{acier:400}},
- 4:{pct:.30,from:3,res:{module:2500}},
- 5:{pct:.25,from:4,res:{moteur:120}},
- 6:{pct:.30,from:5,res:{fusee:40}},
- 7:{pct:.45,from:6,res:{science:20000}},
- 8:{planets:3},
+ 2:{rate:{bois:2.5,pierre:2.0,fer:1.2}},
+ 3:{rate:{fer:4,charbon:3,acier:1.2}},
+ 4:{rate:{acier:5,module:1.5,circuit:0.8}},
+ 5:{rate:{module:6,plastique:3,moteur:0.6}},
+ 6:{rate:{moteur:2.5,fusee:0.25}},
+ 7:{research:'B2'},
+ 8:{research:'B5'},
 };
+const HOLD_NEEDED=30;   // s consécutives au-dessus du seuil
+const AVG_WINDOW=10;    // s de moyenne glissante
 
 /* machines. in/out = par cycle ; r = cycles/s par unité ; c = coût de base ; g = croissance */
 const MACH=[
@@ -382,6 +410,11 @@ const MACH=[
              c:{acier:1560,module:600}, g:1.15},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
+ {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  c:{acier:9000},              g:1.18},
+ {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', c:{module:1200},             g:1.15},
+ {id:'pipe_speed',s:4,n:'Amorçage — oléoduc',  pipeUp:'speed',c:{circuit:800},             g:1.15},
+ {id:'pipe_vol',  s:4,n:'Volume — oléoduc',    pipeUp:'vol',  c:{acier:14000,module:900},  g:1.20},
+ {id:'store_pipe_petrole',s:4,n:'Entrepôt Pétrole',store:'pipe_petrole',c:{petrole:1080},  g:1.22},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
  {id:'train', s:4,n:'Cadence nationale',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
@@ -405,7 +438,7 @@ const MACH=[
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
              c:{moteur:15600,plastique:6000}, g:1.15},
  // --- 6 spatiale
- {id:'station',s:6,n:'Station orbitale',in:{module:6,plastique:4},out:{science:1},r:.5,c:{fusee:16,moteur:875},g:1.1},
+ {id:'station',s:6,n:'Station de recherche',in:{module:6,plastique:4},out:{science:1},r:.5,c:{fusee:16,moteur:875},g:1.1,station:true},
  {id:'labo',  s:6,n:'Labo en microgravité',in:{circuit:8,plastique:10},out:{science:3},r:.4,c:{fusee:63,science:280},g:1.1},
  {id:'navette',s:6,n:'Cadence orbitale',    boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
  {id:'fleet_s6', s:6, n:'Fusée-navette supplémentaire', fleet:6, maxCount:4,
@@ -521,6 +554,7 @@ const LOAD_WARN=4;        // s avant que la jauge du véhicule se mette à clign
 const PRODSTAGE={};
 MACH.forEach(m=>{ if(m.out)for(const k in m.out) if(PRODSTAGE[k]===undefined||m.s<PRODSTAGE[k])PRODSTAGE[k]=m.s; });
 const PATHS=[];
+const PIPE_RES='petrole';   // le pétrole voyage par oléoduc, jamais par véhicule
 for(let s=2;s<=8;s++){ const seen={};
   MACH.filter(m=>m.s===s&&m.in).forEach(m=>{ for(const k in m.in){
     if(PRODSTAGE[k]===s||seen[k])continue; seen[k]=1;
@@ -542,8 +576,10 @@ PATHS.forEach(p=>{
 const circDist=(a,b)=>{ let d=b-a; if(d<0)d+=1; return d; };
 
 /* lecture / prélèvement : tampon si la ressource arrive par la route, sinon stock global */
-const poolGet=(s,k)=>{ const p=pathFor(s,k); return p?(state.buf[p.id]||0):(state.res[k]||0); };
-const poolTake=(s,k,q)=>{ const p=pathFor(s,k); if(p)state.buf[p.id]=(state.buf[p.id]||0)-q; else state.res[k]-=q; };
+const poolGet=(s,k)=>{ if(k===PIPE.res&&s===PIPE.dest)return state.buf[PIPE.id]||0;
+  const p=pathFor(s,k); return p?(state.buf[p.id]||0):(state.res[k]||0); };
+const poolTake=(s,k,q)=>{ if(k===PIPE.res&&s===PIPE.dest){state.buf[PIPE.id]=(state.buf[PIPE.id]||0)-q;return;}
+  const p=pathFor(s,k); if(p)state.buf[p.id]=(state.buf[p.id]||0)-q; else state.res[k]-=q; };
 
 /* insertion : plus grand gap circulaire réel (bouchons inclus), sinon position de base.
    Nouveau véhicule = vide, en trajet à vide vers le point de chargement. */
@@ -639,6 +675,140 @@ let pathTaken={}, pathAcc=0;
 const PATH_TICK=0.1;   // pas de simulation des boucles (10 Hz)
 
 /* ==========================================================================
+   ÉLECTRICITÉ + SPHÈRE DE DYSON
+   L'électricité n'alimente QUE les stations de recherche. Ressource de débit
+   pur : aucun buffer, aucun stock, aucun transport. Déficit = ralentissement
+   proportionnel (seule exception à la règle tout-ou-rien) ; le vrai garde-fou
+   reste le bouton d'achat de station grisé.
+   ========================================================================== */
+const POWER_TIERS=[1,2,3,5,7,10,14];   // stations alimentées : solaire seul, puis Dyson 1..6
+const DYSON=[
+  {id:'D1',sci:140,   cost:900,    floor:8*60,  stage:6},
+  {id:'D2',sci:410,   cost:4000,   floor:10*60, stage:7},
+  {id:'D3',sci:1170,  cost:12000,  floor:12*60, stage:7},
+  {id:'D4',sci:10700, cost:38000,  floor:14*60, stage:8},
+  {id:'D5',sci:29650, cost:105000, floor:16*60, stage:8},
+  {id:'D6',sci:79000, cost:280000, floor:20*60, stage:8},
+];
+/* coût de la Nième station de recherche, en production d'étape 5 (n=2..14) */
+const STATION_COST=[0,0,600,930,1440,2230,3460,5370,8320,12900,20000,31000,48000,74400,115400];
+const STAGE5_RES='fusee';
+const STATION_SCALE=1;   // échelle réelle vs unités normalisées de la sim              // monnaie de production de l'étape 5
+
+function dysonDone(){ return DYSON.filter(d=>state.dyson[d.id]&&state.dyson[d.id].done).length; }
+function powerCap(){ return POWER_TIERS[Math.min(POWER_TIERS.length-1,dysonDone())]; }
+function stationsOwned(){ return state.cnt.station||0; }
+/* MW : 1 station consomme 1 palier de puissance. Affichage en MW pour la jauge. */
+const MW_PER=200/14;
+function powerUse(){ return stationsOwned()*MW_PER; }
+function powerAvail(){ return powerCap()*MW_PER; }
+/* ratio d'alimentation : 1 si assez de puissance, sinon proportionnel */
+function powerRatio(){ const u=powerUse(); return u<=0?1:Math.min(1,powerAvail()/u); }
+function nextStationCost(){
+  const n=stationsOwned()+1;
+  if(n<2)return 0;
+  return STATION_COST[Math.min(n,STATION_COST.length-1)]*STATION_SCALE;
+}
+function canBuyStation(){
+  const n=stationsOwned()+1;
+  if(n>14)return {ok:false,why:'maximum de 14 stations atteint'};
+  if(n>powerCap())return {ok:false,why:'puissance insuffisante — requiert '+(n<=1?'le socle solaire':'Dyson '+(POWER_TIERS.findIndex(t=>t>=n)))};
+  if((state.res[STAGE5_RES]||0)<nextStationCost())return {ok:false,why:'production d\'étape 5 insuffisante'};
+  return {ok:true};
+}
+
+/* ==========================================================================
+   ARBRE DE RECHERCHE (étape 6) — dépensable, sans respec, complétable.
+   Épine dorsale BLOQUANTE et linéaire (chaque noeud prérequis du suivant),
+   B2 et B5 servant de jalons aux étapes 7 et 8. Trois branches optionnelles.
+   ========================================================================== */
+const RTREE=[
+  // --- épine dorsale : bloquante, linéaire ---
+  {id:'B1',br:'spine',n:'Vaisseaux rudimentaires', sci:460,   req:null, d:'Ouvre la construction de vaisseaux coloniaux.'},
+  {id:'B2',br:'spine',n:'Colonisation',            sci:1010,  req:'B1', d:'JALON — débloque l\'étape 7.', milestone:7},
+  {id:'B3',br:'spine',n:'Voyage interstellaire',   sci:4100,  req:'B2', d:'Ouvre la portée interstellaire.'},
+  {id:'B4',br:'spine',n:'Vaisseaux avancés',       sci:9400,  req:'B3', d:'Coques capables de distorsion.'},
+  {id:'B5',br:'spine',n:'Colonisation avancée',    sci:22300, req:'B4', d:'JALON — débloque l\'étape 8.', milestone:8},
+  // --- chantiers Dyson : un noeud ouvre chaque segment ---
+  {id:'ND1',br:'spatial',n:'Chantier Dyson 1',sci:140,   req:null, dyson:'D1', d:'Ouvre le premier segment de la sphère.'},
+  {id:'ND2',br:'spatial',n:'Chantier Dyson 2',sci:410,   req:'ND1',dyson:'D2', d:'Deuxième segment.'},
+  {id:'ND3',br:'spatial',n:'Chantier Dyson 3',sci:1170,  req:'ND2',dyson:'D3', d:'Troisième segment.'},
+  {id:'ND4',br:'spatial',n:'Chantier Dyson 4',sci:10700, req:'ND3',dyson:'D4', d:'Quatrième segment.'},
+  {id:'ND5',br:'spatial',n:'Chantier Dyson 5',sci:29650, req:'ND4',dyson:'D5', d:'Cinquième segment.'},
+  {id:'ND6',br:'spatial',n:'Chantier Dyson 6',sci:79000, req:'ND5',dyson:'D6', d:'Dernier segment.'},
+  // --- branches optionnelles : multiplicateurs ---
+  {id:'E1',br:'extraction',n:'Forage téléopéré',   sci:220, req:null, e:{stage:{1:3}},        d:'Extraction ×3.'},
+  {id:'E2',br:'extraction',n:'Veines profondes',   sci:900, req:'E1', e:{stage:{1:4}},        d:'Extraction ×4.'},
+  {id:'I1',br:'industrie', n:'Métallurgie orbitale',sci:260,req:null, e:{stage:{2:3,3:3}},    d:'Fonderie et usine ×3.'},
+  {id:'I2',br:'industrie', n:'Cadence prédictive', sci:1100,req:'I1', e:{stage:{4:3,5:3}},    d:'National et international ×3.'},
+  {id:'I3',br:'industrie', n:'Standardisation totale',sci:5200,req:'I2',e:{global:2},         d:'Production globale ×2.'},
+  {id:'S1',br:'spatial',   n:'Assemblage en apesanteur',sci:300,req:null,e:{mult:{station:2}},d:'Stations de recherche ×2.'},
+  {id:'S2',br:'spatial',   n:'Théorie unifiée',    sci:2400,req:'S1', e:{global:2},           d:'Production globale ×2.'},
+  // --- répétables en bout de branche ---
+  {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:240,req:'S2',rep:true,repMult:1.62,e:{mult:{station:1.22}},d:'+22 % de science par niveau.'},
+  {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:200,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
+];
+const RBY={}; RTREE.forEach(r=>RBY[r.id]=r);
+const RBRANCH={spine:'Épine dorsale',extraction:'Extraction',industrie:'Industrie',spatial:'Spatial'};
+
+function rLevel(id){ return state.research[id]||0; }
+function rDone(id){ return rLevel(id)>0; }
+function rAvail(r){ return (!r.req||rDone(r.req)) && (r.rep||!rDone(r.id)); }
+function rCost(r){ return r.rep ? Math.round(r.sci*Math.pow(r.repMult,rLevel(r.id))) : r.sci; }
+function rBuy(id){
+  const r=RBY[id]; if(!r||!rAvail(r))return;
+  const c=rCost(r); if((state.res.science||0)<c)return;
+  state.res.science-=c; state.research[id]=rLevel(id)+1;
+  if(r.dyson) state.dyson[r.dyson]={open:true,paid:0,running:false,done:false};
+  if(r.milestone){ toast('Jalon franchi — étape '+r.milestone+' accessible'); }
+  recompute(); structuralDirty=true;
+}
+
+/* ==========================================================================
+   OLÉODUC (§3) — le pétrole ne voyage jamais par véhicule ni via les étapes
+   intermédiaires : transport direct du derrick à la raffinerie.
+   Transposition des upgrades véhicule :
+     nb véhicules      -> diamètre (débit max)
+     transferRate      -> puissance de pompage
+     travelSpeed       -> latence de remplissage initial
+     vehicle.capacity  -> volume en transit
+     buffer.capacity   -> inchangé aux deux bouts
+   Pas d'état "loading" donc pas de failsafe 5 s. Signal de bouchon : vitesse
+   d'animation du flux = débit réel, coloration du tube quand l'aval sature.
+   ========================================================================== */
+const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
+function pipeStats(){
+  const dia =6*Math.pow(1.18,state.cnt.pipe_dia||0);      // débit max
+  const pump=5*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
+  const spd =1*Math.pow(1.15,state.cnt.pipe_speed||0);    // réduit la latence
+  const vol =40*Math.pow(1.10,state.cnt.pipe_vol||0);     // volume en transit
+  const bufMax=Math.max(1,vol*3)*Math.pow(1.3,state.cnt.store_pipe_petrole||0);
+  return {dia,pump,spd,vol,bufMax,rate:Math.min(dia,pump)};
+}
+function tickPipe(dt){
+  const st=pipeStats();
+  const p=state.pipe;
+  const src=state.res[PIPE.res]||0;
+  let bf=state.buf[PIPE.id]||0;
+  // amorçage : le tube doit se remplir avant de délivrer (latence initiale)
+  const fillRate=st.rate*st.spd;
+  if(p.prime<st.vol){
+    const q=Math.min(fillRate*dt,src,st.vol-p.prime);
+    if(q>0){ state.res[PIPE.res]-=q; p.prime+=q; }
+    p.flow=0; p.jam=false; p.starved=q<=1e-9&&src<=1e-9;
+    state.buf[PIPE.id]=bf; return;
+  }
+  const room=Math.max(0,st.bufMax-bf);
+  const q=Math.min(st.rate*dt, src, room);
+  if(q>0){ state.res[PIPE.res]-=q; bf+=q; }
+  p.flow=q/dt;                       // débit réel -> vitesse d'animation
+  p.jam=room<=1e-9;                  // aval saturé -> coloration du tube
+  p.starved=src<=1e-9&&room>1e-9;
+  if(src<=1e-9&&q<=1e-9)p.prime=Math.max(0,p.prime-st.rate*dt*0.25);  // le tube se vide
+  state.buf[PIPE.id]=bf;
+}
+
+/* ==========================================================================
    3. ÉTAT
    ========================================================================== */
 let state, M={}, U={};
@@ -648,7 +818,7 @@ function freshState(brevets=0,valeurTot=0){
   const res={}; for(const k in RES) res[k]=0;
   return {
     res, cnt:{}, ups:{}, planets:{}, systemes:0,
-    buf:{}, veh:{}, off:{},
+    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pipe:{prime:0,flow:0,jam:false,starved:false},
     stage:1, tab:1, seen:{1:true},
     click:1, auto:0,
     valeur:0, valeurTot, brevets,
@@ -671,6 +841,14 @@ function recompute(){
     if(e.auto)auto+=e.auto;
     if(e.stage)for(const s in e.stage)c.stage[s]*=e.stage[s];
     if(e.mult)for(const k in e.mult)c.mach[k]*=e.mult[k];
+  }
+  // effets de l'arbre de recherche (niveaux cumulables pour les répétables)
+  for(const id in state.research){ const lv=state.research[id], r=RBY[id];
+    if(!lv||!r||!r.e)continue;
+    const e=r.e, k=r.rep?lv:1;
+    if(e.global)c.global*=Math.pow(e.global,k);
+    if(e.stage)for(const st in e.stage)c.stage[st]*=Math.pow(e.stage[st],k);
+    if(e.mult)for(const mk in e.mult)c.mach[mk]*=Math.pow(e.mult[mk],k);
   }
   // machines de type boost / global
   MACH.forEach(m=>{ const n=state.cnt[m.id]||0; if(!n)return;
@@ -697,7 +875,11 @@ function afford(c){ for(const k in c) if((state.res[k]||0)<c[k]) return false; r
 function pay(c){ for(const k in c) state.res[k]-=c[k]; }
 function bulkCost(m,q){ const n=state.cnt[m.id]||0,o={};
   for(const k in m.c){ const b=m.c[k]*Math.pow(m.g,n); o[k]= m.g===1? b*q : b*(Math.pow(m.g,q)-1)/(m.g-1); } return o; }
-function remainingCap(m){ return m.maxCount===undefined?Infinity:Math.max(0,m.maxCount-(state.cnt[m.id]||0)); }
+function stationCap(){ return state.stage<7 ? 1 : Math.min(14,powerCap()); }
+function remainingCap(m){
+  if(m.station) return Math.max(0,stationCap()-(state.cnt[m.id]||0));
+  return m.maxCount===undefined?Infinity:Math.max(0,m.maxCount-(state.cnt[m.id]||0));
+}
 function maxBuy(m){
   const room=remainingCap(m); if(room<=0)return 0;
   if(!afford(bulkCost(m,1)))return 0;
@@ -711,7 +893,7 @@ function maxBuy(m){
 /* ==========================================================================
    4. MOTEUR
    ========================================================================== */
-let flow={};
+let flow={}, prodAvg={};
 function tick(dt){
   dt*=state.speed;
   const prod={},cons={};
@@ -726,6 +908,7 @@ function tick(dt){
   pathTaken={};
   // tick discret des deux côtés : logique et rendu avancent par pas fixes de 100 ms,
   // les véhicules roulent en temps réel (l'accélération alourdit les chargements)
+  tickPipe(dt);
   pathAcc+=dt/Math.max(1,state.speed);
   let guard=0;
   while(pathAcc>=PATH_TICK && guard++<4){ tickPaths(PATH_TICK); pathAcc-=PATH_TICK; }
@@ -737,7 +920,10 @@ function tick(dt){
     if(!n||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp){m.eff=1;continue;}
     if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
       m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
-    let cyc=n*(m.r||0)*dt*mMult(m);
+    // station de recherche : déficit électrique = ralentissement proportionnel
+    const pw = (m.id==='station') ? powerRatio() : 1;
+    if(pw<1&&m.id==='station') m.miss='__power__';
+    let cyc=n*(m.r||0)*dt*mMult(m)*pw;
     if(m.colon){
       const gain=n*m.colon*dt*cache.colon;
       state.systemes=Math.min(100000,state.systemes+gain);
@@ -754,12 +940,17 @@ function tick(dt){
     if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
     if(m.out)for(const k in m.out){ const q=m.out[k]*cyc; state.res[k]+=q; add(prod,k,q); state.valeur+=q*RES[k].v; }
   }
-  // débits lissés
+  // débits lissés + moyenne glissante 10 s utilisée par les jalons
+  const aw=Math.min(1,dt/AVG_WINDOW);
   for(const k in RES){
     const net=((prod[k]||0)-(cons[k]||0))/dt;
     flow[k]=(flow[k]||0)*0.72+net*0.28;
-    flow['+'+k]=(flow['+'+k]||0)*0.72+((prod[k]||0)/dt)*0.28;
+    const gross=(prod[k]||0)/dt;
+    flow['+'+k]=(flow['+'+k]||0)*0.72+gross*0.28;
+    prodAvg[k]=(prodAvg[k]||0)*(1-aw)+gross*aw;
   }
+  tickHold(dt);
+  tickDyson(dt);
   checkUnlocks();
   if(state.systemes>=100000&&!state.won)victory();
 }
@@ -778,22 +969,68 @@ function upsInStage(s){ return UP.filter(u=>u.s===s); }
 function upsBought(s){ return upsInStage(s).filter(u=>state.ups[u.id]).length; }
 function unlockReq(s){
   const u=UNLOCK[s]; if(!u)return null;
-  if(u.planets)return {planets:u.planets};
-  return {need:Math.max(1,Math.ceil(upsInStage(u.from).length*u.pct)), from:u.from, res:u.res};
+  if(u.research)return {research:u.research};
+  return {rate:u.rate};
+}
+/* moyenne glissante de production, en /s */
+function avgRate(k){ return prodAvg[k]||0; }
+function rateMet(s){
+  const u=UNLOCK[s]; if(!u||!u.rate)return false;
+  for(const k in u.rate) if(avgRate(k)<u.rate[k]) return false;
+  return true;
 }
 function unlockOK(s){
-  const r=unlockReq(s); if(!r)return false;
-  if(r.planets)return cache.planets>=r.planets;
-  if(upsBought(r.from)<r.need)return false;
-  for(const k in r.res) if((state.res[k]||0)<r.res[k])return false;
-  return true;
+  const u=UNLOCK[s]; if(!u)return false;
+  if(u.research)return rDone(u.research);
+  return (state.hold[s]||0)>=HOLD_NEEDED;
+}
+/* progression du maintien : monte quand tous les seuils sont tenus,
+   redescend deux fois moins vite en cas de décrochage (reset dégressif) */
+function tickHold(dt){
+  for(let s=2;s<=6;s++){
+    const u=UNLOCK[s]; if(!u||!u.rate)continue;
+    if(s>state.stage+1){ continue; }
+    const cur=state.hold[s]||0;
+    state.hold[s]=rateMet(s)?Math.min(HOLD_NEEDED,cur+dt):Math.max(0,cur-dt*0.5);
+  }
 }
 function checkUnlocks(){
   refreshClickUnlocks();
   while(state.stage<8&&unlockOK(state.stage+1)){
     state.stage++; structuralDirty=true;
     toast('Étape débloquée : '+STAGES[state.stage-1].nom);
+    if(state.stage===6)setTimeout(()=>toast('Progression désormais par recherche'),2800);
+    if(state.stage===7)setTimeout(()=>toast('Stations de recherche désormais duplicables'),2800);
   }
+}
+
+/* Chantier Dyson : absorbe en CONTINU la production d'étape 5.
+   Plafond d'absorption obligatoire = coût / durée plancher, sinon un stock
+   accumulé terminerait un segment en une seconde. Pas d'annulation ni de
+   remboursement une fois investi. */
+function tickDyson(dt){
+  for(const d of DYSON){
+    const st=state.dyson[d.id];
+    if(!st||!st.open||st.done||!st.running)continue;
+    const capRate=(d.cost*STATION_SCALE)/d.floor;         // plafond d'absorption
+    const want=capRate*dt*state.speed;
+    const have=state.res[STAGE5_RES]||0;
+    const q=Math.min(want,have,(d.cost*STATION_SCALE)-st.paid);
+    if(q>0){ state.res[STAGE5_RES]-=q; st.paid+=q; }
+    st.starved = q<want-1e-9;
+    if(st.paid>=(d.cost*STATION_SCALE)-1e-6){
+      st.done=true; st.running=false; structuralDirty=true;
+      toast('Segment '+d.id+' achevé — '+powerCap()+' stations alimentables');
+    }
+  }
+}
+function dysonETA(d){
+  const st=state.dyson[d.id]; if(!st||st.done)return 0;
+  const capRate=(d.cost*STATION_SCALE)/d.floor;
+  const rest=(d.cost*STATION_SCALE)-st.paid;
+  const inflow=Math.max(0,flow[STAGE5_RES]||0);
+  const eff=Math.min(capRate, st.running?Math.max(inflow,0):0);
+  return eff>0?rest/eff:Infinity;
 }
 
 /* ==========================================================================
@@ -837,8 +1074,13 @@ function chip(k){
   return '<div class="chip" data-res="'+k+'"><div class="n">'+RES[k].i+' '+RES[k].n+'</div>'+
          '<div class="v" data-v="'+k+'">0</div><div class="r zero" data-r="'+k+'">+0/s</div></div>';
 }
+/* §3 : révélation progressive — une ressource n'apparaît qu'au déblocage de
+   la machine qui la consomme (charbon->Fonderie, cuivre->Usine, pétrole->National) */
+const REVEAL={bois:1,pierre:1,fer:1,charbon:2,cuivre:3,acier:2,lcuivre:3,
+              module:3,circuit:3,petrole:4,plastique:4,moteur:4,fusee:5,science:6};
+function resVisible(k){ return state.stage>=(REVEAL[k]||RES[k].s) || (state.res[k]||0)>0; }
 function buildResbar(){
-  const vis=Object.keys(RES).filter(k=>RES[k].s<=state.stage||state.res[k]>0);
+  const vis=Object.keys(RES).filter(resVisible);
   $('resbar').innerHTML=vis.map(chip).join('');
   refs.res={}; vis.forEach(k=>refs.res[k]={v:document.querySelector('[data-v="'+k+'"]'),r:document.querySelector('[data-r="'+k+'"]')});
 }
@@ -855,10 +1097,32 @@ function buildTabs(){
 }
 function lockLine(id){
   const r=unlockReq(id); if(!r)return 'Verrouillé';
-  if(r.planets)return 'Coloniser les 3 mondes du système solaire';
-  const parts=[r.need+' améliorations en '+STAGES[r.from-1].nom.toLowerCase()];
-  for(const k in r.res)parts.push(fmt(r.res[k])+' '+RES[k].n.toLowerCase());
-  return 'Objectif : '+parts.join(' · ');
+  if(r.research)return 'Recherche requise : '+RBY[r.research].n+' (arbre de recherche, étape 6)';
+  const parts=[];
+  for(const k in r.rate)parts.push(RES[k].n.toLowerCase()+' '+fmt(r.rate[k]*60)+'/min');
+  return 'Tenir 30 s : '+parts.join(' · ');
+}
+/* panneau de jalon : barre par ressource (courant / cible en /min) + maintien */
+function milestonePanel(next){
+  const u=UNLOCK[next]; if(!u)return '';
+  if(u.research){
+    const done=rDone(u.research);
+    return '<div class="ms"><div class="msh">Jalon étape '+next+' — recherche</div><div class="msr">'+
+      (done?'<span style="color:#5fb87a">■ '+RBY[u.research].n+' acquise</span>'
+           :'Requiert la recherche <b>'+RBY[u.research].n+'</b> dans l\'arbre de l\'étape 6.')+'</div></div>';
+  }
+  let rows='';
+  for(const k in u.rate){
+    const cur=avgRate(k)*60, tgt=u.rate[k]*60, f=Math.max(0,Math.min(1,cur/tgt));
+    rows+='<div class="msr"><span class="msn">'+RES[k].i+' '+RES[k].n+'</span>'+
+          '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(f>=1?'#5fb87a':'#d8a13c')+'"></i></span>'+
+          '<span class="msv'+(f>=1?' ok':'')+'">'+fmt(cur)+' / '+fmt(tgt)+' par min</span></div>';
+  }
+  const h=(state.hold[next]||0), hf=h/HOLD_NEEDED;
+  rows+='<div class="msr"><span class="msn">Maintien</span>'+
+        '<span class="msb"><i style="width:'+(hf*100).toFixed(0)+'%;background:#c9963f"></i></span>'+
+        '<span class="msv">'+h.toFixed(0)+' / '+HOLD_NEEDED+' s</span></div>';
+  return '<div class="ms"><div class="msh">Jalon étape '+next+' — tenir tous les seuils 30 s</div>'+rows+'</div>';
 }
 
 /* -- boîte noire : entrées/sorties agrégées de l'étape -- */
@@ -885,6 +1149,11 @@ function machRow(m){
   else if(m.store){ const path=PATHBYID[m.store];
     io='<em>Entrepôt</em> : capacité du tampon ×1,3 par unité — actuellement ×'+fmt(Math.pow(1.3,n))+
        (path?'<br>tampon actuel : '+fmt(state.buf[m.store]||0)+' / '+fmt(path.bufMax||0):''); }
+  else if(m.pipeUp){ const st=pipeStats();
+    io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia)+'/s',
+       pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s',
+       speed:'amorçage ×1,15/niv — réduit la latence de remplissage initial',
+       vol:'volume en transit ×1,10/niv, actuellement '+fmt(st.vol)}[m.pipeUp]; }
   else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(1+m.maxCount)+' au total, 1 gratuite + '+m.maxCount+' achats)';
   else if(m.spdUp)io='<em>Vitesse</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+' sur le trajet de la boucle';
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
@@ -894,7 +1163,7 @@ function machRow(m){
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+m.r+' cycle/s'+
        (n?' · palier ×'+fmt(Math.pow(2,Math.floor(n/MILESTONE)))+' (prochain à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')':'');
   }
-  const capped=m.maxCount!==undefined, room=remainingCap(m), maxed=capped&&room<=0;
+  const capped=m.maxCount!==undefined||m.station, room=remainingCap(m), maxed=capped&&room<=0;
   const q=maxed?0:(state.buyMode==='max'?Math.max(1,maxBuy(m)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
@@ -902,13 +1171,16 @@ function machRow(m){
   const bar=(!m.boost&&!m.global&&!m.colon&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
-  const buyBtn=maxed?'<div class="maxed">■ flotte au maximum ('+n+'/'+ (1+m.maxCount)+')</div>':
+  const stationWhy = m.station ? (state.stage<7
+        ? '■ station unique — duplicable à partir de la Colonisation'
+        : '■ puissance insuffisante — requiert Dyson '+(POWER_TIERS.findIndex(t=>t>n)>=0?POWER_TIERS.findIndex(t=>t>n):6)) : '';
+  const buyBtn=maxed?'<div class="maxed">'+(m.station?stationWhy:'■ flotte au maximum ('+n+'/'+(1+m.maxCount)+')')+'</div>':
     '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
       '<span>Acheter ×'+q+'</span><span class="px">'+px+'</span></button>';
   return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
     '<div class="top"><span class="nm">'+m.n+'</span>'+pwr+'<span class="ct" data-c="'+m.id+'">'+fmt(n)+'</span></div>'+
     '<div class="io">'+io+'</div>'+bar+
-    '<div class="warnl" data-w="'+m.id+'"></div>'+buyBtn+'</div>';
+    '<div class="warnl" data-w="'+m.id+'"></div>'+multStack(m)+buyBtn+'</div>';
 }
 function upRow(u){
   const done=!!state.ups[u.id];
@@ -1020,21 +1292,211 @@ function drawLoops(){
   });
 }
 function galaxyCanvas(){
-  return '<canvas id="gal" width="900" height="190"></canvas>';
+  return '<canvas id="gal"></canvas>';
+}
+
+/* ==========================================================================
+   GALAXIE PROCÉDURALE — spirale logarithmique, 2 bras majeurs + 2 mineurs.
+   Positions générées UNE fois en Float32Array. Couche grise pré-rendue hors
+   écran ; par frame on ne redessine que le disque colonisé et la frontière.
+   Les 100 000 systèmes restent un compteur abstrait, jamais des entités.
+   ========================================================================== */
+const GAL={built:false,N:2600,pos:null,rad:null,hue:null,grey:null,color:null,W:0,H:0,solIdx:0};
+function buildGalaxy(W,H){
+  const N=GAL.N, pos=new Float32Array(N*2), rad=new Float32Array(N), hue=new Float32Array(N);
+  const cx=W/2, cy=H/2, maxR=Math.min(W,H)*0.46;
+  const ARMS=[{off:0,w:.13,maj:1},{off:Math.PI,w:.13,maj:1},
+              {off:Math.PI*0.55,w:.22,maj:0},{off:Math.PI*1.55,w:.22,maj:0}];
+  let seed=20260829;
+  const rnd=()=>{ seed=(seed*1664525+1013904223)&0x7fffffff; return seed/0x7fffffff; };
+  const gauss=()=>(rnd()+rnd()+rnd()-1.5)/1.5;
+  for(let i=0;i<N;i++){
+    let r,th;
+    if(i<N*0.18){                                  // bulbe central : dense et jaune
+      r=Math.pow(rnd(),1.9)*maxR*0.22; th=rnd()*Math.PI*2; hue[i]=1;
+    } else {
+      const a=ARMS[(i%4)];
+      const t=Math.pow(rnd(),0.62);                // densité décroissante vers l'extérieur
+      r=maxR*(0.16+t*0.84);
+      const spread=a.w*(1-t*0.45)+0.05;
+      th=a.off+Math.log(r/(maxR*0.14))/0.42+gauss()*spread;
+      hue[i]=a.maj?0:0.35;
+      if(rnd()<0.12){ th=rnd()*Math.PI*2; hue[i]=0.6; }   // halo diffus
+    }
+    pos[i*2]=cx+Math.cos(th)*r; pos[i*2+1]=cy+Math.sin(th)*r*0.82;
+    rad[i]=r/maxR;
+  }
+  // Sol : à ~2/3 du rayon, dans un éperon entre deux bras
+  let best=0,bd=9;
+  for(let i=0;i<N;i++){ const d=Math.abs(rad[i]-0.66); if(d<bd&&hue[i]===0.6){bd=d;best=i;} }
+  GAL.solIdx=best;
+  GAL.pos=pos; GAL.rad=rad; GAL.hue=hue; GAL.W=W; GAL.H=H;
+  // pré-rendu des deux couches statiques
+  const mk=(colored)=>{
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const g=cv.getContext('2d');
+    for(let i=0;i<N;i++){
+      const sz=GAL.hue[i]===1?1.5:(GAL.hue[i]===0?1.35:1);
+      if(colored) g.fillStyle = GAL.hue[i]===1?'rgba(232,200,120,.95)'
+                 : GAL.hue[i]===0?'rgba(232,112,58,.85)'
+                 : GAL.hue[i]===0.35?'rgba(201,150,63,.7)':'rgba(150,180,210,.5)';
+      else g.fillStyle = GAL.hue[i]===1?'rgba(120,124,132,.75)':'rgba(74,86,100,.55)';
+      g.fillRect(GAL.pos[i*2],GAL.pos[i*2+1],sz,sz);
+    }
+    return cv;
+  };
+  GAL.grey=mk(false); GAL.color=mk(true); GAL.built=true;
 }
 function drawGalaxy(){
-  const c=$('gal'); if(!c)return; const x=c.getContext('2d');
-  const W=c.width,H=c.height; x.clearRect(0,0,W,H);
-  const N=520, frac=state.systemes/100000;
-  for(let i=0;i<N;i++){
-    const a=i*2.399, rr=Math.sqrt(i/N);
-    const px=W/2+Math.cos(a+rr*5)*rr*(W*0.46), py=H/2+Math.sin(a+rr*5)*rr*(H*0.44);
-    const taken=(i/N)<frac;
-    x.fillStyle=taken?'#e8703a':'#20364e';
-    x.globalAlpha=taken?0.95:0.5;
-    x.fillRect(px,py,taken?2.4:1.6,taken?2.4:1.6);
+  const c=$('gal'); if(!c)return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const CSSW=Math.max(240,c.clientWidth||320), CSSH=Math.round(Math.min(300,Math.max(180,CSSW*0.52)));
+  if(c.width!==Math.round(CSSW*dpr)||c.height!==Math.round(CSSH*dpr)){
+    c.width=Math.round(CSSW*dpr); c.height=Math.round(CSSH*dpr); GAL.built=false;
   }
-  x.globalAlpha=1;
+  c.style.height=CSSH+'px';
+  const x=c.getContext('2d');
+  x.setTransform(dpr,0,0,dpr,0,0);
+  if(!GAL.built||GAL.W!==CSSW||GAL.H!==CSSH) buildGalaxy(CSSW,CSSH);
+  x.clearRect(0,0,CSSW,CSSH);
+  x.drawImage(GAL.grey,0,0,CSSW,CSSH);
+  const frac=Math.max(0,Math.min(1,state.systemes/100000));
+  const cx=CSSW/2, cy=CSSH/2, maxR=Math.min(CSSW,CSSH)*0.46;
+  if(frac>0){
+    // disque colonisé : la couche colorée révélée par masque circulaire
+    const R=maxR*Math.sqrt(frac);
+    x.save(); x.beginPath(); x.ellipse(cx,cy,R,R*0.82,0,0,Math.PI*2); x.clip();
+    x.drawImage(GAL.color,0,0,CSSW,CSSH); x.restore();
+    // frontière de colonisation animée
+    const pulse=0.5+0.5*Math.sin(Date.now()/430);
+    x.strokeStyle='rgba(232,112,58,'+(0.35+0.4*pulse)+')'; x.lineWidth=1.5;
+    x.beginPath(); x.ellipse(cx,cy,R,R*0.82,0,0,Math.PI*2); x.stroke();
+  }
+  // Sol
+  const sx=GAL.pos[GAL.solIdx*2]/GAL.W*CSSW, sy=GAL.pos[GAL.solIdx*2+1]/GAL.H*CSSH;
+  x.fillStyle='#dfe9f2'; x.fillRect(sx-1.5,sy-1.5,3,3);
+  x.strokeStyle='rgba(223,233,242,.5)'; x.lineWidth=1;
+  x.beginPath(); x.arc(sx,sy,5,0,Math.PI*2); x.stroke();
+  x.fillStyle='#8fa8bf'; x.font='9px ui-monospace,monospace'; x.textAlign='left';
+  x.fillText('Sol', sx+8, sy+3);
+}
+
+/* --- jauge électrique + chantiers Dyson + arbre de recherche --- */
+function pipePanel(){
+  const st=pipeStats(), p=state.pipe;
+  const f=Math.max(0,Math.min(1,(state.buf[PIPE.id]||0)/st.bufMax));
+  const primed=p.prime>=st.vol-1e-6;
+  const etat = p.jam?'<span style="color:#c5533f">▲ aval saturé — la raffinerie ne suit pas</span>'
+             : p.starved?'<span style="color:#d8a13c">▼ derrick à sec</span>'
+             : primed?'<span style="color:#5fb87a">flux nominal</span>'
+             : '<span style="color:#d8a13c">amorçage '+Math.round(p.prime/st.vol*100)+' %</span>';
+  return '<div class="sec">Oléoduc<span class="hint">transport direct derrick → raffinerie · ni véhicule ni étape intermédiaire</span></div>'+
+    '<canvas id="pipeC"></canvas>'+
+    '<div class="ms"><div class="msr"><span class="msn">Débit réel</span>'+
+    '<span class="msb"><i style="width:'+Math.min(100,(p.flow/st.rate*100||0)).toFixed(0)+'%;background:'+(p.jam?'#c5533f':'#5fb87a')+'"></i></span>'+
+    '<span class="msv">'+fmt(p.flow)+' / '+fmt(st.rate)+' par s</span></div>'+
+    '<div class="msr"><span class="msn">Tampon aval</span>'+
+    '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(f>.92?'#c5533f':'#5fb87a')+'"></i></span>'+
+    '<span class="msv">'+fmt(state.buf[PIPE.id]||0)+' / '+fmt(st.bufMax)+'</span></div>'+
+    '<div class="msr">'+etat+'</div></div>';
+}
+function drawPipe(){
+  const c=$('pipeC'); if(!c)return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const W=Math.max(240,c.clientWidth||320), H=64;
+  if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);}
+  c.style.height=H+'px';
+  const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,W,H);
+  const st=pipeStats(), p=state.pipe, y=H/2, x0=52, x1=W-56;
+  x.strokeStyle=p.jam?'#5a2c22':'#1c2f45'; x.lineWidth=13; x.lineCap='round';
+  x.beginPath(); x.moveTo(x0,y); x.lineTo(x1,y); x.stroke();
+  x.strokeStyle=p.jam?'#c5533f':'#22384f'; x.lineWidth=1;
+  x.beginPath(); x.moveTo(x0,y-7); x.lineTo(x1,y-7); x.moveTo(x0,y+7); x.lineTo(x1,y+7); x.stroke();
+  const ratio=st.rate>0?Math.min(1,p.flow/st.rate):0;
+  const off=(Date.now()/1000*ratio*60)%18;
+  x.fillStyle=p.jam?'#c5533f':(ratio>0.02?'#c9963f':'#2a445f');
+  for(let px=x0+off;px<x1-3;px+=18){ x.fillRect(px,y-3.5,7,7); }
+  x.fillStyle='#8fa8bf'; x.font='9px ui-monospace,monospace';
+  x.textAlign='left';  x.fillText('DERRICK',4,y+3);
+  x.textAlign='right'; x.fillText('RAFFINERIE',W-4,y+3);
+}
+function powerPanel(){
+  const use=powerUse(), av=powerAvail(), f=av>0?Math.min(1,use/av):0;
+  const deficit=use>av+1e-9;
+  return '<div class="sec">Électricité<span class="hint">alimente uniquement les stations de recherche · débit pur, ni stock ni transport</span></div>'+
+    '<div class="ms"><div class="msr"><span class="msn">Puissance</span>'+
+    '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(deficit?'#c5533f':'#5fb87a')+'"></i></span>'+
+    '<span class="msv'+(deficit?'':' ok')+'">'+fmt(use)+' / '+fmt(av)+' MW</span></div>'+
+    '<div class="msr" style="color:#7f97ad">Socle solaire fixe : 1 station. '+
+    (dysonDone()?'Dyson '+dysonDone()+' : '+powerCap()+' stations alimentables.':'Aucun segment Dyson achevé.')+
+    (deficit?' <span style="color:#c5533f">Déficit — stations ralenties proportionnellement.</span>':'')+
+    '</div></div>';
+}
+function dysonPanel(stage){
+  const segs=DYSON.filter(d=>d.stage===stage);
+  if(!segs.length)return '';
+  let h='<div class="sec">Sphère de Dyson<span class="hint">absorbe en continu la production d\'étape 5 · sans annulation ni remboursement</span></div><div class="grid">';
+  for(const d of segs){
+    const st=state.dyson[d.id];
+    const total=d.cost*STATION_SCALE;
+    if(!st||!st.open){
+      h+='<div class="mach"><div class="top"><span class="nm">Segment '+d.id+'</span></div>'+
+         '<div class="io">Verrouillé — requiert le noeud de recherche <em>Chantier Dyson '+d.id.slice(1)+'</em> ('+fmt(d.sci)+' science)</div></div>';
+      continue;
+    }
+    if(st.done){
+      h+='<div class="mach"><div class="top"><span class="nm">Segment '+d.id+'</span></div>'+
+         '<div class="io">Achevé — contribue au palier de puissance</div><div class="maxed">■ terminé</div></div>';
+      continue;
+    }
+    const f=Math.max(0,Math.min(1,st.paid/total));
+    const eta=dysonETA(d);
+    const etaTxt = st.running ? (isFinite(eta)?'ETA '+(eta<90?Math.ceil(eta)+' s':Math.ceil(eta/60)+' min'):'ETA — aucune production entrante') : 'à l\'arrêt';
+    h+='<div class="mach"><div class="top"><span class="nm">Segment '+d.id+'</span>'+
+       '<button class="pwr'+(st.running?'':' off')+'" data-dyson="'+d.id+'">'+(st.running?'⏵':'⏸')+'</button>'+
+       '<span class="ct">'+(f*100).toFixed(0)+'%</span></div>'+
+       '<div class="bar"><span style="width:'+(f*100).toFixed(0)+'%;background:#c9963f"></span></div>'+
+       '<div class="io">'+fmt(st.paid)+' / '+fmt(total)+' '+RES[STAGE5_RES].n.toLowerCase()+
+       '<br>absorption plafonnée à '+fmt(total/d.floor)+'/s (plancher '+(d.floor/60)+' min) · <em>'+etaTxt+'</em>'+
+       (st.starved&&st.running?'<br><span style="color:#d8a13c">⚠ production entrante insuffisante</span>':'')+'</div></div>';
+  }
+  return h+'</div>';
+}
+function researchPanel(){
+  let h='<div class="sec">Arbre de recherche<span class="hint">dépensable, sans respec · science : '+fmt(state.res.science||0)+'</span></div>';
+  for(const br of ['spine','extraction','industrie','spatial']){
+    const nodes=RTREE.filter(r=>r.br===br);
+    if(!nodes.length)continue;
+    h+='<div class="rbh">'+RBRANCH[br]+(br==='spine'?' — bloquante':' — optionnelle')+'</div><div class="grid">';
+    for(const r of nodes){
+      const lv=rLevel(r.id), av=rAvail(r), c=rCost(r);
+      const owned=!r.rep&&lv>0;
+      const cls='up rn'+(br==='spine'?' spine':'')+(owned?' done':'')+(av?'':' locked');
+      h+='<div class="'+cls+'">'+
+         '<div class="nm">'+(br==='spine'?'▣ ':'◇ ')+r.n+(r.rep&&lv?' <span class="lv">niv '+lv+'</span>':'')+'</div>'+
+         '<div class="dd">'+r.d+'</div>'+
+         (owned?'<div class="done-tag">■ acquise</div>'
+              : av?'<button class="buy" data-res-node="'+r.id+'" '+((state.res.science||0)>=c?'':'disabled')+
+                   '><span>Rechercher</span><span class="px">🔬'+fmt(c)+'</span></button>'
+                 : '<div class="done-tag" style="color:#5b7691">requiert '+(r.req?RBY[r.req].n:'—')+'</div>')+
+         '</div>';
+    }
+    h+='</div>';
+  }
+  return h;
+}
+/* pile de multiplicateurs, affichée sous chaque machine de production */
+function multStack(m){
+  if(!m.out||m.boost||m.global||m.store||m.colon)return '';
+  const n=state.cnt[m.id]||0; if(!n)return '';
+  const base=(m.r||0)*Object.values(m.out)[0];
+  const mach=n*Math.pow(2,Math.floor(n/MILESTONE));
+  const sci=cache.mach[m.id]/1;
+  const parts=['Base '+fmt(base)+'/s','× machines ×'+fmt(mach)];
+  if(sci>1.0001)parts.push('× recherche ×'+fmt(sci));
+  if(cache.stage[m.s]>1.0001)parts.push('× étape ×'+fmt(cache.stage[m.s]));
+  if(cache.global>1.0001)parts.push('× global ×'+fmt(cache.global));
+  return '<div class="stack">'+parts.join(' | ')+' = <b>'+fmt(base*mach*cache.stage[m.s]*cache.global*sci)+'/s</b></div>';
 }
 
 function render(){
@@ -1059,12 +1521,17 @@ function render(){
     h+='<div class="sec">Carte galactique<span class="hint"><b id="galn">0</b> / 100 000 systèmes · multiplicateur planétaire ×<b id="galm">1</b></span></div>'+galaxyCanvas();
   }
 
+  if(s===4){ h+=pipePanel(); }
+  if(s>=6){ h+=powerPanel(); }
+  if(s===6){ h+=researchPanel(); }
+  h+=dysonPanel(s);
+
   const ps=PATHS.filter(x=>x.dest===s);
   if(ps.length){
     h+='<div class="sec">Transport<span class="hint">file au départ = manque en amont · file à l\'arrivée = aval saturé</span></div>'+
        '<canvas id="loopsC"></canvas>';
   }
-  const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.boost)&&m.s===s);
+  const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.boost||m.pipeUp)&&m.s===s);
   if(vehM.length){
     h+='<div class="sec">Véhicules<span class="hint">capacité et débit à faire progresser ensemble pour un diagnostic de bouchon fiable</span></div><div class="grid">'+vehM.map(machRow).join('')+'</div>';
   }
@@ -1073,25 +1540,30 @@ function render(){
     h+='<div class="sec">Stockage<span class="hint">agrandit le tampon de déchargement, sans toucher aux véhicules</span></div><div class="grid">'+stores.map(machRow).join('')+'</div>';
   }
 
-  const ms=MACH.filter(m=>m.s===s&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.boost&&(!m.need||state.stage>=m.need));
+  const ms=MACH.filter(m=>m.s===s&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.boost&&!m.pipeUp&&(!m.need||state.stage>=m.need));
   if(ms.length){
     h+='<div class="sec">Machines<span class="hint">la barre verte indique le taux d\'alimentation</span></div><div class="grid">'+ms.map(machRow).join('')+'</div>';
   }
   const us=upsInStage(s);
   if(us.length){
     const r=unlockReq(s+1);
-    const hint=(r&&!r.planets&&r.from===s)?upsBought(s)+' / '+r.need+' pour l\'étape suivante':'';
+    const hint='';
     h+='<div class="sec">Améliorations<span class="hint">'+hint+'</span></div><div class="grid">'+us.map(upRow).join('')+'</div>';
   }
   if(s<8){
     h+='<div class="sec">Étape suivante</div><div class="desc" style="margin:0">'+
-       (s<state.stage?'<span style="color:#5fb87a">■ '+STAGES[s].nom+' déjà en ligne.</span>':lockLine(s+1))+'</div>';
+       (s<state.stage?'<span style="color:#5fb87a">■ '+STAGES[s].nom+' déjà en ligne.</span>':lockLine(s+1))+'</div>'
+       +(s>=state.stage?milestonePanel(s+1):'');
   }
   $('panel').innerHTML=h;
-  bind(); structuralDirty=false; drawGalaxy(); drawLoops();
+  bind(); structuralDirty=false; drawGalaxy(); drawLoops(); drawPipe();
 }
 
 function bind(){
+  $('panel').querySelectorAll('[data-res-node]').forEach(b=>b.onclick=()=>rBuy(b.dataset.resNode));
+  $('panel').querySelectorAll('[data-dyson]').forEach(b=>b.onclick=()=>{
+    const st=state.dyson[b.dataset.dyson]; if(st&&!st.done){ st.running=!st.running; structuralDirty=true; }
+  });
   $('panel').querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{
     const id=b.dataset.toggle; state.off[id]=!state.off[id]; structuralDirty=true;
   });
@@ -1126,7 +1598,7 @@ function floatNum(e,txt){
 /* mise à jour légère (10 fps) */
 let resSig='';
 function paint(){
-  const sig=Object.keys(RES).filter(k=>RES[k].s<=state.stage||state.res[k]>0).join(',');
+  const sig=Object.keys(RES).filter(resVisible).join(',');
   if(sig!==resSig){resSig=sig;buildResbar();}
   for(const k in refs.res){ const o=refs.res[k]; if(!o.v)continue;
     o.v.textContent=fmt(state.res[k]);
@@ -1150,6 +1622,7 @@ function paint(){
   document.querySelectorAll('[data-w]').forEach(el=>{ const m=M[el.dataset.w];
     if(!m.miss||!(state.cnt[m.id]||0)){el.textContent='';return;}
     if(m.miss==='__off__'){ el.textContent='⏸ production coupée par le joueur'; return; }
+    if(m.miss==='__power__'){ el.textContent='⚡ déficit électrique — '+Math.round(powerRatio()*100)+' % de régime'; return; }
     const pa=pathFor(m.s,m.miss);
     el.textContent='⚠ '+(pa?'tampon '+RES[m.miss].n.toLowerCase()+' vide — '+(pa.jamIn?'rien à charger en amont':'transport en retard')
                           :'manque de '+RES[m.miss].n.toLowerCase()); });
@@ -1193,6 +1666,9 @@ function restore(raw){
   const d=JSON.parse(raw);
   Object.assign(state,d.state);
   state.buf=state.buf||{}; state.veh=state.veh||{}; state.off=state.off||{}; state.speed=1;
+  state.dyson=state.dyson||{}; state.research=state.research||{}; state.hold=state.hold||{};
+  state.pipe=state.pipe||{prime:0,flow:0,jam:false,starved:false};
+  if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
   recompute();
   return d.ts?(Date.now()-d.ts)/1000:0;
@@ -1214,6 +1690,9 @@ async function load(){
    ========================================================================== */
 $('buyMode').onclick=()=>{ state.buyMode = state.buyMode===1?10:state.buyMode===10?'max':1;
   $('buyMode').textContent='achat ×'+state.buyMode; structuralDirty=true; };
+$('btnFmt').onclick=()=>{ numFmt = numFmt==='court'?'sci':numFmt==='sci'?'ing':'court';
+  $('btnFmt').textContent='nombres : '+(numFmt==='court'?'court':numFmt==='sci'?'scientifique':'ingénieur');
+  state.numFmt=numFmt; structuralDirty=true; };
 $('btnPrestige').onclick=doPrestige;
 $('btnDev').onclick=()=>{ $('devpanel').classList.toggle('open'); $('btnDev').classList.toggle('on'); };
 $('btnExport').onclick=()=>{
