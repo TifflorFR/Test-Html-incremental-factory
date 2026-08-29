@@ -175,6 +175,8 @@ nav::-webkit-scrollbar{display:none}
 .buy:disabled{opacity:.42;cursor:not-allowed}
 .buy .px{color:var(--brass);font-variant-numeric:tabular-nums}
 .buy:disabled .px{color:var(--bad)}
+.maxed{width:100%;text-align:center;background:#152a1f;border:1px solid #2f6e4d;color:var(--ok);
+       padding:7px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border-radius:2px}
 
 .up{border:1px solid #22384f;background:#0c1826;padding:9px 10px;display:flex;flex-direction:column;gap:6px}
 .up.done{border-color:var(--brass-dim);background:#121e2c;opacity:.72}
@@ -357,27 +359,67 @@ const MACH=[
  // --- 2 fonderie
  {id:'hf',    s:2,n:'Haut-fourneau',    in:{fer:2,charbon:1}, out:{acier:1},   r:.5, c:{fer:400,pierre:500},   g:1.1},
  {id:'conv',  s:2,n:'Convertisseur',    in:{cuivre:2,charbon:1},out:{lcuivre:1},r:.5,c:{fer:900,cuivre:250},   g:1.1},
- {id:'wagon', s:2,n:'Wagonnet blindé',  boost:{s:1,p:.15},                     c:{acier:60,pierre:1500},        g:1.45},
+ {id:'wagon', s:2,n:'Cadence de fonderie',  boost:{s:1,p:.15},                  c:{acier:60,pierre:1500},        g:1.45},
+ {id:'fleet_s2', s:2, n:'Camion supplémentaire', fleet:2, maxCount:4,
+             c:{fer:800,pierre:1280}, g:4.6},
+ {id:'spd_s2',   s:2, n:'Vitesse — camion', spdUp:2,
+             c:{fer:400}, g:1.15},
+ {id:'cap_s2',   s:2, n:'Capacité — camion', capUp:2,
+             c:{pierre:400}, g:1.15},
+ {id:'xfer_s2',  s:2, n:'Débit — camion', xferUp:2,
+             c:{fer:520,pierre:200}, g:1.15},
  // --- 3 usine
  {id:'assem', s:3,n:'Assembleur',       in:{acier:2,bois:1},   out:{module:1}, r:.5, c:{acier:400,pierre:3000}, g:1.11},
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
- {id:'camion',s:3,n:'Camion-benne',     boost:{s:2,p:.15},                     c:{module:40,acier:2000},        g:1.48},
+ {id:'camion',s:3,n:'Cadence d\'assemblage', boost:{s:2,p:.15},                c:{module:40,acier:2000},        g:1.48},
+ {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
+             c:{acier:2500,module:4000}, g:4.6},
+ {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
+             c:{acier:1200}, g:1.15},
+ {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
+             c:{module:1200}, g:1.15},
+ {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
+             c:{acier:1560,module:600}, g:1.15},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
- {id:'train', s:4,n:'Train de fret',    boost:{s:3,p:.15},                     c:{moteur:40,module:9000},       g:1.55},
+ {id:'train', s:4,n:'Cadence nationale',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
+ {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
+             c:{module:9000,moteur:14400}, g:4.7},
+ {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
+             c:{module:4000}, g:1.16},
+ {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
+             c:{moteur:4000}, g:1.16},
+ {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
+             c:{module:5200,moteur:2000}, g:1.16},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
- {id:'avion', s:5,n:'Avion cargo',      boost:{s:4,p:.15},                     c:{moteur:120,plastique:5000},   g:1.52},
+ {id:'avion', s:5,n:'Cadence internationale', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
+ {id:'fleet_s5', s:5, n:'Avion supplémentaire', fleet:5, maxCount:4,
+             c:{moteur:25000,plastique:40000}, g:4.7},
+ {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
+             c:{moteur:12000}, g:1.16},
+ {id:'cap_s5',   s:5, n:'Capacité — avion', capUp:5,
+             c:{plastique:12000}, g:1.16},
+ {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
+             c:{moteur:15600,plastique:6000}, g:1.16},
  // --- 6 spatiale
- {id:'station',s:6,n:'Station orbitale',in:{module:6,plastique:4},out:{science:1},r:.5,c:{fusee:45,moteur:2500},g:1.13},
- {id:'labo',  s:6,n:'Labo en microgravité',in:{circuit:8,plastique:10},out:{science:3},r:.4,c:{fusee:180,science:800},g:1.13},
- {id:'navette',s:6,n:'Navette de relève',boost:{s:5,p:.15},                    c:{fusee:60,science:300},        g:1.55},
+ {id:'station',s:6,n:'Station orbitale',in:{module:6,plastique:4},out:{science:1},r:.5,c:{fusee:16,moteur:875},g:1.1},
+ {id:'labo',  s:6,n:'Labo en microgravité',in:{circuit:8,plastique:10},out:{science:3},r:.4,c:{fusee:63,science:280},g:1.1},
+ {id:'navette',s:6,n:'Cadence orbitale',    boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
+ {id:'fleet_s6', s:6, n:'Fusée-navette supplémentaire', fleet:6, maxCount:4,
+             c:{fusee:800,science:1280}, g:4.8},
+ {id:'spd_s6',   s:6, n:'Vitesse — fusée-navette', spdUp:6,
+             c:{fusee:1500}, g:1.17},
+ {id:'cap_s6',   s:6, n:'Capacité — fusée-navette', capUp:6,
+             c:{science:1500}, g:1.17},
+ {id:'xfer_s6',  s:6, n:'Débit — fusée-navette', xferUp:6,
+             c:{fusee:1950,science:750}, g:1.17},
  // --- 7 colonisation
- {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:90000,fusee:1500},                     g:1.36},
+ {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
  // --- 8 expansion
- {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0002,     c:{science:2e6,fusee:20000},                      g:1.13},
+ {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
 ];
 
 /* améliorations. e = effet : click, auto, mult{machine}, stage{n}, global */
@@ -398,8 +440,6 @@ const UP=[
  {id:'u2d',s:2,n:'Récupération de chaleur',d:'Extraction ×1,8 — la chaleur perdue alimente les foreuses.', c:{acier:3000},e:{stage:{1:1.8}}},
  {id:'u2e',s:2,n:'Fonderie en cascade',d:'Toute la fonderie ×2.', c:{acier:20000,lcuivre:6000},       e:{stage:{2:2}}},
  {id:'u2f',s:2,n:'Duplication des cuves',d:'Production globale ×1,25.', c:{acier:80000},              e:{global:1.25}},
- {id:'u2g',s:2,n:'Bennes agrandies',   d:'Capacité des wagonnets ×2 — plus gros chargements, paliers plus longs.', c:{fer:5000,pierre:8000}, e:{cap:{2:2}}},
- {id:'u2h',s:2,n:'Grues pneumatiques', d:'Débit de charge/décharge ×2 — paliers plus courts, même capacité.', c:{charbon:5000,acier:2000}, e:{xfer:{2:2}}},
  // 3
  {id:'u3a',s:3,n:'Chaîne cadencée',   d:'Assembleurs ×2.', c:{module:200},                            e:{mult:{assem:2}}},
  {id:'u3b',s:3,n:'Gravure fine',      d:'Ateliers de circuits ×2,5.', c:{circuit:150},                e:{mult:{circ:2.5}}},
@@ -407,8 +447,6 @@ const UP=[
  {id:'u3d',s:3,n:'Contrôle qualité',  d:'Fonderie ×2 — moins de rebuts en amont.', c:{module:9000},   e:{stage:{2:2}}},
  {id:'u3e',s:3,n:'Ligne miroir',      d:'Toute l\'usine ×2,5.', c:{module:60000,circuit:20000},       e:{stage:{3:2.5}}},
  {id:'u3f',s:3,n:'Brevet d\'assemblage',d:'Production globale ×1,3.', c:{circuit:120000},             e:{global:1.3}},
- {id:'u3g',s:3,n:'Bennes renforcées',  d:'Capacité des camions ×2.', c:{module:6000,circuit:2000},    e:{cap:{3:2}}},
- {id:'u3h',s:3,n:'Quais robotisés',    d:'Débit de charge/décharge des camions ×2.', c:{acier:15000},  e:{xfer:{3:2}}},
  // 4
  {id:'u4a',s:4,n:'Craquage catalytique',d:'Raffineries ×2,5.', c:{plastique:9000},                    e:{mult:{raff:2.5}}},
  {id:'u4b',s:4,n:'Forage profond',    d:'Puits de pétrole ×3.', c:{petrole:60000,module:45000},       e:{mult:{puits:3}}},
@@ -416,33 +454,27 @@ const UP=[
  {id:'u4d',s:4,n:'Cadencement national',d:'Tout le réseau ×2.', c:{moteur:1400,plastique:250000},     e:{stage:{4:2}}},
  {id:'u4e',s:4,n:'Ratio piloté',      d:'Usine ×2 et fonderie ×2 : le réseau lisse les à-coups.', c:{moteur:5000},e:{stage:{3:2,2:2}}},
  {id:'u4f',s:4,n:'Consortium',        d:'Production globale ×1,4.', c:{moteur:20000},                 e:{global:1.4}},
- {id:'u4g',s:4,n:'Wagons-citernes',   d:'Capacité des trains ×2,5.', c:{module:20000,plastique:8000},  e:{cap:{4:2.5}}},
- {id:'u4h',s:4,n:'Gares automatisées',d:'Débit de charge/décharge des trains ×2,5.', c:{circuit:9000}, e:{xfer:{4:2.5}}},
  // 5
  {id:'u5a',s:5,n:'Coiffe allégée',    d:'Chantiers de fusées ×2.', c:{fusee:15},                      e:{mult:{chantier:2}}},
  {id:'u5b',s:5,n:'Corridors aériens', d:'Tout l\'international ×2.', c:{fusee:60,moteur:20000},       e:{stage:{5:2}}},
  {id:'u5c',s:5,n:'Usines jumelles',   d:'Réseau national ×2,5.', c:{fusee:200},                       e:{stage:{4:2.5}}},
  {id:'u5d',s:5,n:'Récupération d\'étage',d:'Chantiers ×3.', c:{fusee:1200},                           e:{mult:{chantier:3}}},
  {id:'u5e',s:5,n:'Cartel logistique', d:'Production globale ×1,5.', c:{fusee:9000},                   e:{global:1.5}},
- {id:'u5f',s:5,n:'Soutes agrandies',  d:'Capacité des avions cargo ×3.', c:{fusee:400,moteur:8000},    e:{cap:{5:3}}},
- {id:'u5g',s:5,n:'Tarmac automatisé', d:'Débit de charge/décharge des avions ×3.', c:{plastique:20000},e:{xfer:{5:3}}},
  // 6 — la science rachète toutes les étapes
- {id:'u6a',s:6,n:'Métallurgie orbitale',d:'Fonderie et usine ×5.', c:{science:2000},                  e:{stage:{2:5,3:5}}},
- {id:'u6b',s:6,n:'Extraction téléopérée',d:'Extraction ×10.', c:{science:6000},                       e:{stage:{1:10}}},
- {id:'u6c',s:6,n:'Logistique prédictive',d:'National et international ×4.', c:{science:25000},        e:{stage:{4:4,5:4}}},
- {id:'u6d',s:6,n:'Assemblage en apesanteur',d:'Stations orbitales ×3.', c:{science:120000},           e:{mult:{station:3}}},
- {id:'u6e',s:6,n:'Théorie unifiée',   d:'Production globale ×2.', c:{science:800000},                 e:{global:2}},
- {id:'u6f',s:6,n:'Fabrique auto-réplicante',d:'Production globale ×3.', c:{science:2e7,fusee:5000},   e:{global:3}},
- {id:'u6g',s:6,n:'Soutes cryogéniques',d:'Capacité des navettes ×3.', c:{science:400000},              e:{cap:{6:3}}},
- {id:'u6h',s:6,n:'Arrimage automatique',d:'Débit de charge/décharge des navettes ×3.', c:{fusee:8000}, e:{xfer:{6:3}}},
+ {id:'u6a',s:6,n:'Métallurgie orbitale',d:'Fonderie et usine ×5.', c:{science:700},                  e:{stage:{2:5,3:5}}},
+ {id:'u6b',s:6,n:'Extraction téléopérée',d:'Extraction ×10.', c:{science:2100},                       e:{stage:{1:10}}},
+ {id:'u6c',s:6,n:'Logistique prédictive',d:'National et international ×4.', c:{science:8750},        e:{stage:{4:4,5:4}}},
+ {id:'u6d',s:6,n:'Assemblage en apesanteur',d:'Stations orbitales ×3.', c:{science:42000},           e:{mult:{station:3}}},
+ {id:'u6e',s:6,n:'Théorie unifiée',   d:'Production globale ×2.', c:{science:280000},                 e:{global:2}},
+ {id:'u6f',s:6,n:'Fabrique auto-réplicante',d:'Production globale ×3.', c:{science:7e6,fusee:1750},   e:{global:3}},
  // 7
- {id:'u7a',s:7,n:'Ascenseur spatial', d:'Production globale ×2,5.', c:{science:2e8},                  e:{global:2.5}},
- {id:'u7b',s:7,n:'Moissonneurs d\'astéroïdes',d:'Extraction ×100.', c:{science:8e8},                  e:{stage:{1:100}}},
- {id:'u7c',s:7,n:'Industrie interplanétaire',d:'Production globale ×4.', c:{science:5e9},             e:{global:4}},
+ {id:'u7a',s:7,n:'Ascenseur spatial', d:'Production globale ×2,5.', c:{science:7e7},                  e:{global:2.5}},
+ {id:'u7b',s:7,n:'Moissonneurs d\'astéroïdes',d:'Extraction ×100.', c:{science:3e8},                  e:{stage:{1:100}}},
+ {id:'u7c',s:7,n:'Industrie interplanétaire',d:'Production globale ×4.', c:{science:2e9},             e:{global:4}},
  // 8
- {id:'u8a',s:8,n:'Voiles de distorsion',d:'Colonisation ×5.', c:{science:1e10},                       e:{colon:5}},
- {id:'u8b',s:8,n:'Essaim auto-réplicant',d:'Colonisation ×20.', c:{science:5e11},                     e:{colon:20}},
- {id:'u8c',s:8,n:'Conscience distribuée',d:'Production globale ×10.', c:{science:1e13},               e:{global:10}},
+ {id:'u8a',s:8,n:'Voiles de distorsion',d:'Colonisation ×5.', c:{science:1.2e9},                     e:{colon:5}},
+ {id:'u8b',s:8,n:'Essaim auto-réplicant',d:'Colonisation ×20.', c:{science:5e10},                     e:{colon:20}},
+ {id:'u8c',s:8,n:'Conscience distribuée',d:'Production globale ×10.', c:{science:4e12},               e:{global:10}},
 ];
 
 const PLANETS=[
@@ -464,7 +496,7 @@ const CLICKABLE=[
    de la position (arc chargé → décharge → arc à vide → chargement).
    Vitesse partagée par flotte. Un véhicule ralentit s'il rattrape celui devant.
    ========================================================================== */
-const DUP={2:'wagon',3:'camion',4:'train',5:'avion',6:'navette'};  // flotte de l'étape
+const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',6:'fleet_s6'};  // flotte de l'étape (achat dédié, plafonné)
 const FLEET_MAX=30;                                               // plafond de sprites simulés
 const PRODSTAGE={};
 MACH.forEach(m=>{ if(m.out)for(const k in m.out) if(PRODSTAGE[k]===undefined||m.s<PRODSTAGE[k])PRODSTAGE[k]=m.s; });
@@ -528,10 +560,10 @@ function tickPaths(dt){
     for(const m of MACH){ if(m.s!==p.dest||!m.in||!m.in[p.res])continue;
       dem+=(state.cnt[m.id]||0)*(m.r||0)*m.in[p.res]*mMult(m); }
     dem*=state.speed;                                    // l'accélération alourdit les chargements
-    const spd=Math.min(.6,p.baseSpeed*(1+.03*(state.cnt[DUP[p.dest]]||0)));  // vitesse de flotte
+    const spd=Math.min(.6,p.baseSpeed*Math.pow(1.15,state.cnt['spd_s'+p.dest]||0));  // vitesse — dédiée, indépendante de la flotte
     const capBase=dem>0?Math.max(1,dem*1.3/(N*spd)):1;
-    const cap=capBase*(cache.cap[p.dest]||1);             // capacité/véhicule, upgradable
-    const xfer=Math.max(.25,capBase/4)*(cache.xfer[p.dest]||1); // débit charge+décharge, upgradable
+    const cap=capBase*Math.pow(1.15,state.cnt['cap_s'+p.dest]||0);             // capacité/véhicule — dédiée
+    const xfer=Math.max(.25,capBase/4)*Math.pow(1.15,state.cnt['xfer_s'+p.dest]||0); // débit charge+décharge — dédié, synchronisé sur capacité
     const bufMax=Math.max(1,cap*N*2)*Math.pow(1.3,state.cnt['store_'+p.id]||0); // entrepôt : capacité de tampon
     p.dem=dem; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
@@ -608,14 +640,13 @@ function recompute(){
     if(e.auto)auto+=e.auto;
     if(e.stage)for(const s in e.stage)c.stage[s]*=e.stage[s];
     if(e.mult)for(const k in e.mult)c.mach[k]*=e.mult[k];
-    if(e.cap)for(const s in e.cap)c.cap[s]*=e.cap[s];
-    if(e.xfer)for(const s in e.xfer)c.xfer[s]*=e.xfer[s];
   }
   // machines de type boost / global
   MACH.forEach(m=>{ const n=state.cnt[m.id]||0; if(!n)return;
     if(m.boost)c.stage[m.boost.s]*=Math.pow(1+m.boost.p,n);      // duplication : multiplicative
     else if(m.global)c.global*=Math.pow(1+m.global,n);
     else if(m.store){/* capacité de stockage : appliquée directement dans tickPaths */}
+    else if(m.fleet||m.spdUp||m.capUp||m.xferUp){/* véhicule : lu directement dans tickPaths */}
     else c.mach[m.id]*=Math.pow(2,Math.floor(n/MILESTONE));       // palier : ×2 tous les 25
   });
   // prestige + astro
@@ -635,12 +666,15 @@ function afford(c){ for(const k in c) if((state.res[k]||0)<c[k]) return false; r
 function pay(c){ for(const k in c) state.res[k]-=c[k]; }
 function bulkCost(m,q){ const n=state.cnt[m.id]||0,o={};
   for(const k in m.c){ const b=m.c[k]*Math.pow(m.g,n); o[k]= m.g===1? b*q : b*(Math.pow(m.g,q)-1)/(m.g-1); } return o; }
+function remainingCap(m){ return m.maxCount===undefined?Infinity:Math.max(0,m.maxCount-(state.cnt[m.id]||0)); }
 function maxBuy(m){
+  const room=remainingCap(m); if(room<=0)return 0;
   if(!afford(bulkCost(m,1)))return 0;
   let lo=1,hi=2;
-  while(hi<4096&&afford(bulkCost(m,hi))){lo=hi;hi*=2;}
-  while(lo<hi-1){const mid=(lo+hi)>>1; if(afford(bulkCost(m,mid)))lo=mid;else hi=mid;}
-  return lo;
+  while(hi<room&&hi<4096&&afford(bulkCost(m,hi))){lo=hi;hi*=2;}
+  hi=Math.min(hi,room);
+  while(lo<hi-1){const mid=(lo+hi)>>1; if(mid<=room&&afford(bulkCost(m,mid)))lo=mid;else hi=mid;}
+  return Math.min(lo,room);
 }
 
 /* ==========================================================================
@@ -669,7 +703,7 @@ function tick(dt){
 
   for(const m of MACH){
     const n=state.cnt[m.id]||0;
-    if(!n||m.boost||m.global||m.store){m.eff=1;continue;}
+    if(!n||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp){m.eff=1;continue;}
     if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
       m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
     let cyc=n*(m.r||0)*dt*mMult(m);
@@ -812,31 +846,36 @@ function blackBox(s){
 function machRow(m){
   const n=state.cnt[m.id]||0;
   let io='';
-  if(m.boost)io='<em>Duplication</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n))+
-                '<br>+1 véhicule sur chaque boucle de l\'étape et +3 % de vitesse de flotte';
+  if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n));
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n)+' système/s au total · '+m.colon+' par unité';
   else if(m.store){ const path=PATHBYID[m.store];
     io='<em>Entrepôt</em> : capacité du tampon ×1,3 par unité — actuellement ×'+fmt(Math.pow(1.3,n))+
        (path?'<br>tampon actuel : '+fmt(state.buf[m.store]||0)+' / '+fmt(path.bufMax||0):''); }
+  else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(1+m.maxCount)+' au total, 1 gratuite + '+m.maxCount+' achats)';
+  else if(m.spdUp)io='<em>Vitesse</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+' sur le trajet de la boucle';
+  else if(m.capUp)io='<em>Capacité</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+'. À synchroniser avec le débit pour ne pas allonger le palier sans raison';
+  else if(m.xferUp)io='<em>Débit charge/décharge</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n));
   else{
     const f=o=>Object.keys(o).map(k=>RES[k].i+' '+o[k]).join(' + ');
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+m.r+' cycle/s'+
        (n?' · palier ×'+fmt(Math.pow(2,Math.floor(n/MILESTONE)))+' (prochain à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')':'');
   }
-  const q=state.buyMode==='max'?Math.max(1,maxBuy(m)):state.buyMode;
-  const c=bulkCost(m,q), can=afford(c);
+  const capped=m.maxCount!==undefined, room=remainingCap(m), maxed=capped&&room<=0;
+  const q=maxed?0:(state.buyMode==='max'?Math.max(1,maxBuy(m)):Math.min(state.buyMode,room));
+  const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
   const eff=Math.round((m.effDisp===undefined?1:m.effDisp)*100);
-  const bar=(!m.boost&&!m.global&&!m.colon&&!m.store)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
+  const bar=(!m.boost&&!m.global&&!m.colon&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
+  const buyBtn=maxed?'<div class="maxed">■ flotte au maximum ('+n+'/'+ (1+m.maxCount)+')</div>':
+    '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
+      '<span>Acheter ×'+q+'</span><span class="px">'+px+'</span></button>';
   return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
     '<div class="top"><span class="nm">'+m.n+'</span>'+pwr+'<span class="ct" data-c="'+m.id+'">'+fmt(n)+'</span></div>'+
     '<div class="io">'+io+'</div>'+bar+
-    '<div class="warnl" data-w="'+m.id+'"></div>'+
-    '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
-      '<span>Acheter ×'+q+'</span><span class="px">'+px+'</span></button></div>';
+    '<div class="warnl" data-w="'+m.id+'"></div>'+buyBtn+'</div>';
 }
 function upRow(u){
   const done=!!state.ups[u.id];
@@ -846,6 +885,28 @@ function upRow(u){
     '<button class="buy" data-up="'+u.id+'" '+(afford(u.c)?'':'disabled')+'><span>Rechercher</span><span class="px">'+px+'</span></button>')+'</div>';
 }
 
+function drawVehicleIcon(x,cx,cy,angleRad,color,stageNum){
+  x.save(); x.translate(cx,cy); x.rotate(angleRad+Math.PI/2); x.fillStyle=color; x.strokeStyle=color;
+  switch(stageNum){
+    case 2: // Camion : caisse + cabine
+      x.fillRect(-4,-3,8,6); x.fillRect(2.5,-2,3,4); break;
+    case 3: // Convoi : deux caisses reliées
+      x.fillRect(-6,-2.5,4,5); x.fillRect(1,-2.5,4,5);
+      x.lineWidth=1; x.beginPath(); x.moveTo(-2,0); x.lineTo(1,0); x.stroke(); break;
+    case 4: // Train : caisse allongée à trois segments
+      x.fillRect(-7,-2.5,14,5);
+      x.strokeStyle='#08111c'; x.lineWidth=1;
+      x.beginPath(); x.moveTo(-2.3,-2.5); x.lineTo(-2.3,2.5); x.moveTo(2.3,-2.5); x.lineTo(2.3,2.5); x.stroke(); break;
+    case 5: // Avion : chevron/aile
+      x.beginPath(); x.moveTo(0,-6); x.lineTo(5,4); x.lineTo(0,1.5); x.lineTo(-5,4); x.closePath(); x.fill(); break;
+    case 6: // Fusée-navette : ogive + corps
+      x.beginPath(); x.moveTo(0,-7); x.lineTo(3,1); x.lineTo(-3,1); x.closePath(); x.fill();
+      x.fillRect(-2,1,4,4); break;
+    default:
+      x.fillRect(-3,-3,6,6);
+  }
+  x.restore();
+}
 function drawLoops(){
   const c=$('loopsC'); if(!c)return;
   const ps=PATHS.filter(p=>p.dest===state.tab); if(!ps.length)return;
@@ -854,21 +915,21 @@ function drawLoops(){
   const R=40, slot=W/ps.length;
   ps.forEach((p,idx)=>{
     const cx=slot*(idx+.5), cy=56;
-    const pt=t=>{const a=-Math.PI/2+t*Math.PI*2; return [cx+Math.cos(a)*R, cy+Math.sin(a)*R];};
+    const angAt=t=>-Math.PI/2+t*Math.PI*2;
+    const pt=t=>{const a=angAt(t); return [cx+Math.cos(a)*R, cy+Math.sin(a)*R];};
     x.strokeStyle='#1c2f45'; x.lineWidth=9; x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
     x.strokeStyle='#22384f'; x.lineWidth=1; x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
     // points de chargement (laiton) et de décharge (braise)
     const L=pt(p.load), Uo=pt(p.unload);
     x.fillStyle='#c9963f'; x.beginPath(); x.arc(L[0],L[1],5,0,7); x.fill();
     x.fillStyle='#e8703a'; x.beginPath(); x.arc(Uo[0],Uo[1],5,0,7); x.fill();
-    // véhicules — couleur par état, anneau doré pendant un palier (charge/décharge)
+    // véhicules — silhouette dédiée au palier, anneau doré/braise pendant un palier (charge/décharge)
     (state.veh[p.id]||[]).forEach(v=>{ const q=pt(v.p);
       const loaded=v.state==='traveling_loaded'||v.state==='unloading';
-      x.fillStyle=loaded?'#dfe9f2':'#43607d';
-      x.fillRect(q[0]-3,q[1]-3,6,6);
+      drawVehicleIcon(x,q[0],q[1],angAt(v.p),loaded?'#dfe9f2':'#5a7186',p.dest);
       if(v.state==='loading'||v.state==='unloading'){
         x.strokeStyle=v.state==='loading'?'#c9963f':'#e8703a'; x.lineWidth=1.5;
-        x.beginPath(); x.arc(q[0],q[1],6,0,Math.PI*2); x.stroke();
+        x.beginPath(); x.arc(q[0],q[1],7.5,0,Math.PI*2); x.stroke();
       }
     });
     // étiquette + tampon
@@ -928,12 +989,16 @@ function render(){
     h+='<div class="sec">Transport<span class="hint">file au départ = manque en amont · file à l\'arrivée = aval saturé</span></div>'+
        '<canvas id="loopsC" width="900" height="150"></canvas>';
   }
+  const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.boost)&&m.s===s);
+  if(vehM.length){
+    h+='<div class="sec">Véhicules<span class="hint">capacité et débit à faire progresser ensemble pour un diagnostic de bouchon fiable</span></div><div class="grid">'+vehM.map(machRow).join('')+'</div>';
+  }
   const stores=MACH.filter(m=>m.store&&m.s===s);
   if(stores.length){
     h+='<div class="sec">Stockage<span class="hint">agrandit le tampon de déchargement, sans toucher aux véhicules</span></div><div class="grid">'+stores.map(machRow).join('')+'</div>';
   }
 
-  const ms=MACH.filter(m=>m.s===s&&!m.store&&(!m.need||state.stage>=m.need));
+  const ms=MACH.filter(m=>m.s===s&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.boost&&(!m.need||state.stage>=m.need));
   if(ms.length){
     h+='<div class="sec">Machines<span class="hint">la barre verte indique le taux d\'alimentation</span></div><div class="grid">'+ms.map(machRow).join('')+'</div>';
   }
@@ -960,12 +1025,13 @@ function bind(){
     state.res[r]+=g; state.valeur+=g*RES[r].v; floatNum(e,'+'+fmt(g));
   });
   $('panel').querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
-    const m=M[b.dataset.buy]; const q=state.buyMode==='max'?maxBuy(m):state.buyMode;
+    const m=M[b.dataset.buy]; let q=state.buyMode==='max'?maxBuy(m):state.buyMode;
+    q=Math.min(q,remainingCap(m));
     if(q<1)return; const c=bulkCost(m,q); if(!afford(c))return;
     const before=state.cnt[m.id]||0;
     pay(c); state.cnt[m.id]=before+q; recompute();
     const cross=Math.floor(before/MILESTONE)!==Math.floor((before+q)/MILESTONE);
-    if(cross||m.boost||m.global)structuralDirty=true; else paint();
+    if(cross||m.boost||m.global||m.maxCount!==undefined)structuralDirty=true; else paint();
   });
   $('panel').querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{
     const u=U[b.dataset.up]; if(state.ups[u.id]||!afford(u.c))return;
@@ -1006,8 +1072,9 @@ function paint(){
     el.textContent='⚠ '+(pa?'tampon '+RES[m.miss].n.toLowerCase()+' vide — '+(pa.jamIn?'rien à charger en amont':'transport en retard')
                           :'manque de '+RES[m.miss].n.toLowerCase()); });
   document.querySelectorAll('[data-buy]').forEach(b=>{ const m=M[b.dataset.buy];
-    const q=state.buyMode==='max'?Math.max(1,maxBuy(m)):state.buyMode;
-    const c=bulkCost(m,q), ok=afford(c);
+    const room=remainingCap(m);
+    const q=room<=0?0:(state.buyMode==='max'?Math.max(1,maxBuy(m)):Math.min(state.buyMode,room));
+    const c=q>0?bulkCost(m,q):{}, ok=q>0&&afford(c);
     b.disabled=!ok; b.parentElement.classList.toggle('buyable',ok);
     b.firstElementChild.textContent='Acheter ×'+q;
     b.lastElementChild.textContent=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' '); });
