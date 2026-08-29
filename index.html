@@ -190,7 +190,7 @@ nav::-webkit-scrollbar{display:none}
 .planet .dot{font-size:30px;line-height:1}
 .planet.owned{border-color:var(--ember);background:#1a1a26}
 canvas{width:100%;height:190px;display:block;border:1px solid #22384f;background:#05090f}
-#loopsC{height:150px;background:#08111c}
+#loopsC{height:auto;background:#08111c}
 
 /* pied / dev */
 footer{
@@ -616,9 +616,11 @@ function tickPaths(dt){
         if(q<=1e-9&&v.c>1e-6) p.jamOut=true;               // tampon plein : bouchon aval
         if(v.c<=1e-6){ v.c=0; v.state='traveling_empty'; }  // départ uniquement VIDE
       } else if(v.state==='traveling_loaded'){
+        v.blocked = step[i]<=0;
         if(circDist(v.p,p.unload)<=step[i]){ v.p=p.unload; v.state='unloading'; }
         else v.p=(v.p+step[i])%1;
       } else { // traveling_empty
+        v.blocked = step[i]<=0;
         if(circDist(v.p,p.load)<=step[i]){ v.p=p.load; v.state='loading'; }
         else v.p=(v.p+step[i])%1;
       }
@@ -939,38 +941,62 @@ function drawVehicleIcon(x,cx,cy,angleRad,color,stageNum){
 function drawLoops(){
   const c=$('loopsC'); if(!c)return;
   const ps=PATHS.filter(p=>p.dest===state.tab); if(!ps.length)return;
-  const x=c.getContext('2d'), W=c.width, H=c.height;
-  x.clearRect(0,0,W,H);
-  const R=40, slot=W/ps.length;
+  // --- dimensionnement responsive : la résolution interne suit la taille réelle affichée,
+  //     sinon tout est écrasé horizontalement sur mobile et les files deviennent invisibles.
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const CSSW=Math.max(240,c.clientWidth||c.parentElement.clientWidth||320);
+  const MINSLOT=132;
+  const cols=Math.max(1,Math.min(ps.length,Math.floor(CSSW/MINSLOT)));
+  const rows=Math.ceil(ps.length/cols);
+  const slot=CSSW/cols;
+  const R=Math.max(22,Math.min(40,slot*0.28));
+  const rowH=R*2+62;
+  const CSSH=rows*rowH+8;
+  if(c.width!==Math.round(CSSW*dpr)||c.height!==Math.round(CSSH*dpr)){
+    c.width=Math.round(CSSW*dpr); c.height=Math.round(CSSH*dpr);
+  }
+  c.style.height=CSSH+'px';
+  const x=c.getContext('2d');
+  x.setTransform(dpr,0,0,dpr,0,0);
+  x.clearRect(0,0,CSSW,CSSH);
   ps.forEach((p,idx)=>{
-    const cx=slot*(idx+.5), cy=56;
+    const col=idx%cols, row=Math.floor(idx/cols);
+    const cx=slot*(col+.5), cy=row*rowH+R+12;
     const angAt=t=>-Math.PI/2+t*Math.PI*2;
     const pt=t=>{const a=angAt(t); return [cx+Math.cos(a)*R, cy+Math.sin(a)*R];};
-    x.strokeStyle='#1c2f45'; x.lineWidth=9; x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
+    x.strokeStyle='#1c2f45'; x.lineWidth=Math.max(6,R*0.22); x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
     x.strokeStyle='#22384f'; x.lineWidth=1; x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
+    // arc de file en rouge/ambre quand un bouchon est actif, pour le voir d'un coup d'oeil
+    if(p.jamOut||p.jamIn){
+      const pointT=p.jamOut?p.unload:p.load;
+      x.strokeStyle=p.jamOut?'rgba(197,83,63,.55)':'rgba(216,161,60,.55)';
+      x.lineWidth=Math.max(6,R*0.22);
+      x.beginPath(); x.arc(cx,cy,R,angAt(pointT-0.16),angAt(pointT)); x.stroke();
+    }
     // points de chargement (laiton) et de décharge (braise)
     const L=pt(p.load), Uo=pt(p.unload);
-    x.fillStyle='#c9963f'; x.beginPath(); x.arc(L[0],L[1],5,0,7); x.fill();
-    x.fillStyle='#e8703a'; x.beginPath(); x.arc(Uo[0],Uo[1],5,0,7); x.fill();
-    // véhicules — silhouette dédiée au palier, anneau doré/braise pendant un palier (charge/décharge)
+    x.fillStyle='#c9963f'; x.beginPath(); x.arc(L[0],L[1],4.5,0,7); x.fill();
+    x.fillStyle='#e8703a'; x.beginPath(); x.arc(Uo[0],Uo[1],4.5,0,7); x.fill();
+    // véhicules — silhouette du palier ; rouge terne si bloqué en file
     (state.veh[p.id]||[]).forEach(v=>{ const q=pt(v.p);
       const loaded=v.state==='traveling_loaded'||v.state==='unloading';
-      drawVehicleIcon(x,q[0],q[1],angAt(v.p),loaded?'#dfe9f2':'#5a7186',p.dest);
+      const col2=v.blocked?'#b8564a':(loaded?'#dfe9f2':'#5a7186');
+      drawVehicleIcon(x,q[0],q[1],angAt(v.p),col2,p.dest);
       if(v.state==='loading'||v.state==='unloading'){
         x.strokeStyle=v.state==='loading'?'#c9963f':'#e8703a'; x.lineWidth=1.5;
         x.beginPath(); x.arc(q[0],q[1],7.5,0,Math.PI*2); x.stroke();
       }
     });
-    // étiquette + tampon
+    // étiquettes
     x.textAlign='center'; x.font='10px ui-monospace,monospace';
-    x.fillStyle='#8fa8bf'; x.fillText(RES[p.res].n+' · '+(p.n||1)+' véh. · cap '+fmt(p.cap||0)+' · '+fmt(p.xfer||0)+'/s', cx, cy+R+16);
-    const bw=72, bx=cx-bw/2, by=cy+R+22, f=Math.max(0,Math.min(1,(state.buf[p.id]||0)/(p.bufMax||1)));
+    x.fillStyle='#8fa8bf'; x.fillText(RES[p.res].n+' · '+(p.n||1)+' véh.', cx, cy+R+15);
+    const bw=Math.min(84,slot-18), bx=cx-bw/2, by=cy+R+21, f=Math.max(0,Math.min(1,(state.buf[p.id]||0)/(p.bufMax||1)));
     x.fillStyle='#16253a'; x.fillRect(bx,by,bw,4);
     x.fillStyle=f>.92?'#c5533f':f>.05?'#5fb87a':'#d8a13c'; x.fillRect(bx,by,bw*f,4);
-    x.fillStyle='#5b7691'; x.font='9px ui-monospace,monospace';
-    x.fillText('tampon '+fmt(state.buf[p.id]||0)+' / '+fmt(p.bufMax||0), cx, by+15);
-    if(p.jamIn||p.jamOut){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
-      x.fillText(p.jamOut?'▲ bouchon aval — aval saturé':'▼ bouchon amont — rien à charger', cx, by+27); }
+    x.font='9px ui-monospace,monospace';
+    if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
+      x.fillText(p.jamOut?'▲ aval saturé':'▼ rien à charger', cx, by+15); }
+    else { x.fillStyle='#5b7691'; x.fillText(Math.round(f*100)+'% tampon', cx, by+15); }
   });
 }
 function galaxyCanvas(){
@@ -1016,7 +1042,7 @@ function render(){
   const ps=PATHS.filter(x=>x.dest===s);
   if(ps.length){
     h+='<div class="sec">Transport<span class="hint">file au départ = manque en amont · file à l\'arrivée = aval saturé</span></div>'+
-       '<canvas id="loopsC" width="900" height="150"></canvas>';
+       '<canvas id="loopsC"></canvas>';
   }
   const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.boost)&&m.s===s);
   if(vehM.length){
