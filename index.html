@@ -639,6 +639,11 @@ function syncFleet(p){
    Le transfert est réel et progressif (véhicule↔stock/tampon), pas instantané. */
 function tickPaths(dt){
   for(const p of PATHS){
+    // un chemin n'existe que si son étape de destination est atteinte : sinon des véhicules
+    // tournent en arrière-plan avant même que le joueur ne les voie, et aspirent silencieusement
+    // toute ressource produite plus tôt (ex. le bois cliqué dès l'étape 1, happé par le chemin
+    // vers l'Usine alors que l'étape 3 n'est pas encore débloquée).
+    if(state.stage<p.dest){ state.buf[p.id]=state.buf[p.id]||0; continue; }
     const arr=syncFleet(p), N=arr.length;
     p.jamIn=p.jamOut=false;
     // demande potentielle de l'étape d'arrivée pour cette ressource
@@ -839,6 +844,8 @@ function pipeStats(){
   return {dia,pump,spd,vol,bufMax,rate:Math.min(dia,pump)};
 }
 function tickPipe(dt){
+  // même logique que les chemins véhicules : l'oléoduc n'existe qu'une fois l'étape 4 atteinte
+  if(state.stage<PIPE.dest){ const p=state.pipe; p.flow=0; p.jam=false; p.starved=false; return; }
   const st=pipeStats();
   const p=state.pipe;
   p.paused=!!state.off['pipe'];
