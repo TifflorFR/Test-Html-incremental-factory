@@ -446,8 +446,6 @@ const MACH=[
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  c:{acier:9000},              g:1.18},
  {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', c:{module:1200},             g:1.15},
- {id:'pipe_speed',s:4,n:'Amorçage — oléoduc',  pipeUp:'speed',c:{circuit:800},             g:1.15},
- {id:'pipe_vol',  s:4,n:'Volume — oléoduc',    pipeUp:'vol',  c:{acier:14000,module:900},  g:1.20},
  {id:'store_pipe_petrole',s:4,n:'Entrepôt Pétrole',store:'pipe_petrole',c:{petrole:1080},  g:1.22},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
@@ -478,7 +476,7 @@ const MACH=[
              c:{fusee:14},  g:1.25},                    // 14×1,25^(L-1), plafonné par l'énergie
  {id:'navette',s:6,n:'Cadence orbitale',    boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
  // --- 7 colonisation
- {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{science:15},r:.4,c:{science:50000,fusee:600},g:1.15},
+ {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{fusee:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
  {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
              c:{science:120000,fusee:2000}, g:4.8},
@@ -489,7 +487,7 @@ const MACH=[
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
              c:{science:58000,fusee:450}, g:1.15},
  // --- 8 expansion
- {id:'forge', s:8,n:'Forge d\'essaim',      in:{fusee:4,circuit:50},out:{science:900},r:.3,c:{science:500000,fusee:6000},g:1.14},
+ {id:'forge', s:8,n:'Forge d\'essaim',      colon:.0008,     c:{science:500000,fusee:6000},g:1.14},
  {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
  {id:'fleet_s8', s:8, n:'Vaisseau de distorsion supplémentaire', fleet:8, maxCount:4,
              c:{science:900000,fusee:15000}, g:4.9},
@@ -832,24 +830,23 @@ function rBuy(id){
    d'animation du flux = débit réel, coloration du tube quand l'aval sature.
    ========================================================================== */
 const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
+const PRIME_TIME=0.5;   // amorçage fixe : délai de démarrage unique, indépendant du débit/de la source
 function pipeStats(){
   let dem=0;
   for(const m of MACH){ if(m.s!==PIPE.dest||!m.in||!m.in[PIPE.res])continue;
     dem+=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m); }
   dem*=state.speed;                                         // cohérent avec les chemins véhicules
-  // débit et volume en transit dimensionnés sur la demande réelle (comme capBase pour les
-  // chemins véhicules), pas des constantes figées : sinon, dès que les multiplicateurs globaux
-  // (recherche, étape, prestige...) grossissent, la demande explose mais le débit du pipeline
-  // reste au niveau d'achat initial — la raffinerie finit toujours par manquer de pétrole,
-  // même avec un stock abondant. scale=1 quand dem≈4 (le point de calibration d'origine),
-  // donc le comportement en tout début de partie ne change pas.
-  const scale=dem>0?Math.max(1,dem/4):1;
+  // débit dimensionné sur la demande réelle (comme capBase pour les chemins véhicules), pas
+  // une constante figée : sinon, dès que les multiplicateurs globaux (recherche, étape,
+  // prestige...) grossissent, la demande explose mais le débit du pipeline reste au niveau
+  // d'achat initial — la raffinerie finit toujours par manquer de pétrole, même avec un stock
+  // abondant. Marge ×1,3 (comme capBase des chemins véhicules) pour que le débit dépasse
+  // confortablement la demande théorique plutôt que de la suivre au plus juste.
+  const scale=dem>0?Math.max(1,dem*1.3/4):1;
   const dia =6*scale*Math.pow(1.18,state.cnt.pipe_dia||0);      // débit max
   const pump=5*scale*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
-  const spd =1*Math.pow(1.15,state.cnt.pipe_speed||0);          // réduit la latence
-  const vol =40*scale*Math.pow(1.10,state.cnt.pipe_vol||0);     // volume en transit
   const bufMax=Math.max(1,dem*BUF_SEC)*Math.pow(STORE_STEP,state.cnt.store_pipe_petrole||0);
-  return {dia,pump,spd,vol,bufMax,rate:Math.min(dia,pump)};
+  return {dia,pump,bufMax,rate:Math.min(dia,pump)};
 }
 function tickPipe(dt){
   // même logique que les chemins véhicules : l'oléoduc n'existe qu'une fois l'étape 4 atteinte
@@ -860,12 +857,11 @@ function tickPipe(dt){
   if(p.paused){ p.flow=0; p.jam=false; p.starved=false; return; }
   const src=state.res[PIPE.res]||0;
   let bf=state.buf[PIPE.id]||0;
-  // amorçage : le tube doit se remplir avant de délivrer (latence initiale)
-  const fillRate=st.rate*st.spd;
-  if(p.prime<st.vol){
-    const q=Math.min(fillRate*dt,src,st.vol-p.prime);
-    if(q>0){ state.res[PIPE.res]-=q; p.prime+=q; }
-    p.flow=0; p.jam=false; p.starved=q<=1e-9&&src<=1e-9;
+  // amorçage : simple délai de démarrage fixe (0,5s), une seule fois — plus aucun lien avec
+  // le débit ou la source, et plus aucun upgrade dédié (le tube ne se "revide" plus non plus).
+  if(p.prime<PRIME_TIME){
+    p.prime=Math.min(PRIME_TIME,p.prime+dt);
+    p.flow=0; p.jam=false; p.starved=false;
     state.buf[PIPE.id]=bf; return;
   }
   const room=Math.max(0,st.bufMax-bf);
@@ -874,7 +870,6 @@ function tickPipe(dt){
   p.flow=q/dt;                       // débit réel -> vitesse d'animation
   p.jam=room<=1e-9;                  // aval saturé -> coloration du tube
   p.starved=src<=1e-9&&room>1e-9;
-  if(src<=1e-9&&q<=1e-9)p.prime=Math.max(0,p.prime-st.rate*dt*0.25);  // le tube se vide
   state.buf[PIPE.id]=bf;
 }
 
@@ -1301,9 +1296,7 @@ function machRow(m){
        '<br>Niveau '+(L+1)+' coûterait : conso '+fmt(labConso(L+1))+' MW/labo'; }
   else if(m.pipeUp){ const st=pipeStats();
     io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia)+'/s',
-       pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s',
-       speed:'amorçage ×1,15/niv — réduit la latence de remplissage initial',
-       vol:'volume en transit ×1,10/niv, actuellement '+fmt(st.vol)}[m.pipeUp]; }
+       pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s'}[m.pipeUp]; }
   else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(1+m.maxCount)+' au total, 1 gratuite + '+m.maxCount+' achats)';
   else if(m.spdUp)io='<em>Vitesse</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+' sur le trajet de la boucle';
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
@@ -1537,12 +1530,12 @@ function poffState(){ return !!state.off['pipe']; }
 function pipePanel(){
   const st=pipeStats(), p=state.pipe;
   const f=Math.max(0,Math.min(1,(state.buf[PIPE.id]||0)/st.bufMax));
-  const primed=p.prime>=st.vol-1e-6;
+  const primed=p.prime>=PRIME_TIME-1e-6;
   const etat = poffState()?'<span style="color:#7f97ad">⏸ oléoduc à l\'arrêt</span>'
              : p.jam?'<span style="color:#c5533f">▲ aval saturé — la raffinerie ne suit pas</span>'
              : p.starved?'<span style="color:#d8a13c">▼ derrick à sec</span>'
              : primed?'<span style="color:#5fb87a">flux nominal</span>'
-             : '<span style="color:#d8a13c">amorçage '+Math.round(p.prime/st.vol*100)+' %</span>';
+             : '<span style="color:#d8a13c">amorçage '+Math.round(p.prime/PRIME_TIME*100)+' %</span>';
   const poff=!!state.off['pipe'];
   return '<div class="sec">Oléoduc<span class="hint">transport direct derrick → raffinerie · ni véhicule ni étape intermédiaire</span></div>'+
     '<canvas id="pipeC"></canvas>'+
