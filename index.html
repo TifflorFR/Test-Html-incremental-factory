@@ -185,6 +185,22 @@ nav::-webkit-scrollbar{display:none}
 .pobj span{display:block;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ember);margin-bottom:4px}
 .overlay.pop .go{width:100%;background:#193050;border:1px solid var(--brass);color:#dfe9f2;padding:12px;
   font-size:12px;letter-spacing:.14em;text-transform:uppercase;border-radius:2px;margin-top:16px}
+.labctl{border-top:1px solid #1c2f45;margin-top:10px;padding-top:10px}
+.labctl-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.labctl-row>span{font-size:11px;color:#9fb4c8}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{background:#152a41;border:1px solid #2f4d6e;color:var(--brass);border-radius:2px;
+  width:26px;height:26px;font-size:13px;line-height:1;padding:0}
+.stepper button:disabled{opacity:.35}
+.stepper button:hover:not(:disabled){border-color:var(--brass-dim)}
+.stepval{min-width:74px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:#dfe9f2}
+.stepval i{color:#7f97ad;font-style:normal;font-size:10px}
+.labctl-sci{font-size:11px;color:#b9cbdd;margin-bottom:6px}
+.labctl-warn{font-size:10px;line-height:1.5;color:#d8a13c;border-left:2px solid #d8a13c;
+  background:#1a1408;padding:6px 9px;margin-bottom:6px}
+.labctl-bank{font-size:10px;line-height:1.5;color:#7fb0d8;border-left:2px solid #3a6ea5;
+  background:#0c1826;padding:6px 9px;margin-bottom:6px}
+.labctl-tip{font-size:9px;line-height:1.5;color:#5b7691;font-style:italic}
 .toggles{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
 .tg{background:#152a41;border:1px solid #2f4d6e;color:var(--ok);border-radius:2px;
     padding:5px 9px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
@@ -720,33 +736,34 @@ function dysonDone(){ return DYSON.filter(d=>state.dyson[d.id]&&state.dyson[d.id
 function dysonMW(){ return DYSON.reduce((a,d)=>a+((state.dyson[d.id]&&state.dyson[d.id].done)?d.mw:0),0); }
 
 /* un labo est offert dès l'arrivée en étape 6 */
-function labCount(){ return state.stage>=6 ? 1+(state.cnt.lab||0) : 0; }
-function labLevel(){ return 1+(state.cnt.labLvl||0); }
+function labCount(){ return state.stage>=6 ? 1+(state.cnt.lab||0) : 0; }   // labos CONSTRUITS (N)
+function labLevel(){ return 1+(state.cnt.labLvl||0); }                    // niveau cible, commun, acheté librement
 function labConso(L){ return C0*Math.pow(LAB_CONSO_STEP,(L===undefined?labLevel():L)-1); }
 function labSci(L){   return Math.pow(LAB_SCI_STEP,(L===undefined?labLevel():L)-1); }
 
+/* Production d'énergie : TOUS les labos construits fournissent leurs panneaux,
+   actifs ou non — seule la conso dépend du nombre d'ACTIFS. */
 function powerProd(){ return labCount()*SOLAR_PER_LAB + dysonMW(); }
-function powerUse(){  return labCount()*labConso(); }
+/* Nombre maximum de labos qui peuvent tourner au niveau donné sans dépasser
+   l'énergie disponible. Remplace l'ancien plafond de NIVEAU : c'est maintenant
+   le nombre d'ACTIFS qui est contraint, jamais le niveau lui-même. */
+function maxActiveAt(L){
+  const c=labConso(L===undefined?labLevel():L);
+  if(c<=0)return labCount();
+  return Math.max(0,Math.min(labCount(), Math.floor(powerProd()/c+1e-9)));
+}
+/* Cible choisie par le joueur via le stepper. null = "autant que possible"
+   (suit automatiquement labCount() et l'énergie disponible sans intervention). */
+function labActiveTarget(){ return state.labActiveTarget==null ? labCount() : state.labActiveTarget; }
+/* Nombre d'actifs RÉEL : auto-ajusté au budget énergétique courant, sans jamais
+   réduire le rendement par unité — seul le nombre d'unités qui tournent varie. */
+function labActive(){ return Math.max(0,Math.min(labActiveTarget(),labCount(),maxActiveAt())); }
+function powerUse(){  return labActive()*labConso(); }
 /* la jauge affiche le SURPLUS restant après consommation, pas la production brute */
 function powerFree(){ return powerProd()-powerUse(); }
-/* plafond de niveau : le plus haut L dont la conso totale tient dans la production.
-   Indépendant du nombre de labos, puisque production et conso sont toutes deux
-   proportionnelles à ce nombre — sauf l'apport Dyson, qui lui est global. */
-function levelCap(){
-  const n=labCount()||1;
-  let L=1;
-  while(L<200 && n*labConso(L+1) <= n*SOLAR_PER_LAB+dysonMW()+1e-9) L++;
-  return L;
-}
-function canLevelUp(){
-  if(labLevel()>=levelCap()){
-    const need=DYSON.find(d=>!(state.dyson[d.id]&&state.dyson[d.id].done));
-    return {ok:false,why:'énergie insuffisante — requiert '+(need?'le segment '+need.id:'un nouveau segment Dyson')};
-  }
-  if((state.res[STAGE5_RES]||0)<labLevelCost())return {ok:false,why:'production d\'étape 5 insuffisante'};
-  return {ok:true};
-}
-/* coûts, payés en production d'étape 5 : sépare l'économie recherche de l'infra */
+function labSciTotal(){ return labActive()*labSci(); }
+/* coûts, payés en production d'étape 5 : sépare l'économie recherche de l'infra.
+   Aucun plafond énergétique sur l'achat lui-même — seule l'activation l'est. */
 function labLevelCost(){ return 14*Math.pow(1.25,labLevel()-1)*STATION_SCALE; }
 function nextLabCost(){ const n=labCount()+1; return 600*Math.pow(1.55,n-2)*STATION_SCALE; }
 
@@ -896,7 +913,7 @@ function freshState(brevets=0,valeurTot=0){
   const res={}; for(const k in RES) res[k]=0;
   return {
     res, cnt:{}, ups:{}, planets:{}, systemes:0,
-    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pop:{}, pipe:{prime:0,flow:0,jam:false,starved:false},
+    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pop:{}, labActiveTarget:null, pipe:{prime:0,flow:0,jam:false,starved:false},
     stage:1, tab:1, seen:{1:true},
     click:1, auto:0,
     valeur:0, valeurTot, brevets,
@@ -953,15 +970,15 @@ function afford(c){ for(const k in c) if((state.res[k]||0)<c[k]) return false; r
 function pay(c){ for(const k in c) state.res[k]-=c[k]; }
 function bulkCost(m,q){ const n=state.cnt[m.id]||0,o={};
   for(const k in m.c){ const b=m.c[k]*Math.pow(m.g,n); o[k]= m.g===1? b*q : b*(Math.pow(m.g,q)-1)/(m.g-1); } return o; }
-/* le niveau est plafonné par l'énergie disponible ; le nombre de labos ne l'est pas */
-function levelRoom(){ return Math.max(0,levelCap()-labLevel()); }
 function remainingCap(m){
-  if(m.labLvl) return levelRoom();
   return m.maxCount===undefined?Infinity:Math.max(0,m.maxCount-(state.cnt[m.id]||0));
 }
 function maxBuy(m){
   const room=remainingCap(m); if(room<=0)return 0;
   if(!afford(bulkCost(m,1)))return 0;
+  // le plafond lui-même n'est pas garanti "inabordable" — sans ce test, la recherche
+  // binaire ci-dessous s'arrête un cran en dessous quand room est atteignable d'un coup.
+  if(isFinite(room)&&afford(bulkCost(m,room)))return room;
   let lo=1,hi=2;
   while(hi<room&&hi<4096&&afford(bulkCost(m,hi))){lo=hi;hi*=2;}
   hi=Math.min(hi,room);
@@ -997,7 +1014,7 @@ function tick(dt){
   for(const m of MACH){
     let n=state.cnt[m.id]||0;
     if(m.labLvl||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp){m.eff=1;continue;}
-    if(m.lab) n=labCount();                            // 1 laboratoire offert dès l'étape 6
+    if(m.lab) n=labActive();                            // seuls les labos ACTIFS produisent
     if(!n){m.eff=1;continue;}
     if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
       m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
@@ -1102,7 +1119,7 @@ function tickDyson(dt){
     st.starved = q<want-1e-9;
     if(st.paid>=(d.cost*STATION_SCALE)-1e-6){
       st.done=true; st.running=false; structuralDirty=true;
-      toast('Segment '+d.id+' achevé — +'+fmt(d.mw)+' MW, niveau max '+levelCap());
+      toast('Segment '+d.id+' achevé — +'+fmt(d.mw)+' MW au pool, '+maxActiveAt()+' labos activables au niveau actuel');
     }
   }
 }
@@ -1234,14 +1251,16 @@ function machRow(m){
   else if(m.store){ const path=PATHBYID[m.store];
     io='<em>Entrepôt</em> : capacité du tampon ×1,15 par unité — actuellement ×'+fmt(Math.pow(STORE_STEP,n))+
        (path?'<br>tampon actuel : '+fmt(state.buf[m.store]||0)+' / '+fmt(path.bufMax||0):''); }
-  else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' en service (1 offert à l\'arrivée). '+
-     'Chaque labo produit '+fmt(labSci())+'× la science de base au niveau '+labLevel()+
-     '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW · conso actuelle '+fmt(labConso())+' MW';
-  else if(m.labLvl){ const cap=levelCap(), L=labLevel();
-    io='<em>Niveau '+L+' / '+cap+'</em> — commun à tous les laboratoires.'+
+  else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' construit'+(labCount()>1?'s':'')+
+     ' · '+labActive()+' actif'+(labActive()>1?'s':'')+' (réglage ci-dessous). '+
+     'Chaque labo actif produit '+fmt(labSci())+'× la science de base au niveau '+labLevel()+
+     '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW/labo, actif ou non · conso actuelle '+fmt(powerUse())+' MW au total';
+  else if(m.labLvl){ const L=labLevel(), maxA=maxActiveAt();
+    io='<em>Niveau '+L+'</em> — commun à tous les laboratoires, achat libre (non plafonné par l\'énergie).'+
        '<br>Science ×'+fmt(LAB_SCI_STEP)+' par niveau, conso ×'+fmt(LAB_CONSO_STEP)+' par niveau : '+
        'la facture énergétique monte plus vite que le gain.'+
-       '<br>Prochain niveau : conso '+fmt(labConso(L+1))+' MW par labo'; }
+       (maxA<labCount()?'<br><span style="color:#d8a13c">⚠ à ce niveau, l\'énergie ne suit que pour '+maxA+' / '+labCount()+' labos — désactive les autres ou attends un segment Dyson.</span>':'')+
+       '<br>Niveau '+(L+1)+' coûterait : conso '+fmt(labConso(L+1))+' MW/labo'; }
   else if(m.pipeUp){ const st=pipeStats();
     io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia)+'/s',
        pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s',
@@ -1256,7 +1275,7 @@ function machRow(m){
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+m.r+' cycle/s'+
        (n?' · palier ×'+fmt(Math.pow(2,Math.floor(n/MILESTONE)))+' (prochain à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')':'');
   }
-  const capped=m.maxCount!==undefined||m.labLvl, room=remainingCap(m), maxed=capped&&room<=0;
+  const capped=m.maxCount!==undefined, room=remainingCap(m), maxed=capped&&room<=0;
   const q=maxed?0:(state.buyMode==='max'?Math.max(1,maxBuy(m)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
@@ -1264,9 +1283,8 @@ function machRow(m){
   const bar=(!m.boost&&!m.global&&!m.colon&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.labLvl&&!m.pipeUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
-  const lvlWhy = m.labLvl ? (canLevelUp().why||'') : '';
   const buyBtn=maxed?'<div class="maxed" style="color:#c5533f;border-color:#5a2c22;background:#1a0f0c">'+
-      (m.labLvl?'⚡ '+lvlWhy:'■ flotte au maximum ('+n+'/'+(1+m.maxCount)+')')+'</div>':
+      ('■ flotte au maximum ('+n+'/'+(1+m.maxCount)+')')+'</div>':
     '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
       '<span>Acheter ×'+q+'</span><span class="px">'+px+'</span></button>';
   return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
@@ -1525,18 +1543,41 @@ function drawPipe(){
 function powerPanel(){
   const prod=powerProd(), use=powerUse(), free=powerFree();
   const f=prod>0?Math.max(0,Math.min(1,free/prod)):0;
-  const cap=levelCap(), L=labLevel(), blocked=L>=cap;
-  const need=DYSON.find(d=>!(state.dyson[d.id]&&state.dyson[d.id].done));
-  return '<div class="sec">Énergie<span class="hint">pool global · la jauge affiche le surplus disponible pour monter en niveau</span></div>'+
+  const N=labCount(), L=labLevel(), maxA=maxActiveAt(), target=labActiveTarget(), A=labActive();
+  const wantsMore=target>maxA;             // le joueur vise plus d'actifs que l'énergie ne permet
+  const banking=target<N && !wantsMore;    // choix délibéré de garder des labos en réserve
+  const sciTot=labSciTotal()*cache.mach.lab*cache.stage[6]*cache.global;   // science/s réellement produite
+  // repère pédagogique : concentrer sur peu de labos à haut niveau coûte toujours plus cher en
+  // science totale que garder large à niveau modéré, tant qu'aucun Dyson n'a été construit
+  const concentrationTip = !dysonDone() ?
+    'Concentrer l\'énergie sur peu de labos à haut niveau est presque toujours moins rentable que garder un maximum de labos actifs à niveau modéré — sauf si tu prépares volontairement un futur segment Dyson (mise en réserve).' :
+    'Un segment Dyson est déjà construit : réserver des labos pour le prochain palier peut redevenir intéressant.';
+  return '<div class="sec">Énergie<span class="hint">pool global · la jauge affiche le surplus disponible, pas la production brute</span></div>'+
     '<div class="ms"><div class="msr"><span class="msn">Surplus</span>'+
-    '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(blocked?'#c5533f':'#5fb87a')+'"></i></span>'+
-    '<span class="msv'+(blocked?'':' ok')+'">'+fmt(free)+' / '+fmt(prod)+' MW</span></div>'+
-    '<div class="msr" style="color:#7f97ad">'+labCount()+' laboratoire'+(labCount()>1?'s':'')+
-      ' · niveau '+L+' / '+cap+' · conso '+fmt(labConso())+' MW par labo'+
-      '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW par labo (fixe, couvre exactement le niveau 10). '+
+    '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(wantsMore?'#c5533f':'#5fb87a')+'"></i></span>'+
+    '<span class="msv'+(wantsMore?'':' ok')+'">'+fmt(free)+' / '+fmt(prod)+' MW</span></div>'+
+    '<div class="msr" style="color:#7f97ad">'+N+' laboratoire'+(N>1?'s':'')+' construit'+(N>1?'s':'')+
+      ' · niveau '+L+' · conso '+fmt(labConso())+' MW par labo actif'+
+      '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW par labo, actif ou non (fixe, couvre exactement le niveau 10). '+
       (dysonDone()? 'Dyson : +'+fmt(dysonMW())+' MW au pool.' : 'Aucun segment Dyson achevé.')+
-      (blocked?'<br><span style="color:#c5533f">⚡ Plafond de niveau atteint'+
-        (need?' — requiert le segment '+need.id:'')+'. Construire en largeur ne le déplacera pas.</span>':'')+
+    '</div>'+
+    '<div class="labctl">'+
+      '<div class="labctl-row"><span>Laboratoires actifs</span>'+
+        '<div class="stepper">'+
+          '<button data-labact="0" title="Tout désactiver">⏮</button>'+
+          '<button data-labact="-1" '+(target<=0?'disabled':'')+'>−</button>'+
+          '<span class="stepval">'+A+' / '+N+(target!==A?' <i>(cible '+target+')</i>':'')+'</span>'+
+          '<button data-labact="+1" '+(target>=N?'disabled':'')+'>+</button>'+
+          '<button data-labact="max" title="Tout activer">⏭</button>'+
+        '</div></div>'+
+      '<div class="labctl-sci">Science produite : <b>'+fmt(sciTot)+'/s</b>'+
+        (A>0?' ('+A+' × '+fmt(labSci())+' × multiplicateurs)':'')+'</div>'+
+      (wantsMore?'<div class="labctl-warn">⚡ Seuls '+maxA+' / '+target+' labos visés peuvent tourner au niveau '+L+
+        ' avec l\'énergie actuelle. Désactive des labos pour profiter pleinement du niveau acheté sur moins d\'unités, '+
+        'ou attends un nouveau segment Dyson pour tous les activer.</div>':'')+
+      (banking?'<div class="labctl-bank">🔋 '+(N-target)+' labo'+(N-target>1?'s':'')+' volontairement en réserve — '+
+        'leurs panneaux alimentent quand même le pool commun. Relève le curseur pour les activer d\'un coup.</div>':'')+
+      '<div class="labctl-tip">'+concentrationTip+'</div>'+
     '</div></div>';
 }
 function dysonPanel(stage){
@@ -1676,6 +1717,13 @@ function bind(){
     const k='path_'+b.dataset.pathoff; state.off[k]=!state.off[k]; structuralDirty=true; });
   $('panel').querySelectorAll('[data-pipeoff]').forEach(b=>b.onclick=()=>{
     state.off['pipe']=!state.off['pipe']; structuralDirty=true; });
+  $('panel').querySelectorAll('[data-labact]').forEach(b=>b.onclick=()=>{
+    const N=labCount(), cur=labActiveTarget(); let t;
+    const v=b.dataset.labact;
+    if(v==='max')t=N; else if(v==='0')t=0; else t=cur+parseInt(v,10);
+    state.labActiveTarget=Math.max(0,Math.min(N,t));
+    structuralDirty=true;
+  });
   $('panel').querySelectorAll('[data-res-node]').forEach(b=>b.onclick=()=>rBuy(b.dataset.resNode));
   $('panel').querySelectorAll('[data-dyson]').forEach(b=>b.onclick=()=>{
     const st=state.dyson[b.dataset.dyson]; if(st&&!st.done){ st.running=!st.running; structuralDirty=true; }
@@ -1784,6 +1832,7 @@ function restore(raw){
   Object.assign(state,d.state);
   state.buf=state.buf||{}; state.veh=state.veh||{}; state.off=state.off||{}; state.speed=1;
   state.dyson=state.dyson||{}; state.research=state.research||{}; state.hold=state.hold||{}; state.pop=state.pop||{};
+  if(state.labActiveTarget===undefined)state.labActiveTarget=null;
   state.pipe=state.pipe||{prime:0,flow:0,jam:false,starved:false};
   if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
