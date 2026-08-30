@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BOÎTE NOIRE — prototype</title>
-<meta name="description" content="Jeu incrémental d'usine : du minage à la galaxie. Prototype jouable hors ligne, un seul fichier.">
+<title>Incrémental Factory — prototype</title>
+<meta name="description" content="Incrémental Factory — jeu incrémental d'usine, du minage à la galaxie. Prototype jouable hors ligne, un seul fichier.">
 <meta name="theme-color" content="#070d16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -26,6 +26,7 @@
 #intro .go{width:100%;background:#193050;border:1px solid #c9963f;color:#dfe9f2;padding:13px;
   font-size:13px;letter-spacing:.14em;text-transform:uppercase;border-radius:2px;margin-bottom:8px}
 #intro .go:hover{background:#1d3855}
+#intro .go.danger{border-color:#c5533f;background:#2a1512;color:#e8a99b}
 #intro .alt{width:100%;background:transparent;border:1px solid #2a445f;color:#8fa8bf;padding:10px;
   font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-radius:2px}
 #intro .foot{font-size:10px;color:#41586e;margin-top:16px;line-height:1.6}
@@ -120,7 +121,7 @@ nav::-webkit-scrollbar{display:none}
 .ptitle .st{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ember)}
 .desc{color:#93a9bf;font-size:12px;line-height:1.55;margin:6px 0 14px;max-width:70ch}
 
-/* boîte noire */
+/* bloc d'étape */
 .bb{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;
     border:1px dashed #2b4560;background:#08111c;padding:10px;margin-bottom:14px}
 .bb .side{display:flex;flex-wrap:wrap;gap:4px}
@@ -175,6 +176,15 @@ nav::-webkit-scrollbar{display:none}
 .buy:disabled{opacity:.42;cursor:not-allowed}
 .buy .px{color:var(--brass);font-variant-numeric:tabular-nums}
 .buy:disabled .px{color:var(--bad)}
+.overlay.pop .box{max-width:520px;text-align:left;max-height:82vh;overflow-y:auto}
+.overlay.pop .pst{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#5b7691;margin-bottom:4px}
+.overlay.pop h2{text-align:left;margin-bottom:12px}
+.overlay.pop p{text-align:left}
+.pobj{border-left:2px solid var(--ember);background:#0f1c2b;padding:9px 11px;margin:14px 0 4px;
+      font-size:12px;line-height:1.6;color:#b9cbdd}
+.pobj span{display:block;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ember);margin-bottom:4px}
+.overlay.pop .go{width:100%;background:#193050;border:1px solid var(--brass);color:#dfe9f2;padding:12px;
+  font-size:12px;letter-spacing:.14em;text-transform:uppercase;border-radius:2px;margin-top:16px}
 .toggles{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
 .tg{background:#152a41;border:1px solid #2f4d6e;color:var(--ok);border-radius:2px;
     padding:5px 9px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
@@ -252,10 +262,10 @@ footer{
 <body>
 
 <div id="intro" style="display:none"><div class="card">
-  <div class="t">BOÎTE <b>NOIRE</b></div>
+  <div class="t">INCRÉMENTAL <b>FACTORY</b></div>
   <div class="s">jeu incrémental d'usine · prototype</div>
   <p>Tu commences avec un pic et un arbre. Tu finis avec une galaxie.</p>
-  <p>Chaque étape que tu automatises devient une boîte noire : tu ne la regardes plus, elle alimente la suivante. Huit dézooms successifs, du bûcheron jusqu'à 100 000 systèmes stellaires.</p>
+  <p>Chaque étape automatisée devient un bloc réutilisable qui alimente la suivante. Huit dézooms successifs, du bûcheron jusqu'à 100 000 systèmes stellaires.</p>
   <div class="steps"><span>Minage</span><span>Fonderie</span><span>Usine</span><span>National</span><span>International</span><span>Orbite</span><span>Colonisation</span><span>Galaxie</span></div>
   <button class="go" id="introNew">Commencer</button>
   <button class="alt" id="introResume" style="display:none">Reprendre la partie</button>
@@ -264,7 +274,7 @@ footer{
 
 <header>
   <div class="hd">
-    <div class="logo">BOÎTE <b>NOIRE</b></div>
+    <div class="logo">INCRÉMENTAL <b>FACTORY</b></div>
     <div class="tag">salle de contrôle · v0 prototype</div>
     <div class="spacer"></div>
     <div class="mult">×<b id="hGlobal">1</b> global</div>
@@ -353,15 +363,16 @@ const RES={
 };
 
 const STAGES=[
- {id:1,nom:'Minage',       code:'EXTRACTION',  desc:"Tout commence à la main. Quatre veines, un pic, et la première boucle du jeu : cliquer, acheter, laisser tourner. Quand l'extraction tourne seule, elle devient une boîte noire : plus jamais tu ne regarderas un arbre tomber, tu regarderas un débit."},
- {id:2,nom:'Fonderie',     code:'TRANSFORMATION',desc:"Le minerai brut ne sert à rien. Les hauts-fourneaux avalent fer et charbon et recrachent de l'acier. Premier vrai ratio à tenir : deux fers et un charbon par lingot. Les wagonnets blindés dupliquent l'étape du dessous."},
- {id:3,nom:'Usine',        code:'ASSEMBLAGE',  desc:"L'acier et le bois deviennent des modules ; le cuivre devient des circuits. C'est la première fois que deux chaînes se croisent. Les camions-bennes rachètent du débit sur la fonderie."},
- {id:4,nom:'Logistique nationale',code:'RÉSEAU',desc:"Dézoom : la carte du pays. Le pétrole entre dans l'équation, le plastique en sort, et les moteurs consomment tout ce que l'usine sait faire. Les trains dupliquent l'usine entière."},
- {id:5,nom:'Logistique internationale',code:'MONDE',desc:"Dézoom : la planète. Les avions cargo relient les pôles industriels et le chantier assemble des fusées. Une fusée coûte une usine complète — c'est voulu."},
- {id:6,nom:'Production spatiale',code:'ORBITE', desc:"Les fusées ne sont plus un produit, elles sont un coût. En orbite, les stations transforment la logistique en science, et la science rachète toutes les étapes précédentes d'un coup. Le jeu bascule ici : on arrête de compter des objets, on compte des multiplicateurs."},
- {id:7,nom:'Colonisation',   code:'SYSTÈME SOLAIRE',desc:"Trois mondes à prendre. Chacun double absolument tout. Les dômes de terraformation, eux, se comptent par centaines."},
- {id:8,nom:'Expansion galactique',code:'GALAXIE',desc:"100 000 systèmes sur la carte. Les vaisseaux-colonisateurs partent seuls ; chaque système capturé ajoute +3 au multiplicateur planétaire. Prendre la galaxie, et c'est déjà pas mal."},
+ {id:1,nom:'Minage',code:'EXTRACTION',desc:"Extraction manuelle. Trois filons actifs : Bois, Pierre, Métal. Clique pour extraire. Investis les ressources dans des upgrades pour automatiser l'extraction."},
+ {id:2,nom:'Fonderie',code:'TRANSFORMATION',desc:"Deux convois miniers livrent Fer et Charbon depuis le Minage. La Fonderie transforme ce Fer en Acier — clique pour lancer une fonte, automatise dès que possible. L'Acier produit ici sert aussi à améliorer le Minage (Duplication)."},
+ {id:3,nom:'Usine',code:'ASSEMBLAGE',desc:"Des camions livrent Acier et Bois depuis la Fonderie et le Minage. L'Usine assemble des Modules (25% Bois / 75% Acier), entièrement automatisés dès leur premier lancement. Les Modules servent à améliorer Minage et Fonderie (Duplication)."},
+ {id:4,nom:'Logistique nationale',code:'RÉSEAU',desc:"Des trains relient tes Usines à de nouveaux sites d'Assemblage. Ces sites regroupent plusieurs Modules pour produire des Moteurs. Le Plastique et le Pétrole apparaissent comme nouvelles ressources. Les premiers Moteurs permettent de dupliquer ta ligne d'Usine et de répartir sa production par ratio."},
+ {id:5,nom:'Logistique internationale',code:'MONDE',desc:"Des avions cargo remplacent les trains pour le transport longue distance. Les Moteurs permettent désormais de construire des Fusées. Duplique tes sites d'Assemblage et améliore la cadence de production des Fusées."},
+ {id:6,nom:'Production spatiale',code:'ORBITE',desc:"Une Station en orbite produit de la Recherche. La Recherche débloque des upgrades transversales à toutes les étapes précédentes, ainsi que des améliorations spatiales. ⚠️ Changement de paradigme : la production passe en système multiplicatif."},
+ {id:7,nom:'Colonisation',code:'SYSTÈME SOLAIRE',desc:"Prends le contrôle du système solaire. Trois planètes à coloniser : chacune double la production totale de ton empire."},
+ {id:8,nom:'Expansion galactique',code:'GALAXIE',desc:"Carte de la galaxie : 100 000 systèmes stellaires à coloniser. Chaque système ajoute +3 au multiplicateur de production planétaire. Améliore ta vitesse de colonisation pour conquérir la galaxie."},
 ];
+
 
 /* déblocage : % d'améliorations achetées dans l'étape + un seuil de ressource */
 /* JALONS — étapes 2 à 6 : seuil de production multi-ressources.
@@ -370,11 +381,13 @@ const STAGES=[
    Décrochage = reset dégressif (la barre redescend, pas de remise à zéro sèche).
    Étapes 7 et 8 : jalons de l'arbre de recherche (B2 et B5). */
 const UNLOCK={
- 2:{rate:{bois:2.5,pierre:2.0,fer:1.2}},
- 3:{rate:{fer:4,charbon:3,acier:1.2}},
- 4:{rate:{acier:5,module:1.5,circuit:0.8}},
- 5:{rate:{module:6,plastique:3,moteur:0.6}},
- 6:{rate:{moteur:2.5,fusee:0.25}},
+ // Seuils calibrés par simulation itérative (bot de référence, 6 clics/s).
+ // Valeurs en unités/s ; l'UI les convertit en /min à l'affichage.
+ 2:{rate:{bois:134,   pierre:90,   fer:79}},        // ~3 min
+ 3:{rate:{fer:471,    charbon:408, acier:28.6}},    // ~12 min
+ 4:{rate:{acier:194,  module:3.6,  circuit:0.48}},  // ~32 min
+ 5:{rate:{module:180, plastique:1.07, moteur:0.15}},// ~61 min
+ 6:{rate:{moteur:0.55, fusee:0.44}},                // ~88 min
  7:{research:'B2'},
  8:{research:'B5'},
 };
@@ -443,17 +456,11 @@ const MACH=[
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
              c:{moteur:15600,plastique:6000}, g:1.15},
  // --- 6 spatiale
- {id:'station',s:6,n:'Station de recherche',in:{module:6,plastique:4},out:{science:1},r:.5,c:{fusee:16,moteur:875},g:1.1,station:true},
- {id:'labo',  s:6,n:'Labo en microgravité',in:{circuit:8,plastique:10},out:{science:3},r:.4,c:{fusee:63,science:280},g:1.1},
+ {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
+             c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
+ {id:'labLvl',s:6,n:'Niveau de laboratoire', labLvl:true,
+             c:{fusee:14},  g:1.25},                    // 14×1,25^(L-1), plafonné par l'énergie
  {id:'navette',s:6,n:'Cadence orbitale',    boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
- {id:'fleet_s6', s:6, n:'Fusée-navette supplémentaire', fleet:6, maxCount:4,
-             c:{fusee:800,science:1280}, g:4.8},
- {id:'spd_s6',   s:6, n:'Vitesse — fusée-navette', spdUp:6,
-             c:{fusee:1500}, g:1.15},
- {id:'cap_s6',   s:6, n:'Capacité — fusée-navette', capUp:6,
-             c:{science:1500}, g:1.20},
- {id:'xfer_s6',  s:6, n:'Débit — fusée-navette', xferUp:6,
-             c:{fusee:1950,science:750}, g:1.15},
  // --- 7 colonisation
  {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{science:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
@@ -520,7 +527,7 @@ const UP=[
  {id:'u6a',s:6,n:'Métallurgie orbitale',d:'Fonderie et usine ×5.', c:{science:700},                  e:{stage:{2:5,3:5}}},
  {id:'u6b',s:6,n:'Extraction téléopérée',d:'Extraction ×10.', c:{science:2100},                       e:{stage:{1:10}}},
  {id:'u6c',s:6,n:'Logistique prédictive',d:'National et international ×4.', c:{science:8750},        e:{stage:{4:4,5:4}}},
- {id:'u6d',s:6,n:'Assemblage en apesanteur',d:'Stations orbitales ×3.', c:{science:42000},           e:{mult:{station:3}}},
+ {id:'u6d',s:6,n:'Assemblage en apesanteur',d:'Laboratoires ×3.', c:{science:42000},                 e:{mult:{lab:3}}},
  {id:'u6e',s:6,n:'Théorie unifiée',   d:'Production globale ×2.', c:{science:280000},                 e:{global:2}},
  {id:'u6f',s:6,n:'Fabrique auto-réplicante',d:'Production globale ×3.', c:{science:7e6,fusee:1750},   e:{global:3}},
  // 7
@@ -552,8 +559,10 @@ const CLICKABLE=[
    de la position (arc chargé → décharge → arc à vide → chargement).
    Vitesse partagée par flotte. Un véhicule ralentit s'il rattrape celui devant.
    ========================================================================== */
-const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',6:'fleet_s6',7:'fleet_s7',8:'fleet_s8'};  // flotte de l'étape (achat dédié, plafonné)
+const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',7:'fleet_s7',8:'fleet_s8'};  // flotte de l'étape (achat dédié, plafonné) — pas d'étape 6, plus de transport côté labo
 const FLEET_MAX=30;
+const BUF_SEC=12;        // tampon de base = 12 s de consommation de l'étape
+const STORE_STEP=1.15;   // gain par niveau d'entrepôt (seul levier sur le tampon)
 const LOAD_TIMEOUT=5;     // s avant départ partiel forcé (chargement uniquement)
 const LOAD_WARN=4;        // s avant que la jauge du véhicule se mette à clignoter                                               // plafond de sprites simulés
 const PRODSTAGE={};
@@ -629,7 +638,10 @@ function tickPaths(dt){
     const capBase=dem>0?Math.max(1,dem*1.3/(NREF*p.baseSpeed)):1;
     const cap=capBase*Math.pow(1.10,state.cnt['cap_s'+p.dest]||0);   // capacité : croissance ralentie (x1.10)             // capacité/véhicule — dédiée
     const xfer=Math.max(.25,capBase/3)*Math.pow(1.15,state.cnt['xfer_s'+p.dest]||0); // débit charge+décharge — dédié, synchronisé sur capacité
-    const bufMax=Math.max(1,cap*N*2)*Math.pow(1.3,state.cnt['store_'+p.id]||0); // entrepôt : capacité de tampon
+    // Tampon : dimensionné sur la CONSOMMATION de l'étape (BUF_SEC secondes de demande).
+    // Strictement découplé de la capacité des véhicules et de la taille de flotte :
+    // seul l'entrepôt le fait grandir.
+    const bufMax=Math.max(1,dem*BUF_SEC)*Math.pow(STORE_STEP,state.cnt['store_'+p.id]||0);
     p.dem=dem; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
     // boucle mise en pause par le joueur : rien ne bouge, rien ne se transfère
@@ -683,47 +695,60 @@ let pathTaken={}, pathAcc=0;
 const PATH_TICK=0.1;   // pas de simulation des boucles (10 Hz)
 
 /* ==========================================================================
-   ÉLECTRICITÉ + SPHÈRE DE DYSON
-   L'électricité n'alimente QUE les stations de recherche. Ressource de débit
-   pur : aucun buffer, aucun stock, aucun transport. Déficit = ralentissement
-   proportionnel (seule exception à la règle tout-ou-rien) ; le vrai garde-fou
-   reste le bouton d'achat de station grisé.
+   ÉNERGIE — POOL GLOBAL PAR NIVEAU DE LABORATOIRE
+   L'énergie ne limite plus le NOMBRE de laboratoires mais leur NIVEAU, commun
+   à tous. Chaque labo embarque des panneaux fixes dimensionnés pour couvrir
+   exactement la conso du niveau 10, sans marge : aller en largeur ne déplace
+   donc jamais le plafond, seule la sphère de Dyson le relève.
    ========================================================================== */
-const POWER_TIERS=[1,2,3,5,7,10,14];   // stations alimentées : solaire seul, puis Dyson 1..6
+const C0=1;                       // conso d'un labo au niveau 1, en MW (unité normalisée)
+const LAB_CONSO_STEP=1.20;        // conso(L) = C0 × 1.20^(L-1)
+const LAB_SCI_STEP=1.18;          // science(L) = 1.18^(L-1) — croît MOINS vite que la conso
+const SOLAR_PER_LAB=C0*Math.pow(LAB_CONSO_STEP,9);   // = conso du niveau 10, fixe
 const DYSON=[
-  {id:'D1',sci:140,   cost:900,    floor:8*60,  stage:6},
-  {id:'D2',sci:410,   cost:4000,   floor:10*60, stage:7},
-  {id:'D3',sci:1170,  cost:12000,  floor:12*60, stage:7},
-  {id:'D4',sci:10700, cost:38000,  floor:14*60, stage:8},
-  {id:'D5',sci:29650, cost:105000, floor:16*60, stage:8},
-  {id:'D6',sci:79000, cost:280000, floor:20*60, stage:8},
+  {id:'D1',sci:745,     cost:1500,   floor:14*60, mw:6,     stage:6},
+  {id:'D2',sci:14500,   cost:4000,   floor:10*60, mw:100,   stage:7},
+  {id:'D3',sci:41500,   cost:12000,  floor:12*60, mw:525,   stage:7},
+  {id:'D4',sci:3730000, cost:38000,  floor:14*60, mw:1900,  stage:8},
+  {id:'D5',sci:10300000,cost:105000, floor:16*60, mw:5950,  stage:8},
+  {id:'D6',sci:27500000,cost:280000, floor:20*60, mw:33500, stage:8},
 ];
-/* coût de la Nième station de recherche, en production d'étape 5 (n=2..14) */
-const STATION_COST=[0,0,600,930,1440,2230,3460,5370,8320,12900,20000,31000,48000,74400,115400];
-const STAGE5_RES='fusee';
-const STATION_SCALE=1;   // échelle réelle vs unités normalisées de la sim              // monnaie de production de l'étape 5
+const STAGE5_RES='fusee';         // monnaie de production de l'étape 5
+const STATION_SCALE=1;            // échelle réelle vs unités normalisées de la sim
 
 function dysonDone(){ return DYSON.filter(d=>state.dyson[d.id]&&state.dyson[d.id].done).length; }
-function powerCap(){ return POWER_TIERS[Math.min(POWER_TIERS.length-1,dysonDone())]; }
-function stationsOwned(){ return state.cnt.station||0; }
-/* MW : 1 station consomme 1 palier de puissance. Affichage en MW pour la jauge. */
-const MW_PER=200/14;
-function powerUse(){ return stationsOwned()*MW_PER; }
-function powerAvail(){ return powerCap()*MW_PER; }
-/* ratio d'alimentation : 1 si assez de puissance, sinon proportionnel */
-function powerRatio(){ const u=powerUse(); return u<=0?1:Math.min(1,powerAvail()/u); }
-function nextStationCost(){
-  const n=stationsOwned()+1;
-  if(n<2)return 0;
-  return STATION_COST[Math.min(n,STATION_COST.length-1)]*STATION_SCALE;
+function dysonMW(){ return DYSON.reduce((a,d)=>a+((state.dyson[d.id]&&state.dyson[d.id].done)?d.mw:0),0); }
+
+/* un labo est offert dès l'arrivée en étape 6 */
+function labCount(){ return state.stage>=6 ? 1+(state.cnt.lab||0) : 0; }
+function labLevel(){ return 1+(state.cnt.labLvl||0); }
+function labConso(L){ return C0*Math.pow(LAB_CONSO_STEP,(L===undefined?labLevel():L)-1); }
+function labSci(L){   return Math.pow(LAB_SCI_STEP,(L===undefined?labLevel():L)-1); }
+
+function powerProd(){ return labCount()*SOLAR_PER_LAB + dysonMW(); }
+function powerUse(){  return labCount()*labConso(); }
+/* la jauge affiche le SURPLUS restant après consommation, pas la production brute */
+function powerFree(){ return powerProd()-powerUse(); }
+/* plafond de niveau : le plus haut L dont la conso totale tient dans la production.
+   Indépendant du nombre de labos, puisque production et conso sont toutes deux
+   proportionnelles à ce nombre — sauf l'apport Dyson, qui lui est global. */
+function levelCap(){
+  const n=labCount()||1;
+  let L=1;
+  while(L<200 && n*labConso(L+1) <= n*SOLAR_PER_LAB+dysonMW()+1e-9) L++;
+  return L;
 }
-function canBuyStation(){
-  const n=stationsOwned()+1;
-  if(n>14)return {ok:false,why:'maximum de 14 stations atteint'};
-  if(n>powerCap())return {ok:false,why:'puissance insuffisante — requiert '+(n<=1?'le socle solaire':'Dyson '+(POWER_TIERS.findIndex(t=>t>=n)))};
-  if((state.res[STAGE5_RES]||0)<nextStationCost())return {ok:false,why:'production d\'étape 5 insuffisante'};
+function canLevelUp(){
+  if(labLevel()>=levelCap()){
+    const need=DYSON.find(d=>!(state.dyson[d.id]&&state.dyson[d.id].done));
+    return {ok:false,why:'énergie insuffisante — requiert '+(need?'le segment '+need.id:'un nouveau segment Dyson')};
+  }
+  if((state.res[STAGE5_RES]||0)<labLevelCost())return {ok:false,why:'production d\'étape 5 insuffisante'};
   return {ok:true};
 }
+/* coûts, payés en production d'étape 5 : sépare l'économie recherche de l'infra */
+function labLevelCost(){ return 14*Math.pow(1.25,labLevel()-1)*STATION_SCALE; }
+function nextLabCost(){ const n=labCount()+1; return 600*Math.pow(1.55,n-2)*STATION_SCALE; }
 
 /* ==========================================================================
    ARBRE DE RECHERCHE (étape 6) — dépensable, sans respec, complétable.
@@ -732,29 +757,29 @@ function canBuyStation(){
    ========================================================================== */
 const RTREE=[
   // --- épine dorsale : bloquante, linéaire ---
-  {id:'B1',br:'spine',n:'Vaisseaux rudimentaires', sci:460,   req:null, d:'Ouvre la construction de vaisseaux coloniaux.'},
-  {id:'B2',br:'spine',n:'Colonisation',            sci:1010,  req:'B1', d:'JALON — débloque l\'étape 7.', milestone:7},
-  {id:'B3',br:'spine',n:'Voyage interstellaire',   sci:4100,  req:'B2', d:'Ouvre la portée interstellaire.'},
-  {id:'B4',br:'spine',n:'Vaisseaux avancés',       sci:9400,  req:'B3', d:'Coques capables de distorsion.'},
-  {id:'B5',br:'spine',n:'Colonisation avancée',    sci:22300, req:'B4', d:'JALON — débloque l\'étape 8.', milestone:8},
+  {id:'B1',br:'spine',n:'Vaisseaux rudimentaires', sci:2480,  req:null, d:'Ouvre la construction de vaisseaux coloniaux.'},
+  {id:'B2',br:'spine',n:'Colonisation',            sci:5460,  req:'B1', d:'JALON — débloque l\'étape 7.', milestone:7},
+  {id:'B3',br:'spine',n:'Voyage interstellaire',   sci:145000,req:'B2', d:'Ouvre la portée interstellaire.'},
+  {id:'B4',br:'spine',n:'Vaisseaux avancés',       sci:332000,req:'B3', d:'Coques capables de distorsion.'},
+  {id:'B5',br:'spine',n:'Colonisation avancée',    sci:788000,req:'B4', d:'JALON — débloque l\'étape 8.', milestone:8},
   // --- chantiers Dyson : un noeud ouvre chaque segment ---
-  {id:'ND1',br:'spatial',n:'Chantier Dyson 1',sci:140,   req:null, dyson:'D1', d:'Ouvre le premier segment de la sphère.'},
-  {id:'ND2',br:'spatial',n:'Chantier Dyson 2',sci:410,   req:'ND1',dyson:'D2', d:'Deuxième segment.'},
-  {id:'ND3',br:'spatial',n:'Chantier Dyson 3',sci:1170,  req:'ND2',dyson:'D3', d:'Troisième segment.'},
-  {id:'ND4',br:'spatial',n:'Chantier Dyson 4',sci:10700, req:'ND3',dyson:'D4', d:'Quatrième segment.'},
-  {id:'ND5',br:'spatial',n:'Chantier Dyson 5',sci:29650, req:'ND4',dyson:'D5', d:'Cinquième segment.'},
-  {id:'ND6',br:'spatial',n:'Chantier Dyson 6',sci:79000, req:'ND5',dyson:'D6', d:'Dernier segment.'},
+  {id:'ND1',br:'spatial',n:'Chantier Dyson 1',sci:745,     req:null, dyson:'D1', d:'Ouvre le premier segment de la sphère.'},
+  {id:'ND2',br:'spatial',n:'Chantier Dyson 2',sci:14500,   req:'ND1',dyson:'D2', d:'Deuxième segment.'},
+  {id:'ND3',br:'spatial',n:'Chantier Dyson 3',sci:41500,   req:'ND2',dyson:'D3', d:'Troisième segment.'},
+  {id:'ND4',br:'spatial',n:'Chantier Dyson 4',sci:3730000, req:'ND3',dyson:'D4', d:'Quatrième segment.'},
+  {id:'ND5',br:'spatial',n:'Chantier Dyson 5',sci:10300000,req:'ND4',dyson:'D5', d:'Cinquième segment.'},
+  {id:'ND6',br:'spatial',n:'Chantier Dyson 6',sci:27500000,req:'ND5',dyson:'D6', d:'Dernier segment.'},
   // --- branches optionnelles : multiplicateurs ---
   {id:'E1',br:'extraction',n:'Forage téléopéré',   sci:220, req:null, e:{stage:{1:3}},        d:'Extraction ×3.'},
   {id:'E2',br:'extraction',n:'Veines profondes',   sci:900, req:'E1', e:{stage:{1:4}},        d:'Extraction ×4.'},
   {id:'I1',br:'industrie', n:'Métallurgie orbitale',sci:260,req:null, e:{stage:{2:3,3:3}},    d:'Fonderie et usine ×3.'},
   {id:'I2',br:'industrie', n:'Cadence prédictive', sci:1100,req:'I1', e:{stage:{4:3,5:3}},    d:'National et international ×3.'},
   {id:'I3',br:'industrie', n:'Standardisation totale',sci:5200,req:'I2',e:{global:2},         d:'Production globale ×2.'},
-  {id:'S1',br:'spatial',   n:'Assemblage en apesanteur',sci:300,req:null,e:{mult:{station:2}},d:'Stations de recherche ×2.'},
+  {id:'S1',br:'spatial',   n:'Assemblage en apesanteur',sci:300,req:null,e:{mult:{lab:2}},d:'Laboratoires ×2.'},
   {id:'S2',br:'spatial',   n:'Théorie unifiée',    sci:2400,req:'S1', e:{global:2},           d:'Production globale ×2.'},
   // --- répétables en bout de branche ---
-  {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:240,req:'S2',rep:true,repMult:1.62,e:{mult:{station:1.22}},d:'+22 % de science par niveau.'},
-  {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:200,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
+  {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:220,req:'S2',rep:true,repMult:1.62,e:{mult:{lab:1.22}},d:'+22 % de science par niveau.'},
+  {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:260,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
 ];
 const RBY={}; RTREE.forEach(r=>RBY[r.id]=r);
 const RBRANCH={spine:'Épine dorsale',extraction:'Extraction',industrie:'Industrie',spatial:'Spatial'};
@@ -790,7 +815,10 @@ function pipeStats(){
   const pump=5*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
   const spd =1*Math.pow(1.15,state.cnt.pipe_speed||0);    // réduit la latence
   const vol =40*Math.pow(1.10,state.cnt.pipe_vol||0);     // volume en transit
-  const bufMax=Math.max(1,vol*3)*Math.pow(1.3,state.cnt.store_pipe_petrole||0);
+  let dem=0;
+  for(const m of MACH){ if(m.s!==PIPE.dest||!m.in||!m.in[PIPE.res])continue;
+    dem+=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m); }
+  const bufMax=Math.max(1,dem*state.speed*BUF_SEC)*Math.pow(STORE_STEP,state.cnt.store_pipe_petrole||0);
   return {dia,pump,spd,vol,bufMax,rate:Math.min(dia,pump)};
 }
 function tickPipe(dt){
@@ -819,6 +847,46 @@ function tickPipe(dt){
 }
 
 /* ==========================================================================
+   POP-UPS DE PREMIÈRE VISITE — un par étape, déclenchés au premier passage
+   vers une étape jamais vue. Le drapeau est persistant en sauvegarde.
+   ========================================================================== */
+const POPS={
+ 1:{t:'PREMIER CONTACT',b:"Bienvenue sur ta première ligne de production. Trois ressources brutes t'attendent : Bois, Pierre, Métal. Clique sur un gisement pour l'extraire à la main. Chaque upgrade acheté rapproche l'extraction de l'automatisation totale.",
+    o:"Atteindre et maintenir 30 secondes un débit cible sur Bois, Pierre et Métal simultanément pour ouvrir la Fonderie."},
+ 2:{t:'MISE EN FONTE',b:"Le Minage nourrit désormais la Fonderie. Deux minecarts transportent le Fer et le Charbon extraits — améliore leur vitesse et leur capacité pour éviter la pénurie. Clique sur le four pour fondre l'Acier manuellement ; l'automatisation se débloque après quelques lingots produits.<br><br><b>Nouveauté : Duplication</b> — l'Acier peut être réinvesti dans les upgrades de Minage pour les rendre plus puissantes.",
+    o:"Maintenir 30 secondes un débit cible de Fer, Charbon et Acier pour ouvrir l'Usine. Franchir ce jalon booste aussi rétroactivement ta production de Minage."},
+ 3:{t:"CHAÎNE D'ASSEMBLAGE",b:"Bienvenue à l'Usine — ta première ligne entièrement automatique dès le départ. Des camions apportent l'Acier et le Bois. L'Usine les combine (25% Bois, 75% Acier) pour produire des Modules. Améliore la vitesse et la capacité des camions pour suivre la cadence. Les Modules alimentent la Duplication : ils boostent en retour le Minage et la Fonderie.",
+    o:"Maintenir 30 secondes un débit cible d'Acier, Bois et Modules pour ouvrir la Logistique nationale. Ce jalon booste rétroactivement Minage et Fonderie."},
+ 4:{t:'RÉSEAU FERROVIAIRE',b:"Le jeu change d'échelle : place au train, plus rapide et plus capacitaire que le camion. Les trains acheminent tes Modules vers des sites d'Assemblage, qui les combinent pour fabriquer des Moteurs. Deux nouveautés arrivent avec cette étape : le Pétrole (ressource brute) et le Plastique (transformé, via les Assembleurs).<br><br><b>Duplication d'usine</b> : une fois les premiers Moteurs produits, tu peux dupliquer ta ligne d'Usine et répartir la production entre les copies via un système de ratio.<br><br>⚠️ Cette étape est un palier de coût plus exigeant — le Prestige y devient nettement plus rentable, sans jamais être obligatoire.",
+    o:"Maintenir 30 secondes un débit cible sur Moteurs, Plastique et Pétrole pour ouvrir la Logistique internationale. Ce jalon booste rétroactivement les trois étapes précédentes."},
+ 5:{t:'FRET AÉRIEN',b:"Ton réseau devient mondial : les avions cargo prennent le relais des trains pour les flux longue distance. Avec les Moteurs en stock, tu peux maintenant construire des Fusées — première étape vers l'espace. Duplique tes Assembleurs pour multiplier la production de Moteurs, et améliore la cadence de fabrication des Fusées.",
+    o:"Maintenir 30 secondes un débit cible de Fusées (et des ressources qui les composent) pour lancer ta première Station spatiale et ouvrir la Production spatiale. Ce jalon booste rétroactivement toutes les étapes précédentes."},
+ 6:{t:'MISE EN ORBITE',b:"Ta première Station orbitale est opérationnelle. Elle ne produit plus de ressources classiques, mais de la Recherche — une monnaie transversale qui améliore toutes les étapes précédentes (Minage, Fonderie, Usine, Logistique) et débloque des technologies spatiales.<br><br><b>Changement de règles</b> : à partir d'ici, la progression n'est plus additive mais multiplicative. Chaque amélioration spatiale multiplie ta production globale plutôt que de l'augmenter d'une quantité fixe.<br><br><b>Changement des jalons</b> : les seuils de débit soutenu s'arrêtent ici. La suite de la progression passe par un arbre de recherche (Extraction / Industrie / Spatial) payé en Recherche.",
+    o:"Débloquer le nœud de recherche « Colonisation » (épine dorsale de l'arbre) pour ouvrir la Colonisation du système solaire."},
+ 7:{t:'NOUVEAU MONDE',b:"Le système solaire s'ouvre à la colonisation. 3 planètes sont à ta portée. Chaque planète colonisée double ta production totale — un effet cumulatif énorme comparé aux upgrades précédentes.<br><br>⚠️ Palier de coût renforcé : le Prestige devient ici un multiplicateur très rentable, toujours optionnel.",
+    o:"Coloniser les 3 planètes, puis débloquer le nœud de recherche « Colonisation avancée » (fin de l'épine dorsale de l'arbre) pour ouvrir l'Expansion galactique."},
+ 8:{t:'CARTE GALACTIQUE',b:"Dernière étape : la galaxie entière s'étend devant toi, soit 100 000 systèmes à coloniser. Chaque système conquis ajoute +3 au multiplicateur de production de tes planètes. Améliore ta vitesse de colonisation pour accélérer la conquête.",
+    o:"Prendre le contrôle de la galaxie. Fin de la partie — mais le compteur, lui, ne s'arrête jamais vraiment."},
+};
+let popQueue=[], popOpen=false;
+function queuePop(stage){
+  if(!POPS[stage]||state.pop[stage])return;
+  state.pop[stage]=true; popQueue.push(stage); showNextPop();
+}
+function showNextPop(){
+  if(popOpen||!popQueue.length)return;
+  const st=popQueue.shift(), P=POPS[st]; popOpen=true;
+  const o=document.createElement('div'); o.className='overlay pop';
+  o.innerHTML='<div class="box">'+
+    '<div class="pst">Étape '+st+' — '+STAGES[st-1].nom+'</div>'+
+    '<h2>'+P.t+'</h2><p>'+P.b+'</p>'+
+    '<div class="pobj"><span>Objectif</span>'+P.o+'</div>'+
+    '<button class="go" id="popOk">Compris</button></div>';
+  document.body.appendChild(o);
+  o.querySelector('#popOk').onclick=()=>{ o.remove(); popOpen=false; showNextPop(); };
+}
+
+/* ==========================================================================
    3. ÉTAT
    ========================================================================== */
 let state, M={}, U={};
@@ -828,7 +896,7 @@ function freshState(brevets=0,valeurTot=0){
   const res={}; for(const k in RES) res[k]=0;
   return {
     res, cnt:{}, ups:{}, planets:{}, systemes:0,
-    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pipe:{prime:0,flow:0,jam:false,starved:false},
+    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pop:{}, pipe:{prime:0,flow:0,jam:false,starved:false},
     stage:1, tab:1, seen:{1:true},
     click:1, auto:0,
     valeur:0, valeurTot, brevets,
@@ -885,9 +953,10 @@ function afford(c){ for(const k in c) if((state.res[k]||0)<c[k]) return false; r
 function pay(c){ for(const k in c) state.res[k]-=c[k]; }
 function bulkCost(m,q){ const n=state.cnt[m.id]||0,o={};
   for(const k in m.c){ const b=m.c[k]*Math.pow(m.g,n); o[k]= m.g===1? b*q : b*(Math.pow(m.g,q)-1)/(m.g-1); } return o; }
-function stationCap(){ return state.stage<7 ? 1 : Math.min(14,powerCap()); }
+/* le niveau est plafonné par l'énergie disponible ; le nombre de labos ne l'est pas */
+function levelRoom(){ return Math.max(0,levelCap()-labLevel()); }
 function remainingCap(m){
-  if(m.station) return Math.max(0,stationCap()-(state.cnt[m.id]||0));
+  if(m.labLvl) return levelRoom();
   return m.maxCount===undefined?Infinity:Math.max(0,m.maxCount-(state.cnt[m.id]||0));
 }
 function maxBuy(m){
@@ -926,14 +995,16 @@ function tick(dt){
   for(const k in pathTaken) add(cons,k,pathTaken[k]);
 
   for(const m of MACH){
-    const n=state.cnt[m.id]||0;
-    if(!n||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp){m.eff=1;continue;}
+    let n=state.cnt[m.id]||0;
+    if(m.labLvl||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp){m.eff=1;continue;}
+    if(m.lab) n=labCount();                            // 1 laboratoire offert dès l'étape 6
+    if(!n){m.eff=1;continue;}
     if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
       m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
-    // station de recherche : déficit électrique = ralentissement proportionnel
-    const pw = (m.id==='station') ? powerRatio() : 1;
-    if(pw<1&&m.id==='station') m.miss='__power__';
-    let cyc=n*(m.r||0)*dt*mMult(m)*pw;
+    // le niveau de laboratoire multiplie la science produite par chaque labo.
+    // Aucun ralentissement électrique : l'énergie plafonne le niveau, elle ne bride pas le débit.
+    const lv = m.lab ? labSci() : 1;
+    let cyc=n*(m.r||0)*dt*mMult(m)*lv;
     if(m.colon){
       const gain=n*m.colon*dt*cache.colon;
       state.systemes=Math.min(100000,state.systemes+gain);
@@ -1009,6 +1080,7 @@ function checkUnlocks(){
   while(state.stage<8&&unlockOK(state.stage+1)){
     state.stage++; structuralDirty=true;
     toast('Étape débloquée : '+STAGES[state.stage-1].nom);
+    queuePop(state.stage);
     if(state.stage===6)setTimeout(()=>toast('Progression désormais par recherche'),2800);
     if(state.stage===7)setTimeout(()=>toast('Stations de recherche désormais duplicables'),2800);
   }
@@ -1030,7 +1102,7 @@ function tickDyson(dt){
     st.starved = q<want-1e-9;
     if(st.paid>=(d.cost*STATION_SCALE)-1e-6){
       st.done=true; st.running=false; structuralDirty=true;
-      toast('Segment '+d.id+' achevé — '+powerCap()+' stations alimentables');
+      toast('Segment '+d.id+' achevé — +'+fmt(d.mw)+' MW, niveau max '+levelCap());
     }
   }
 }
@@ -1054,11 +1126,14 @@ function brevetsGain(){
 }
 const PRESTIGE_STAGE=3;                       // restructuration disponible dès l'Usine
 function prestigeReady(){ return state.stage>=PRESTIGE_STAGE && brevetsGain()>=1; }
+/* window.confirm est bloqué dans certaines iframes et sur mobile : on considère
+   l'absence de réponse comme un accord explicite déjà donné par le second clic */
+function ask(msg){ try{ const r=window.confirm(msg); return r===undefined?true:!!r; }catch(e){ return true; } }
 function doPrestige(){
   const g=brevetsGain();
   if(state.stage<PRESTIGE_STAGE){toast('Restructuration disponible à partir de l\'usine');return;}
   if(g<1){toast('Pas encore assez de valeur produite');return;}
-  if(!confirm('Restructurer ?\n\nTu perds ressources, machines et améliorations.\nTu gardes '+(state.brevets+g)+' brevets (+6 % de production globale chacun).'))return;
+  if(!ask('Restructurer ?\n\nTu perds ressources, machines et améliorations.\nTu gardes '+(state.brevets+g)+' brevets (+6 % de production globale chacun).'))return;
   const nb=state.brevets+g, vt=state.valeurTot+state.valeur;
   const sp=state.speed;
   state=freshState(nb,vt); state.speed=sp;
@@ -1135,7 +1210,7 @@ function milestonePanel(next){
   return '<div class="ms"><div class="msh">Jalon étape '+next+' — tenir tous les seuils 30 s</div>'+rows+'</div>';
 }
 
-/* -- boîte noire : entrées/sorties agrégées de l'étape -- */
+/* -- bloc d'étape : entrées/sorties agrégées -- */
 function blackBox(s){
   const ins={},outs={};
   MACH.filter(m=>m.s===s).forEach(m=>{
@@ -1146,19 +1221,27 @@ function blackBox(s){
     '<span class="flow">'+RES[k].i+' <b data-bb="'+k+'">0</b>/s</span>').join(''):'<span class="flow" style="opacity:.5">— aucun —</span>')+'</div>';
   const st=STAGES[s-1];
   return '<div class="bb">'+side(ins,'in')+
-    '<div class="core">'+st.code+'<small>boîte noire · étape '+s+'</small></div>'+
+    '<div class="core">'+st.code+'<small>bloc · étape '+s+'</small></div>'+
     side(outs,'out')+'</div>';
 }
 
 function machRow(m){
-  const n=state.cnt[m.id]||0;
+  const n=m.lab?labCount():(m.labLvl?labLevel():(state.cnt[m.id]||0));
   let io='';
   if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n));
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n)+' système/s au total · '+m.colon+' par unité';
   else if(m.store){ const path=PATHBYID[m.store];
-    io='<em>Entrepôt</em> : capacité du tampon ×1,3 par unité — actuellement ×'+fmt(Math.pow(1.3,n))+
+    io='<em>Entrepôt</em> : capacité du tampon ×1,15 par unité — actuellement ×'+fmt(Math.pow(STORE_STEP,n))+
        (path?'<br>tampon actuel : '+fmt(state.buf[m.store]||0)+' / '+fmt(path.bufMax||0):''); }
+  else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' en service (1 offert à l\'arrivée). '+
+     'Chaque labo produit '+fmt(labSci())+'× la science de base au niveau '+labLevel()+
+     '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW · conso actuelle '+fmt(labConso())+' MW';
+  else if(m.labLvl){ const cap=levelCap(), L=labLevel();
+    io='<em>Niveau '+L+' / '+cap+'</em> — commun à tous les laboratoires.'+
+       '<br>Science ×'+fmt(LAB_SCI_STEP)+' par niveau, conso ×'+fmt(LAB_CONSO_STEP)+' par niveau : '+
+       'la facture énergétique monte plus vite que le gain.'+
+       '<br>Prochain niveau : conso '+fmt(labConso(L+1))+' MW par labo'; }
   else if(m.pipeUp){ const st=pipeStats();
     io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia)+'/s',
        pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s',
@@ -1173,18 +1256,17 @@ function machRow(m){
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+m.r+' cycle/s'+
        (n?' · palier ×'+fmt(Math.pow(2,Math.floor(n/MILESTONE)))+' (prochain à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')':'');
   }
-  const capped=m.maxCount!==undefined||m.station, room=remainingCap(m), maxed=capped&&room<=0;
+  const capped=m.maxCount!==undefined||m.labLvl, room=remainingCap(m), maxed=capped&&room<=0;
   const q=maxed?0:(state.buyMode==='max'?Math.max(1,maxBuy(m)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
   const eff=Math.round((m.effDisp===undefined?1:m.effDisp)*100);
-  const bar=(!m.boost&&!m.global&&!m.colon&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
+  const bar=(!m.boost&&!m.global&&!m.colon&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.labLvl&&!m.pipeUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
-  const stationWhy = m.station ? (state.stage<7
-        ? '■ station unique — duplicable à partir de la Colonisation'
-        : '■ puissance insuffisante — requiert Dyson '+(POWER_TIERS.findIndex(t=>t>n)>=0?POWER_TIERS.findIndex(t=>t>n):6)) : '';
-  const buyBtn=maxed?'<div class="maxed">'+(m.station?stationWhy:'■ flotte au maximum ('+n+'/'+(1+m.maxCount)+')')+'</div>':
+  const lvlWhy = m.labLvl ? (canLevelUp().why||'') : '';
+  const buyBtn=maxed?'<div class="maxed" style="color:#c5533f;border-color:#5a2c22;background:#1a0f0c">'+
+      (m.labLvl?'⚡ '+lvlWhy:'■ flotte au maximum ('+n+'/'+(1+m.maxCount)+')')+'</div>':
     '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
       '<span>Acheter ×'+q+'</span><span class="px">'+px+'</span></button>';
   return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
@@ -1441,15 +1523,20 @@ function drawPipe(){
   x.textAlign='right'; x.fillText('RAFFINERIE',W-4,y+3);
 }
 function powerPanel(){
-  const use=powerUse(), av=powerAvail(), f=av>0?Math.min(1,use/av):0;
-  const deficit=use>av+1e-9;
-  return '<div class="sec">Électricité<span class="hint">alimente uniquement les stations de recherche · débit pur, ni stock ni transport</span></div>'+
-    '<div class="ms"><div class="msr"><span class="msn">Puissance</span>'+
-    '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(deficit?'#c5533f':'#5fb87a')+'"></i></span>'+
-    '<span class="msv'+(deficit?'':' ok')+'">'+fmt(use)+' / '+fmt(av)+' MW</span></div>'+
-    '<div class="msr" style="color:#7f97ad">Socle solaire fixe : 1 station. '+
-    (dysonDone()?'Dyson '+dysonDone()+' : '+powerCap()+' stations alimentables.':'Aucun segment Dyson achevé.')+
-    (deficit?' <span style="color:#c5533f">Déficit — stations ralenties proportionnellement.</span>':'')+
+  const prod=powerProd(), use=powerUse(), free=powerFree();
+  const f=prod>0?Math.max(0,Math.min(1,free/prod)):0;
+  const cap=levelCap(), L=labLevel(), blocked=L>=cap;
+  const need=DYSON.find(d=>!(state.dyson[d.id]&&state.dyson[d.id].done));
+  return '<div class="sec">Énergie<span class="hint">pool global · la jauge affiche le surplus disponible pour monter en niveau</span></div>'+
+    '<div class="ms"><div class="msr"><span class="msn">Surplus</span>'+
+    '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(blocked?'#c5533f':'#5fb87a')+'"></i></span>'+
+    '<span class="msv'+(blocked?'':' ok')+'">'+fmt(free)+' / '+fmt(prod)+' MW</span></div>'+
+    '<div class="msr" style="color:#7f97ad">'+labCount()+' laboratoire'+(labCount()>1?'s':'')+
+      ' · niveau '+L+' / '+cap+' · conso '+fmt(labConso())+' MW par labo'+
+      '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW par labo (fixe, couvre exactement le niveau 10). '+
+      (dysonDone()? 'Dyson : +'+fmt(dysonMW())+' MW au pool.' : 'Aucun segment Dyson achevé.')+
+      (blocked?'<br><span style="color:#c5533f">⚡ Plafond de niveau atteint'+
+        (need?' — requiert le segment '+need.id:'')+'. Construire en largeur ne le déplacera pas.</span>':'')+
     '</div></div>';
 }
 function dysonPanel(stage){
@@ -1543,7 +1630,7 @@ function render(){
 
   if(s===4){ h+=pipePanel(); }
   if(s>=6){ h+=powerPanel(); }
-  if(s===6){ h+=researchPanel(); }
+  if(s>=6){ h+=researchPanel(); }   // B3-B5 sont des noeuds d'étape 7 : l'arbre reste accessible
   h+=dysonPanel(s);
 
   const ps=PATHS.filter(x=>x.dest===s);
@@ -1651,7 +1738,6 @@ function paint(){
   document.querySelectorAll('[data-w]').forEach(el=>{ const m=M[el.dataset.w];
     if(!m.miss||!(state.cnt[m.id]||0)){el.textContent='';return;}
     if(m.miss==='__off__'){ el.textContent='⏸ production coupée par le joueur'; return; }
-    if(m.miss==='__power__'){ el.textContent='⚡ déficit électrique — '+Math.round(powerRatio()*100)+' % de régime'; return; }
     const pa=pathFor(m.s,m.miss);
     el.textContent='⚠ '+(pa?'tampon '+RES[m.miss].n.toLowerCase()+' vide — '+(pa.jamIn?'rien à charger en amont':'transport en retard')
                           :'manque de '+RES[m.miss].n.toLowerCase()); });
@@ -1675,17 +1761,19 @@ function paint(){
 /* fonctionne dans l'app Claude (window.storage), en fichier local (localStorage),
    et à défaut en mémoire pour la session en cours */
 const STORE=(()=>{
+  const KEY='if:save', OLDKEY='bn:save';   // reprise transparente des anciennes sauvegardes
   let mem=null, hasWS=false, hasLS=false;
   try{ hasWS=!!(window.storage&&window.storage.get); }catch(e){}
-  try{ localStorage.setItem('__bn','1'); localStorage.removeItem('__bn'); hasLS=true; }catch(e){}
+  try{ localStorage.setItem('__if','1'); localStorage.removeItem('__if'); hasLS=true; }catch(e){}
   return {
     label: hasWS?'dans l\'application':hasLS?'dans ce navigateur':'pour cette session seulement',
-    async get(){ if(hasWS){try{const r=await window.storage.get('bn:save');return r?r.value:null}catch(e){}}
-                 if(hasLS){try{return localStorage.getItem('bn:save')}catch(e){}} return mem; },
-    async set(v){ if(hasWS){try{await window.storage.set('bn:save',v);return}catch(e){}}
-                  if(hasLS){try{localStorage.setItem('bn:save',v);return}catch(e){}} mem=v; },
-    async del(){ if(hasWS){try{await window.storage.delete('bn:save')}catch(e){}}
-                 if(hasLS){try{localStorage.removeItem('bn:save')}catch(e){}} mem=null; }
+    async get(){ if(hasWS){try{const r=await window.storage.get(KEY);if(r)return r.value}catch(e){}
+                            try{const o=await window.storage.get(OLDKEY);if(o)return o.value}catch(e){}}
+                 if(hasLS){try{return localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)}catch(e){}} return mem; },
+    async set(v){ if(hasWS){try{await window.storage.set(KEY,v);return}catch(e){}}
+                  if(hasLS){try{localStorage.setItem(KEY,v);return}catch(e){}} mem=v; },
+    async del(){ if(hasWS){try{await window.storage.delete(KEY)}catch(e){}}
+                 if(hasLS){try{localStorage.removeItem(KEY);localStorage.removeItem(OLDKEY)}catch(e){}} mem=null; }
   };
 })();
 let saveExists=false;
@@ -1695,7 +1783,7 @@ function restore(raw){
   const d=JSON.parse(raw);
   Object.assign(state,d.state);
   state.buf=state.buf||{}; state.veh=state.veh||{}; state.off=state.off||{}; state.speed=1;
-  state.dyson=state.dyson||{}; state.research=state.research||{}; state.hold=state.hold||{};
+  state.dyson=state.dyson||{}; state.research=state.research||{}; state.hold=state.hold||{}; state.pop=state.pop||{};
   state.pipe=state.pipe||{prime:0,flow:0,jam:false,starved:false};
   if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
@@ -1738,7 +1826,7 @@ $('devStage').onclick=()=>{ if(state.stage<8){ state.stage++; state.tab=state.st
 $('devAll').onclick=()=>{ state.stage=8; for(const k in unlockedClicks)unlockedClicks[k]=true;
   CLICKABLE.forEach(c=>unlockedClicks[c.r]=true);
   for(const k in RES)state.res[k]+=1e12; recompute(); structuralDirty=true; toast('Toutes les étapes ouvertes'); };
-$('devReset').onclick=()=>{ if(!confirm('Effacer la partie ?'))return; STORE.del(); state=freshState();
+$('devReset').onclick=()=>{ if(!ask('Effacer la partie ?'))return; STORE.del(); state=freshState();
   CLICKABLE.forEach(c=>{if(c.need)delete unlockedClicks[c.r]}); recompute(); structuralDirty=true; };
 
 /* ==========================================================================
@@ -1755,6 +1843,18 @@ function loop(now){
   if(painter>0.1){ painter=0; paint(); }
   requestAnimationFrame(loop);
 }
+function startSafe(raw){
+  try{ start(raw); }
+  catch(e){
+    $('intro').style.display='flex';
+    const box=$('intro').querySelector('.card');
+    if(box){ const d=document.createElement('div');
+      d.style.cssText='margin-top:14px;border:1px solid #5a2c22;background:#1a0f0c;color:#c5533f;padding:10px;font-size:11px;line-height:1.5';
+      d.textContent='Le démarrage a échoué : '+(e&&e.message?e.message:e);
+      box.appendChild(d); }
+    console.error(e);
+  }
+}
 function start(raw){
   $('intro').style.display='none'; running=true; last=performance.now();
   if(raw){
@@ -1763,6 +1863,7 @@ function start(raw){
     if(off&&off.gain>0)setTimeout(()=>toast('Hors ligne '+Math.round(off.sec/60)+' min · +'+fmt(off.gain)+' de valeur'),400);
   }
   recompute(); structuralDirty=true; render(); paint();
+  for(let st=1;st<=state.stage;st++) queuePop(st);   // rattrape les étapes déjà atteintes
   setInterval(save,10000);
   document.addEventListener('visibilitychange',()=>{ if(document.hidden)save(); });
   window.addEventListener('pagehide',save);
@@ -1775,8 +1876,20 @@ function start(raw){
   $('introStore').textContent=STORE.label;
   $('intro').style.display='flex';
   if(raw)$('introResume').style.display='block';
-  $('introNew').onclick=()=>{ if(raw&&!confirm('Démarrer une nouvelle partie ? La sauvegarde actuelle sera écrasée.'))return; start(null); };
-  $('introResume').onclick=()=>start(raw);
+  let armed=false;
+  const nb=$('introNew');
+  nb.onclick=()=>{
+    if(!raw||armed){ startSafe(null); return; }
+    armed=true;                                   // confirmation en page : pas de window.confirm
+    nb.textContent='Confirmer — effacer la sauvegarde';
+    nb.classList.add('danger');
+    $('introResume').textContent='Annuler, reprendre la partie';
+  };
+  $('introResume').onclick=()=>{
+    if(armed){ armed=false; nb.textContent='Commencer'; nb.classList.remove('danger');
+      $('introResume').textContent='Reprendre la partie'; return; }
+    startSafe(raw);
+  };
 })();
 </script>
 </body>
