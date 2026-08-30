@@ -833,14 +833,22 @@ function rBuy(id){
    ========================================================================== */
 const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
 function pipeStats(){
-  const dia =6*Math.pow(1.18,state.cnt.pipe_dia||0);      // débit max
-  const pump=5*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
-  const spd =1*Math.pow(1.15,state.cnt.pipe_speed||0);    // réduit la latence
-  const vol =40*Math.pow(1.10,state.cnt.pipe_vol||0);     // volume en transit
   let dem=0;
   for(const m of MACH){ if(m.s!==PIPE.dest||!m.in||!m.in[PIPE.res])continue;
     dem+=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m); }
-  const bufMax=Math.max(1,dem*state.speed*BUF_SEC)*Math.pow(STORE_STEP,state.cnt.store_pipe_petrole||0);
+  dem*=state.speed;                                         // cohérent avec les chemins véhicules
+  // débit et volume en transit dimensionnés sur la demande réelle (comme capBase pour les
+  // chemins véhicules), pas des constantes figées : sinon, dès que les multiplicateurs globaux
+  // (recherche, étape, prestige...) grossissent, la demande explose mais le débit du pipeline
+  // reste au niveau d'achat initial — la raffinerie finit toujours par manquer de pétrole,
+  // même avec un stock abondant. scale=1 quand dem≈4 (le point de calibration d'origine),
+  // donc le comportement en tout début de partie ne change pas.
+  const scale=dem>0?Math.max(1,dem/4):1;
+  const dia =6*scale*Math.pow(1.18,state.cnt.pipe_dia||0);      // débit max
+  const pump=5*scale*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
+  const spd =1*Math.pow(1.15,state.cnt.pipe_speed||0);          // réduit la latence
+  const vol =40*scale*Math.pow(1.10,state.cnt.pipe_vol||0);     // volume en transit
+  const bufMax=Math.max(1,dem*BUF_SEC)*Math.pow(STORE_STEP,state.cnt.store_pipe_petrole||0);
   return {dia,pump,spd,vol,bufMax,rate:Math.min(dia,pump)};
 }
 function tickPipe(dt){
