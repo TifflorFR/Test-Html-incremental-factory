@@ -990,53 +990,76 @@ function maxBuy(m){
    4. MOTEUR
    ========================================================================== */
 let flow={}, prodAvg={};
+// borne haute d'un pas de simulation ÉCONOMIQUE (oléoduc + machines). Nécessaire car la
+// règle "tout ou rien" exige que TOUT l'input d'un cycle soit déjà dans le tampon, et ce
+// tampon est dimensionné en secondes de conso réelle (BUF_SEC/pipe équivalent) — indépendant
+// du pas de simulation. Si dt dépasse cette taille (vitesse x2/x4, et SURTOUT le rattrapage
+// hors-ligne qui avance par pas de plusieurs dizaines de secondes), le besoin d'un seul gros
+// cycle dépasse mécaniquement ce que le tampon peut jamais contenir : la porte reste fermée
+// en permanence, quelle que soit la production réelle. Découper en sous-pas fixes élimine
+// l'artefact sans toucher aux boucles de véhicules (déjà cadencées en temps réel via PATH_TICK).
+const ECO_TICK=0.5;
 function tick(dt){
   dt*=state.speed;
   const prod={},cons={};
   const add=(o,k,q)=>o[k]=(o[k]||0)+q;
 
-  // clics automatiques
-  if(cache.auto>0){
-    const gain=cache.auto*dt*state.click*cache.click*cache.global*cache.stage[1];
-    CLICKABLE.forEach(cl=>{ if(clickUnlocked(cl)){ state.res[cl.r]+=gain; add(prod,cl.r,gain); state.valeur+=gain*RES[cl.r].v; } });
-  }
-
   pathTaken={};
-  // tick discret des deux côtés : logique et rendu avancent par pas fixes de 100 ms,
-  // les véhicules roulent en temps réel (l'accélération alourdit les chargements)
-  tickPipe(dt);
+  // véhicules : roulent en temps réel, indépendamment de la vitesse de jeu.
+  // Le nombre d'itérations est calculé (pas un compteur plafonné à 4) : un dt normal de
+  // jeu (<=0.25 s/frame) n'a de toute façon jamais besoin de plus de 2-3 pas de 100 ms, donc
+  // ça ne change rien en jeu ; mais le rattrapage hors-ligne appelle tick() avec des dt de
+  // plusieurs dizaines de secondes, et l'ancien plafond de 4 pas + reset de l'accumulateur
+  // jetait silencieusement tout le temps de trajet au-delà de 0,4 s à chaque appel — les
+  // véhicules n'avançaient presque plus et les tampons ne se réapprovisionnaient jamais.
   pathAcc+=dt/Math.max(1,state.speed);
-  let guard=0;
-  while(pathAcc>=PATH_TICK && guard++<4){ tickPaths(PATH_TICK); pathAcc-=PATH_TICK; }
-  if(pathAcc>PATH_TICK*4)pathAcc=0;
+  const SAFETY_MAX_ITERS=200000;      // garde-fou anti-boucle infinie, jamais atteint en pratique
+  let iters=Math.min(SAFETY_MAX_ITERS,Math.floor(pathAcc/PATH_TICK));
+  while(iters-->0){ tickPaths(PATH_TICK); pathAcc-=PATH_TICK; }
   for(const k in pathTaken) add(cons,k,pathTaken[k]);
 
-  for(const m of MACH){
-    let n=state.cnt[m.id]||0;
-    if(m.labLvl||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp){m.eff=1;continue;}
-    if(m.lab) n=labActive();                            // seuls les labos ACTIFS produisent
-    if(!n){m.eff=1;continue;}
-    if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
-      m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
-    // le niveau de laboratoire multiplie la science produite par chaque labo.
-    // Aucun ralentissement électrique : l'énergie plafonne le niveau, elle ne bride pas le débit.
-    const lv = m.lab ? labSci() : 1;
-    let cyc=n*(m.r||0)*dt*mMult(m)*lv;
-    if(m.colon){
-      const gain=n*m.colon*dt*cache.colon;
-      state.systemes=Math.min(100000,state.systemes+gain);
-      m.eff=1; m.flowc=gain/dt; continue;
+  // économie : sous-pas fixes (voir ECO_TICK) pour garder la porte "tout ou rien" cohérente
+  // avec la taille des tampons quel que soit le dt réel de cet appel.
+  let remaining=dt;
+  while(remaining>1e-9){
+    const step=Math.min(ECO_TICK,remaining);
+    remaining-=step;
+
+    // clics automatiques
+    if(cache.auto>0){
+      const gain=cache.auto*step*state.click*cache.click*cache.global*cache.stage[1];
+      CLICKABLE.forEach(cl=>{ if(clickUnlocked(cl)){ state.res[cl.r]+=gain; add(prod,cl.r,gain); state.valeur+=gain*RES[cl.r].v; } });
     }
-    if(m.in){
-      // tout ou rien : il faut TOUS les inputs en pleine quantité, sinon aucun n'est consommé
-      let ok=true, miss=null;
-      for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
-        if(poolGet(m.s,k)<need-1e-9){ ok=false; miss=miss||k; } }
-      if(!ok){ cyc=0; m.eff=0; m.miss=miss; } else { m.eff=1; m.miss=null; }
-      m.effDisp=(m.effDisp===undefined?m.eff:m.effDisp)*0.85+m.eff*0.15;   // lissage visuel seulement
-    } else { m.eff=1; m.miss=null; m.effDisp=1; }
-    if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
-    if(m.out)for(const k in m.out){ const q=m.out[k]*cyc; state.res[k]+=q; add(prod,k,q); state.valeur+=q*RES[k].v; }
+
+    tickPipe(step);
+
+    for(const m of MACH){
+      let n=state.cnt[m.id]||0;
+      if(m.labLvl||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp){m.eff=1;continue;}
+      if(m.lab) n=labActive();                            // seuls les labos ACTIFS produisent
+      if(!n){m.eff=1;continue;}
+      if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
+        m.effDisp=(m.effDisp===undefined?0:m.effDisp)*0.85; continue; }
+      // le niveau de laboratoire multiplie la science produite par chaque labo.
+      // Aucun ralentissement électrique : l'énergie plafonne le niveau, elle ne bride pas le débit.
+      const lv = m.lab ? labSci() : 1;
+      let cyc=n*(m.r||0)*step*mMult(m)*lv;
+      if(m.colon){
+        const gain=n*m.colon*step*cache.colon;
+        state.systemes=Math.min(100000,state.systemes+gain);
+        m.eff=1; m.flowc=gain/step; continue;
+      }
+      if(m.in){
+        // tout ou rien : il faut TOUS les inputs en pleine quantité, sinon aucun n'est consommé
+        let ok=true, miss=null;
+        for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
+          if(poolGet(m.s,k)<need-1e-9){ ok=false; miss=miss||k; } }
+        if(!ok){ cyc=0; m.eff=0; m.miss=miss; } else { m.eff=1; m.miss=null; }
+        m.effDisp=(m.effDisp===undefined?m.eff:m.effDisp)*0.85+m.eff*0.15;   // lissage visuel seulement
+      } else { m.eff=1; m.miss=null; m.effDisp=1; }
+      if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
+      if(m.out)for(const k in m.out){ const q=m.out[k]*cyc; state.res[k]+=q; add(prod,k,q); state.valeur+=q*RES[k].v; }
+    }
   }
   // débits lissés + moyenne glissante 10 s utilisée par les jalons
   const aw=Math.min(1,dt/AVG_WINDOW);
