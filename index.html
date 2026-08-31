@@ -20,6 +20,14 @@
 #pausedOverlay .pbox{border:1px solid #26405c;background:#0b1522;padding:22px 26px;text-align:center;max-width:340px}
 #pausedOverlay .pt{font-size:15px;letter-spacing:.22em;text-transform:uppercase;color:#d8a13c;margin-bottom:8px}
 #pausedOverlay .ps{font-size:12px;line-height:1.6;color:#8fa8bf}
+#rechercheOverlay{position:fixed;inset:0;z-index:180;display:none}
+#rechercheOverlay.open{display:block}
+#rechercheOverlay .rback{position:absolute;inset:0;background:rgba(7,13,22,.86);backdrop-filter:blur(2px)}
+#rechercheOverlay .rframe{position:absolute;inset:18px;max-width:1100px;margin:0 auto;
+  border:1px solid #26405c;background:#070d16;box-shadow:0 20px 60px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;overflow:hidden}
+#rechercheOverlay iframe{flex:1;width:100%;height:100%;border:0;background:#070d16}
+@media(max-width:640px){#rechercheOverlay .rframe{inset:8px}}
 #intro .card{max-width:440px;width:100%;border:1px solid #26405c;background:#0b1522;padding:26px 22px}
 #intro .t{font-size:26px;letter-spacing:.26em;color:#c9963f;margin-bottom:2px}
 #intro .t b{color:#e8703a;font-weight:600}
@@ -303,8 +311,9 @@ footer{
 <header>
   <div class="hd">
     <div class="logo">INCRÉMENTAL <b>FACTORY</b></div>
-    <div class="tag">salle de contrôle · v0 prototype</div>
+    <div class="tag">salle de contrôle · v<span id="hVer">0</span></div>
     <div class="spacer"></div>
+    <button class="mini" id="btnRecherche" style="display:none">recherche</button>
     <div class="mult">×<b id="hGlobal">1</b> global</div>
     <div class="mult">valeur <b id="hValeur">0</b></div>
     <div class="mult">brevets <b id="hBrevets">0</b></div>
@@ -312,6 +321,11 @@ footer{
   <div class="resbar" id="resbar"></div>
   <div class="belt" id="belt"></div>
 </header>
+
+<div id="rechercheOverlay">
+  <div class="rback"></div>
+  <div class="rframe"><iframe id="rechercheFrame" src="about:blank" title="Arbre de recherche"></iframe></div>
+</div>
 
 <div class="wrap">
   <nav id="tabs"></nav>
@@ -963,6 +977,11 @@ function freshState(brevets=0,valeurTot=0){
   };
 }
 state=freshState();
+
+/* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
+   MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
+   réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
+const GAME_VERSION='0.2.0';
 
 let cache={global:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1708,6 +1727,7 @@ function multStack(m){
 
 function render(){
   buildResbar(); buildTabs();
+  $('btnRecherche').style.display = state.stage>=6?'inline-block':'none';
   const s=state.tab, st=STAGES[s-1];
   let h='<div class="ptitle"><h2>'+st.nom+'</h2><span class="st">'+st.code+'</span></div>'+
         '<div class="desc">'+st.desc+'</div>'+blackBox(s);
@@ -1913,6 +1933,30 @@ async function load(){
 /* ==========================================================================
    8. CONTRÔLES
    ========================================================================== */
+/* Page Recherche — fichier séparé et autonome (recherche.html), affiché en iframe
+   par-dessus index.html, MÊME onglet. Les deux fichiers lisent/écrivent la même
+   sauvegarde (localStorage) : pour éviter toute course entre l'écriture faite par
+   l'iframe et l'autosave d'index.html, la boucle de jeu est totalement suspendue
+   pendant que l'overlay est ouvert (même mécanisme que la pause §1), et l'état est
+   relu depuis le stockage à la fermeture pour récupérer les achats faits côté iframe. */
+async function openResearch(){
+  await save();                      // l'iframe doit voir un état à jour dès l'ouverture
+  researchOpen=true; syncAwake();
+  const f=$('rechercheFrame'); f.src='recherche.html?_='+Date.now();
+  $('rechercheOverlay').classList.add('open');
+}
+async function closeResearch(){
+  researchOpen=false;
+  $('rechercheOverlay').classList.remove('open');
+  $('rechercheFrame').src='about:blank';
+  const raw=await STORE.get();
+  if(raw){ restore(raw); structuralDirty=true; render(); paint(); }
+  syncAwake();
+}
+$('btnRecherche').onclick=openResearch;
+document.querySelector('#rechercheOverlay .rback').onclick=closeResearch;
+window.addEventListener('message',e=>{ if(e.data&&e.data.type==='recherche:close')closeResearch(); });
+
 $('buyMode').onclick=()=>{ state.buyMode = state.buyMode===1?10:state.buyMode===10?'max':1;
   $('buyMode').textContent='achat ×'+state.buyMode; structuralDirty=true; };
 $('btnFmt').onclick=()=>{ numFmt = numFmt==='court'?'sci':numFmt==='sci'?'ing':'court';
@@ -1944,14 +1988,15 @@ let last=performance.now(), acc=0, painter=0;
 let running=false;
 const DT_MAX=0.25;                 // §1 — aucun tick ne dépasse 0,25 s
 let awake=true;                    // onglet visible ET fenêtre active
-function pageAwake(){ return !document.hidden && awake; }
+let researchOpen=false;            // overlay Recherche affiché : boucle suspendue, même logique que §1
+function pageAwake(){ return !document.hidden && awake && !researchOpen; }
 function setPaused(p){
   const el=$('pausedOverlay');
   if(el) el.style.display = p?'flex':'none';
 }
 function syncAwake(){
   const on=pageAwake();
-  setPaused(running&&!on);
+  setPaused(running&&!on&&!researchOpen);   // l'overlay Recherche a son propre visuel, pas "En pause"
   // au réveil : on repart du temps présent, donc aucun dt géant ne peut être accumulé
   if(on) last=performance.now();
 }
@@ -1991,6 +2036,7 @@ function start(raw){
 }
 (async()=>{
   recompute();
+  $('hVer').textContent=GAME_VERSION;
   document.querySelector('.spd[data-s="1"]').classList.add('on');
   requestAnimationFrame(loop);
   const raw=await load();
