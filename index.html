@@ -15,6 +15,11 @@
 #intro{position:fixed;inset:0;z-index:200;background:
   radial-gradient(700px 500px at 50% 0%,#16293f 0%,#070d16 65%);
   display:flex;align-items:center;justify-content:center;padding:22px}
+#pausedOverlay{position:fixed;inset:0;z-index:190;background:rgba(7,13,22,.82);
+  display:none;align-items:center;justify-content:center;padding:22px;backdrop-filter:blur(2px)}
+#pausedOverlay .pbox{border:1px solid #26405c;background:#0b1522;padding:22px 26px;text-align:center;max-width:340px}
+#pausedOverlay .pt{font-size:15px;letter-spacing:.22em;text-transform:uppercase;color:#d8a13c;margin-bottom:8px}
+#pausedOverlay .ps{font-size:12px;line-height:1.6;color:#8fa8bf}
 #intro .card{max-width:440px;width:100%;border:1px solid #26405c;background:#0b1522;padding:26px 22px}
 #intro .t{font-size:26px;letter-spacing:.26em;color:#c9963f;margin-bottom:2px}
 #intro .t b{color:#e8703a;font-weight:600}
@@ -288,6 +293,13 @@ footer{
   <div class="foot">Se joue hors ligne, tout tient dans ce fichier. La partie se sauvegarde toute seule&nbsp;: <span id="introStore">—</span>.<br>Le bouton « test » en bas accélère le jeu jusqu'à ×1000 pour voir toutes les étapes.</div>
 </div></div>
 
+<div id="pausedOverlay">
+  <div class="pbox">
+    <div class="pt">En pause</div>
+    <div class="ps">L'usine est à l'arrêt tant que cet onglet n'est pas au premier plan. Aucune production hors ligne : reviens ici pour reprendre exactement où tu en étais.</div>
+  </div>
+</div>
+
 <header>
   <div class="hd">
     <div class="logo">INCRÉMENTAL <b>FACTORY</b></div>
@@ -421,82 +433,81 @@ const MACH=[
  // --- 2 fonderie
  {id:'hf',    s:2,n:'Haut-fourneau',    in:{fer:2,charbon:1}, out:{acier:1},   r:.5, c:{fer:400,pierre:500},   g:1.1},
  {id:'conv',  s:2,n:'Convertisseur',    in:{cuivre:2,charbon:1},out:{lcuivre:1},r:.5,c:{fer:900,cuivre:250},   g:1.1},
- {id:'wagon', s:2,n:'Cadence de fonderie',  boost:{s:1,p:.15},                  c:{acier:60,pierre:1500},        g:1.45},
+ {id:'wagon', s:2,n:'Cadence — Minage (étape précédente)',  boost:{s:1,p:.15},                  c:{acier:60,pierre:1500},        g:1.45},
  {id:'fleet_s2', s:2, n:'Camion supplémentaire', fleet:2, maxCount:4,
              c:{fer:800,pierre:1280}, g:4.6},
  {id:'spd_s2',   s:2, n:'Vitesse — camion', spdUp:2,
-             c:{fer:400}, g:1.15},
+             c:{fer:400}, g:1.12},
  {id:'cap_s2',   s:2, n:'Capacité — camion', capUp:2,
-             c:{pierre:400}, g:1.20},
+             c:{pierre:400}, g:1.16},
  {id:'xfer_s2',  s:2, n:'Débit — camion', xferUp:2,
-             c:{fer:520,pierre:200}, g:1.15},
+             c:{fer:520,pierre:200}, g:1.12},
  // --- 3 usine
  {id:'assem', s:3,n:'Assembleur',       in:{acier:2,bois:1},   out:{module:1}, r:.5, c:{acier:400,pierre:3000}, g:1.11},
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
- {id:'camion',s:3,n:'Cadence d\'assemblage', boost:{s:2,p:.15},                c:{module:40,acier:2000},        g:1.48},
+ {id:'camion',s:3,n:'Cadence — Fonderie (étape précédente)', boost:{s:2,p:.15},                c:{module:40,acier:2000},        g:1.48},
  {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
              c:{acier:2500,module:4000}, g:4.6},
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
-             c:{acier:1200}, g:1.15},
+             c:{acier:1200}, g:1.12},
  {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
-             c:{module:1200}, g:1.20},
+             c:{module:1200}, g:1.16},
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
-             c:{acier:1560,module:600}, g:1.15},
+             c:{acier:1560,module:600}, g:1.12},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  c:{acier:9000},              g:1.18},
  {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', c:{module:1200},             g:1.15},
- {id:'store_pipe_petrole',s:4,n:'Entrepôt Pétrole',store:'pipe_petrole',c:{petrole:1080},  g:1.22},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
- {id:'train', s:4,n:'Cadence nationale',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
+ {id:'train', s:4,n:'Cadence — Usine (étape précédente)',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
  {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
              c:{module:9000,moteur:14400}, g:4.7},
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
-             c:{module:4000}, g:1.15},
+             c:{module:4000}, g:1.12},
  {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
-             c:{moteur:4000}, g:1.20},
+             c:{moteur:4000}, g:1.16},
  {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
-             c:{module:5200,moteur:2000}, g:1.15},
+             c:{module:5200,moteur:2000}, g:1.12},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
- {id:'avion', s:5,n:'Cadence internationale', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
+ {id:'avion', s:5,n:'Cadence — Logistique nationale (étape précédente)', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
  {id:'fleet_s5', s:5, n:'Avion supplémentaire', fleet:5, maxCount:4,
              c:{moteur:25000,plastique:40000}, g:4.7},
  {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
-             c:{moteur:12000}, g:1.15},
+             c:{moteur:12000}, g:1.12},
  {id:'cap_s5',   s:5, n:'Capacité — avion', capUp:5,
-             c:{plastique:12000}, g:1.20},
+             c:{plastique:12000}, g:1.16},
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
-             c:{moteur:15600,plastique:6000}, g:1.15},
+             c:{moteur:15600,plastique:6000}, g:1.12},
  // --- 6 spatiale
  {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
              c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
  {id:'labLvl',s:6,n:'Niveau de laboratoire', labLvl:true,
              c:{fusee:14},  g:1.25},                    // 14×1,25^(L-1), plafonné par l'énergie
- {id:'navette',s:6,n:'Cadence orbitale',    boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
+ {id:'navette',s:6,n:'Cadence — Logistique internationale (étape précédente)', boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
  // --- 7 colonisation
  {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{fusee:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
  {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
              c:{science:120000,fusee:2000}, g:4.8},
  {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
-             c:{science:45000}, g:1.15},
+             c:{science:45000}, g:1.12},
  {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
-             c:{fusee:900}, g:1.20},
+             c:{fusee:900}, g:1.16},
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
-             c:{science:58000,fusee:450}, g:1.15},
+             c:{science:58000,fusee:450}, g:1.12},
  // --- 8 expansion
  {id:'forge', s:8,n:'Forge d\'essaim',      colon:.0008,     c:{science:500000,fusee:6000},g:1.14},
  {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
  {id:'fleet_s8', s:8, n:'Vaisseau de distorsion supplémentaire', fleet:8, maxCount:4,
              c:{science:900000,fusee:15000}, g:4.9},
  {id:'spd_s8',   s:8, n:'Vitesse — vaisseau de distorsion', spdUp:8,
-             c:{science:320000}, g:1.15},
+             c:{science:320000}, g:1.12},
  {id:'cap_s8',   s:8, n:'Capacité — vaisseau de distorsion', capUp:8,
-             c:{fusee:6000}, g:1.20},
+             c:{fusee:6000}, g:1.16},
  {id:'xfer_s8',  s:8, n:'Débit — vaisseau de distorsion', xferUp:8,
-             c:{science:420000,fusee:3000}, g:1.15},
+             c:{science:420000,fusee:3000}, g:1.12},
 ];
 
 /* améliorations. e = effet : click, auto, mult{machine}, stage{n}, global */
@@ -575,8 +586,23 @@ const CLICKABLE=[
    ========================================================================== */
 const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',7:'fleet_s7',8:'fleet_s8'};  // flotte de l'étape (achat dédié, plafonné) — pas d'étape 6, plus de transport côté labo
 const FLEET_MAX=30;
-const BUF_SEC=12;        // tampon de base = 12 s de consommation de l'étape
-const STORE_STEP=1.15;   // gain par niveau d'entrepôt (seul levier sur le tampon)
+/* §2 — le tampon d'entrée n'est plus un achat : sa capacité est dérivée automatiquement
+   de la consommation du plus GROS consommateur de la ressource dans l'étape (jamais la
+   somme), × BUF_K secondes. Recalculé à chaque tick, donc il suit tout seul l'achat d'une
+   machine supplémentaire. destBuffer reste l'unique stock, aucune réserve parallèle. */
+const BUF_K=5;            // §2 — autonomie visée du tampon, en secondes de consommation
+/* §4 — calibration transport. R = débit transport / débit production.
+   Un tour de boucle dure 1/spd (trajet) + 2×cap/xfer (chargement + déchargement), donc
+   R = N×cap / ((1/spd + 2×cap/xfer) × dem). Les trois leviers agissent sur des termes
+   différents, c'est ce qui les rend complémentaires plutôt que redondants. */
+const CAP_SEC=1.5;        // capacité initiale = 1,5 s de production de base (haut de la fourchette 1–1,5)
+const FLEET_BASE=1;       // 1 véhicule gratuit au départ (comme le reste du jeu) : R initial n'est
+                          // plus contraint à [0.6, 0.7] — le joueur part en retard et rattrape via
+                          // les upgrades transport, puis équilibre au fil des achats de production.
+const DWELL_SEC=1.5;      // temps d'arrêt visé en début d'étape (cap/xfer)
+const CAP_STEP=1.10;      // courbe capacité / niveau
+const XFER_STEP=1.15;     // courbe débit de transfert / niveau
+const SPD_STEP=1.15;      // courbe vitesse / niveau
 const LOAD_TIMEOUT=5;     // s avant départ partiel forcé (chargement uniquement)
 const LOAD_WARN=4;        // s avant que la jauge du véhicule se mette à clignoter                                               // plafond de sprites simulés
 const PRODSTAGE={};
@@ -594,14 +620,13 @@ const PATHOF={}; PATHS.forEach(p=>PATHOF[p.dest+'|'+p.res]=p);
 const PATHBYID={}; PATHS.forEach(p=>PATHBYID[p.id]=p);
 const pathFor=(s,k)=>PATHOF[s+'|'+k];
 
-/* Amélioration de stockage : un entrepôt par ressource/étape (pas de conteneurs multiples),
-   courbe de coût croissante classique. S'applique uniquement à la capacité du tampon
-   utilisée pendant le déchargement — aucun changement à la state machine véhicule. */
-PATHS.forEach(p=>{
-  MACH.push({id:'store_'+p.id, s:p.dest, n:'Entrepôt '+RES[p.res].n, store:p.id,
-             c:{[p.res]:Math.max(50,Math.round(180*RES[p.res].v))}, g:1.22});
-});
 const circDist=(a,b)=>{ let d=b-a; if(d<0)d+=1; return d; };
+/* §2 — autonomie affichée : stock courant / conso par seconde du plus gros consommateur */
+function autonomy(stock,perSec){
+  if(!(perSec>0)) return '∞';
+  const s=stock/perSec;
+  return (s>=100?Math.round(s):s>=10?s.toFixed(1):s.toFixed(2))+' s';
+}
 
 /* lecture / prélèvement : tampon si la ressource arrive par la route, sinon stock global */
 const poolGet=(s,k)=>{ if(k===PIPE.res&&s===PIPE.dest)return state.buf[PIPE.id]||0;
@@ -613,7 +638,7 @@ const poolTake=(s,k,q)=>{ if(k===PIPE.res&&s===PIPE.dest){state.buf[PIPE.id]=(st
    Nouveau véhicule = vide, en trajet à vide vers le point de chargement. */
 function syncFleet(p){
   const arr=state.veh[p.id]||(state.veh[p.id]=[]);
-  const want=Math.min(FLEET_MAX,1+(state.cnt[DUP[p.dest]]||0));
+  const want=Math.min(FLEET_MAX,FLEET_BASE+(state.cnt[DUP[p.dest]]||0));
   while(arr.length<want){
     if(!arr.length){ arr.push({p:p.base,c:0,state:'traveling_empty'}); continue; }
     arr.sort((a,b)=>a.p-b.p);
@@ -644,24 +669,30 @@ function tickPaths(dt){
     if(state.stage<p.dest){ state.buf[p.id]=state.buf[p.id]||0; continue; }
     const arr=syncFleet(p), N=arr.length;
     p.jamIn=p.jamOut=false;
-    // demande potentielle de l'étape d'arrivée pour cette ressource
-    let dem=0;
+    // demande totale de l'étape (ce qu'il faut acheminer) ET plus gros consommateur unique
+    // (§2 : le tampon se dimensionne sur le max, jamais sur la somme).
+    let dem=0, demMax=0, demRef=0;
     for(const m of MACH){ if(m.s!==p.dest||!m.in||!m.in[p.res])continue;
-      dem+=(state.cnt[m.id]||0)*(m.r||0)*m.in[p.res]*mMult(m); }
-    dem*=state.speed;                                    // l'accélération alourdit les chargements
-    const spd=Math.min(.6,p.baseSpeed*Math.pow(1.15,state.cnt['spd_s'+p.dest]||0));  // vitesse — dédiée, indépendante de la flotte
-    // capacité dimensionnée sur une flotte ET une vitesse de RÉFÉRENCE fixes (jamais sur N ni sur
-    // la vitesse améliorée) : sinon acheter un véhicule ou de la vitesse verrait sa charge réduite
-    // d'autant, sans aucun gain net. Débit total = N × cap × spd, les trois leviers cumulent.
-    const NREF=2;
-    const capBase=dem>0?Math.max(1,dem*1.3/(NREF*p.baseSpeed)):1;
-    const cap=capBase*Math.pow(1.10,state.cnt['cap_s'+p.dest]||0);   // capacité : croissance ralentie (x1.10)             // capacité/véhicule — dédiée
-    const xfer=Math.max(.25,capBase/3)*Math.pow(1.15,state.cnt['xfer_s'+p.dest]||0); // débit charge+décharge — dédié, synchronisé sur capacité
-    // Tampon : dimensionné sur la CONSOMMATION de l'étape (BUF_SEC secondes de demande).
-    // Strictement découplé de la capacité des véhicules et de la taille de flotte :
-    // seul l'entrepôt le fait grandir.
-    const bufMax=Math.max(1,dem*BUF_SEC)*Math.pow(STORE_STEP,state.cnt['store_'+p.id]||0);
-    p.dem=dem; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
+      const per=(m.r||0)*m.in[p.res]*mMult(m);           // conso/s d'UNE machine de ce type
+      const tot=(state.cnt[m.id]||0)*per;
+      dem+=tot; if(tot>demMax)demMax=tot;
+      // référence §4 : conso d'UNE machine de chaque type, hors palier de duplication.
+      // Elle suit les multiplicateurs globaux (sinon le transport décroche irrémédiablement
+      // en fin de partie) mais PAS le nombre de machines : acheter de la production fait
+      // donc bien chuter R, acheter du transport le fait remonter.
+      demRef+=per/Math.max(1,cache.mach[m.id]||1);
+    }
+    dem*=state.speed; demMax*=state.speed; demRef*=state.speed;
+    const spd=Math.min(.6,p.baseSpeed*Math.pow(SPD_STEP,state.cnt['spd_s'+p.dest]||0));  // vitesse — dédiée, indépendante de la flotte
+    // §4 — capacité initiale = CAP_SEC secondes de la production de base de l'étape,
+    // temps d'arrêt visé cap/xfer = DWELL_SEC. Les deux sont adossés à demRef (fixe vis-à-vis
+    // des achats de production), pas à dem : c'est ce qui crée la dent de scie voulue.
+    const capBase=Math.max(1,demRef*CAP_SEC);
+    const cap=capBase*Math.pow(CAP_STEP,state.cnt['cap_s'+p.dest]||0);   // capacité/véhicule — dédiée
+    const xfer=Math.max(.25,capBase/DWELL_SEC)*Math.pow(XFER_STEP,state.cnt['xfer_s'+p.dest]||0); // débit charge+décharge — dédié
+    // §2 — tampon dérivé : BUF_K secondes du plus gros consommateur. Plus aucun achat.
+    const bufMax=Math.max(1,demMax*BUF_K);
+    p.dem=dem; p.demMax=demMax; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
     // boucle mise en pause par le joueur : rien ne bouge, rien ne se transfère
     p.paused=!!state.off['path_'+p.id];
@@ -832,10 +863,11 @@ function rBuy(id){
 const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
 const PRIME_TIME=0.5;   // amorçage fixe : délai de démarrage unique, indépendant du débit/de la source
 function pipeStats(){
-  let dem=0;
+  let dem=0, demMax=0;
   for(const m of MACH){ if(m.s!==PIPE.dest||!m.in||!m.in[PIPE.res])continue;
-    dem+=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m); }
-  dem*=state.speed;                                         // cohérent avec les chemins véhicules
+    const tot=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m);
+    dem+=tot; if(tot>demMax)demMax=tot; }
+  dem*=state.speed; demMax*=state.speed;   // cohérent avec les chemins véhicules
   // débit dimensionné sur la demande réelle (comme capBase pour les chemins véhicules), pas
   // une constante figée : sinon, dès que les multiplicateurs globaux (recherche, étape,
   // prestige...) grossissent, la demande explose mais le débit du pipeline reste au niveau
@@ -845,8 +877,8 @@ function pipeStats(){
   const scale=dem>0?Math.max(1,dem*1.3/4):1;
   const dia =6*scale*Math.pow(1.18,state.cnt.pipe_dia||0);      // débit max
   const pump=5*scale*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
-  const bufMax=Math.max(1,dem*BUF_SEC)*Math.pow(STORE_STEP,state.cnt.store_pipe_petrole||0);
-  return {dia,pump,bufMax,rate:Math.min(dia,pump)};
+  const bufMax=Math.max(1,demMax*BUF_K);
+  return {dia,pump,bufMax,demMax,rate:Math.min(dia,pump)};
 }
 function tickPipe(dt){
   // même logique que les chemins véhicules : l'oléoduc n'existe qu'une fois l'étape 4 atteinte
@@ -959,7 +991,6 @@ function recompute(){
   MACH.forEach(m=>{ const n=state.cnt[m.id]||0; if(!n)return;
     if(m.boost)c.stage[m.boost.s]*=Math.pow(1+m.boost.p,n);      // duplication : multiplicative
     else if(m.global)c.global*=Math.pow(1+m.global,n);
-    else if(m.store){/* capacité de stockage : appliquée directement dans tickPaths */}
     else if(m.fleet||m.spdUp||m.capUp||m.xferUp){/* véhicule : lu directement dans tickPaths */}
     else c.mach[m.id]*=Math.pow(2,Math.floor(n/MILESTONE));       // palier : ×2 tous les 25
   });
@@ -1002,7 +1033,7 @@ function maxBuy(m){
 let flow={}, prodAvg={};
 // borne haute d'un pas de simulation ÉCONOMIQUE (oléoduc + machines). Nécessaire car la
 // règle "tout ou rien" exige que TOUT l'input d'un cycle soit déjà dans le tampon, et ce
-// tampon est dimensionné en secondes de conso réelle (BUF_SEC/pipe équivalent) — indépendant
+// tampon est dimensionné en secondes de conso réelle (BUF_K) — indépendant
 // du pas de simulation. Si dt dépasse cette taille (vitesse x2/x4, et SURTOUT le rattrapage
 // hors-ligne qui avance par pas de plusieurs dizaines de secondes), le besoin d'un seul gros
 // cycle dépasse mécaniquement ce que le tampon peut jamais contenir : la porte reste fermée
@@ -1045,7 +1076,7 @@ function tick(dt){
 
     for(const m of MACH){
       let n=state.cnt[m.id]||0;
-      if(m.labLvl||m.boost||m.global||m.store||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp){m.eff=1;continue;}
+      if(m.labLvl||m.boost||m.global||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp){m.eff=1;continue;}
       if(m.lab) n=labActive();                            // seuls les labos ACTIFS produisent
       if(!n){m.eff=1;continue;}
       if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
@@ -1281,9 +1312,6 @@ function machRow(m){
   if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n));
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n)+' système/s au total · '+m.colon+' par unité';
-  else if(m.store){ const path=PATHBYID[m.store];
-    io='<em>Entrepôt</em> : capacité du tampon ×1,15 par unité — actuellement ×'+fmt(Math.pow(STORE_STEP,n))+
-       (path?'<br>tampon actuel : '+fmt(state.buf[m.store]||0)+' / '+fmt(path.bufMax||0):''); }
   else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' construit'+(labCount()>1?'s':'')+
      ' · '+labActive()+' actif'+(labActive()>1?'s':'')+' (réglage ci-dessous). '+
      'Chaque labo actif produit '+fmt(labSci())+'× la science de base au niveau '+labLevel()+
@@ -1297,7 +1325,7 @@ function machRow(m){
   else if(m.pipeUp){ const st=pipeStats();
     io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia)+'/s',
        pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s'}[m.pipeUp]; }
-  else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(1+m.maxCount)+' au total, 1 gratuite + '+m.maxCount+' achats)';
+  else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(FLEET_BASE+m.maxCount)+' au total, '+FLEET_BASE+' gratuites + '+m.maxCount+' achats)';
   else if(m.spdUp)io='<em>Vitesse</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+' sur le trajet de la boucle';
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
   else if(m.xferUp)io='<em>Débit charge/décharge</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n));
@@ -1311,7 +1339,7 @@ function machRow(m){
   const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
   const eff=Math.round((m.effDisp===undefined?1:m.effDisp)*100);
-  const bar=(!m.boost&&!m.global&&!m.colon&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.labLvl&&!m.pipeUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
+  const bar=(!m.boost&&!m.global&&!m.colon&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.labLvl&&!m.pipeUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
   const buyBtn=maxed?'<div class="maxed" style="color:#c5533f;border-color:#5a2c22;background:#1a0f0c">'+
@@ -1432,7 +1460,7 @@ function drawLoops(){
     if(p.paused){ x.fillStyle='#7f97ad'; x.fillText('⏸ boucle à l\'arrêt', cx, by+15); }
     else if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
       x.fillText(p.jamOut?'▲ aval saturé':'▼ rien à charger', cx, by+15); }
-    else { x.fillStyle='#5b7691'; x.fillText(Math.round(f*100)+'% tampon', cx, by+15); }
+    else { x.fillStyle='#5b7691'; x.fillText(autonomy(state.buf[p.id]||0,p.demMax)+' d\'autonomie', cx, by+15); }
   });
 }
 function galaxyCanvas(){
@@ -1546,7 +1574,7 @@ function pipePanel(){
     '<span class="msv">'+fmt(p.flow)+' / '+fmt(st.rate)+' par s</span></div>'+
     '<div class="msr"><span class="msn">Tampon aval</span>'+
     '<span class="msb"><i style="width:'+(f*100).toFixed(0)+'%;background:'+(f>.92?'#c5533f':'#5fb87a')+'"></i></span>'+
-    '<span class="msv">'+fmt(state.buf[PIPE.id]||0)+' / '+fmt(st.bufMax)+'</span></div>'+
+    '<span class="msv">'+autonomy(state.buf[PIPE.id]||0,st.demMax)+' d\'autonomie</span></div>'+
     '<div class="msr">'+etat+'</div></div>';
 }
 function drawPipe(){
@@ -1666,7 +1694,7 @@ function researchPanel(){
 }
 /* pile de multiplicateurs, affichée sous chaque machine de production */
 function multStack(m){
-  if(!m.out||m.boost||m.global||m.store||m.colon)return '';
+  if(!m.out||m.boost||m.global||m.colon)return '';
   const n=state.cnt[m.id]||0; if(!n)return '';
   const base=(m.r||0)*Object.values(m.out)[0];
   const mach=n*Math.pow(2,Math.floor(n/MILESTONE));
@@ -1684,6 +1712,13 @@ function render(){
   let h='<div class="ptitle"><h2>'+st.nom+'</h2><span class="st">'+st.code+'</span></div>'+
         '<div class="desc">'+st.desc+'</div>'+blackBox(s);
 
+  // Jalon — en premier : ce qu'il faut pour débloquer l'étape suivante
+  if(s<8){
+    h+='<div class="sec">Étape suivante</div><div class="desc" style="margin:0">'+
+       (s<state.stage?'<span style="color:#5fb87a">■ '+STAGES[s].nom+' déjà en ligne.</span>':lockLine(s+1))+'</div>'
+       +(s>=state.stage?milestonePanel(s+1):'');
+  }
+
   if(s===1){
     h+='<div class="clicks">'+CLICKABLE.filter(clickUnlocked).map(cl=>
       '<button class="cbtn" data-click="'+cl.r+'"><span class="l">'+cl.n+'</span><br><span class="g">'+RES[cl.r].i+' +<span data-cg="'+cl.r+'">1</span></span></button>').join('')+'</div>';
@@ -1700,11 +1735,17 @@ function render(){
     h+='<div class="sec">Carte galactique<span class="hint"><b id="galn">0</b> / 100 000 systèmes · multiplicateur planétaire ×<b id="galm">1</b></span></div>'+galaxyCanvas();
   }
 
-  if(s===4){ h+=pipePanel(); }
-  if(s>=6){ h+=powerPanel(); }
-  if(s>=6){ h+=researchPanel(); }   // B3-B5 sont des noeuds d'étape 7 : l'arbre reste accessible
+  // Machines — production de l'étape (y compris les upgrades "Cadence" qui boostent
+  // l'étape précédente : elles s'achètent ici, pas dans Véhicules)
+  if(s>=6) h+=powerPanel();
   h+=dysonPanel(s);
+  const ms=MACH.filter(m=>m.s===s&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.pipeUp&&(!m.need||state.stage>=m.need));
+  if(ms.length){
+    h+='<div class="sec">Machines<span class="hint">la barre verte indique le taux d\'alimentation</span></div><div class="grid">'+ms.map(machRow).join('')+'</div>';
+  }
 
+  // Transports
+  if(s===4){ h+=pipePanel(); }
   const ps=PATHS.filter(x=>x.dest===s);
   if(ps.length){
     h+='<div class="sec">Transport<span class="hint">file au départ = manque en amont · file à l\'arrivée = aval saturé</span></div>'+
@@ -1715,29 +1756,22 @@ function render(){
                 (off?'⏸':'⏵')+' '+RES[x.res].i+' '+RES[x.res].n+'</button>';
        }).join('')+'</div>';
   }
-  const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.boost||m.pipeUp)&&m.s===s);
+
+  // Véhicules — flotte, vitesse, capacité, débit, oléoduc
+  const vehM=MACH.filter(m=>(m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)&&m.s===s);
   if(vehM.length){
     h+='<div class="sec">Véhicules<span class="hint">capacité et débit à faire progresser ensemble pour un diagnostic de bouchon fiable</span></div><div class="grid">'+vehM.map(machRow).join('')+'</div>';
   }
-  const stores=MACH.filter(m=>m.store&&m.s===s);
-  if(stores.length){
-    h+='<div class="sec">Stockage<span class="hint">agrandit le tampon de déchargement, sans toucher aux véhicules</span></div><div class="grid">'+stores.map(machRow).join('')+'</div>';
-  }
 
-  const ms=MACH.filter(m=>m.s===s&&!m.store&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.boost&&!m.pipeUp&&(!m.need||state.stage>=m.need));
-  if(ms.length){
-    h+='<div class="sec">Machines<span class="hint">la barre verte indique le taux d\'alimentation</span></div><div class="grid">'+ms.map(machRow).join('')+'</div>';
-  }
+  // Recherches — si l'étape en a une (arbre de recherche, à partir de l'étape 6)
+  if(s>=6) h+=researchPanel();   // B3-B5 sont des noeuds d'étape 7 : l'arbre reste accessible
+
+  // Améliorations
   const us=upsInStage(s);
   if(us.length){
     const r=unlockReq(s+1);
     const hint='';
     h+='<div class="sec">Améliorations<span class="hint">'+hint+'</span></div><div class="grid">'+us.map(upRow).join('')+'</div>';
-  }
-  if(s<8){
-    h+='<div class="sec">Étape suivante</div><div class="desc" style="margin:0">'+
-       (s<state.stage?'<span style="color:#5fb87a">■ '+STAGES[s].nom+' déjà en ligne.</span>':lockLine(s+1))+'</div>'
-       +(s>=state.stage?milestonePanel(s+1):'');
   }
   $('panel').innerHTML=h;
   bind(); structuralDirty=false; drawGalaxy(); drawLoops(); drawPipe();
@@ -1870,14 +1904,8 @@ function restore(raw){
   recompute();
   return d.ts?(Date.now()-d.ts)/1000:0;
 }
-/* progression hors ligne, plafonnée à 8 h */
-function offline(sec){
-  if(sec<60)return 0;
-  sec=Math.min(sec,8*3600);
-  const v0=state.valeur, steps=Math.min(1200,Math.max(20,Math.ceil(sec/30))), dt=sec/steps;
-  for(let i=0;i<steps;i++)tick(dt);
-  return {gain:state.valeur-v0, sec};
-}
+/* §1 — plus de progression hors ligne : le jeu est suspendu quand l'onglet n'est pas
+   au premier plan, et reprend au tick suivant sans aucun rattrapage rétroactif. */
 async function load(){
   try{ const raw=await STORE.get(); if(!raw)return null; saveExists=true; return raw; }catch(e){return null}
 }
@@ -1914,14 +1942,28 @@ $('devReset').onclick=()=>{ if(!ask('Effacer la partie ?'))return; STORE.del(); 
    ========================================================================== */
 let last=performance.now(), acc=0, painter=0;
 let running=false;
+const DT_MAX=0.25;                 // §1 — aucun tick ne dépasse 0,25 s
+let awake=true;                    // onglet visible ET fenêtre active
+function pageAwake(){ return !document.hidden && awake; }
+function setPaused(p){
+  const el=$('pausedOverlay');
+  if(el) el.style.display = p?'flex':'none';
+}
+function syncAwake(){
+  const on=pageAwake();
+  setPaused(running&&!on);
+  // au réveil : on repart du temps présent, donc aucun dt géant ne peut être accumulé
+  if(on) last=performance.now();
+}
 function loop(now){
-  const dt=Math.min(0.25,(now-last)/1000); last=now;
-  if(!running){ requestAnimationFrame(loop); return; }
+  requestAnimationFrame(loop);
+  if(!running){ last=now; return; }
+  if(!pageAwake()){ last=now; return; }   // §1 — suspension totale, aucun tick exécuté
+  const dt=Math.min(DT_MAX,(now-last)/1000); last=now;
   tick(dt);
   painter+=dt;
   if(structuralDirty)render();
   if(painter>0.1){ painter=0; paint(); }
-  requestAnimationFrame(loop);
 }
 function startSafe(raw){
   try{ start(raw); }
@@ -1937,16 +1979,15 @@ function startSafe(raw){
 }
 function start(raw){
   $('intro').style.display='none'; running=true; last=performance.now();
-  if(raw){
-    const sec=restore(raw);
-    const off=offline(sec);
-    if(off&&off.gain>0)setTimeout(()=>toast('Hors ligne '+Math.round(off.sec/60)+' min · +'+fmt(off.gain)+' de valeur'),400);
-  }
+  if(raw) restore(raw);            // §1 — aucun rattrapage : on reprend l'état tel quel
   recompute(); structuralDirty=true; render(); paint();
   for(let st=1;st<=state.stage;st++) queuePop(st);   // rattrape les étapes déjà atteintes
   setInterval(save,10000);
-  document.addEventListener('visibilitychange',()=>{ if(document.hidden)save(); });
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden)save(); syncAwake(); });
+  window.addEventListener('blur',()=>{ awake=false; save(); syncAwake(); });
+  window.addEventListener('focus',()=>{ awake=true; syncAwake(); });
   window.addEventListener('pagehide',save);
+  syncAwake();
 }
 (async()=>{
   recompute();
