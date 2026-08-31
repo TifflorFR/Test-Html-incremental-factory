@@ -52,8 +52,8 @@ button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:n
 #stage{flex:1 1 auto;position:relative;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
 #stage svg{display:block;margin:auto;touch-action:pan-x pan-y}
 
-.branch-label{font-size:20px;letter-spacing:.1em;opacity:.8;dominant-baseline:middle}
 .link{fill:none;stroke:var(--line);stroke-width:3}
+.spoke{fill:none;stroke-width:2.5;opacity:.22}
 
 .node-hit{cursor:pointer}
 .node-shape{transition:opacity .25s}
@@ -270,15 +270,19 @@ function visibleNodes(brId){
   return out;
 }
 
-const BASE_R=130, STEP_R=92, SECTOR=50, NODE_R=32, ICON_SCALE=2.5;
-const PX_PER_UNIT=0.62;   // ~40 px de diamètre par nœud : confortable au doigt
+const BASE_R=38, STEP_R=40, STEP_R2=64, SECTOR=50, NODE_R=20, ICON_SCALE=1.35;
+const PX_PER_UNIT=1.7;   // racine + 1er niveau tiennent dans un écran de téléphone sans défiler
+// rayon d'un nœud selon sa profondeur : le 1er niveau reste resserré (contrainte d'écran
+// initial), au-delà l'écart grandit — sinon les nœuds d'une même chaîne (ex. les 6 chantiers
+// Dyson) finissent bord à bord voire chevauchés.
+const radiusAt=depth=>depth<=1 ? BASE_R+depth*STEP_R : BASE_R+STEP_R+(depth-1)*STEP_R2;
 function layoutBranch(brId, centerAngle){
   const nodes=[], links=[];
   (function place(node,a0,a1,depth,parentXY){
     const mid=(a0+a1)/2;
     let xy=parentXY;
     if(node.r){
-      const A=mid*Math.PI/180, rad=BASE_R+depth*STEP_R;
+      const A=mid*Math.PI/180, rad=radiusAt(depth);
       xy=[Math.cos(A)*rad, Math.sin(A)*rad];
       nodes.push({r:node.r,x:xy[0],y:xy[1]});
       if(parentXY) links.push({from:parentXY,to:xy,r:node.r});
@@ -403,22 +407,32 @@ function el(tag,attrs,html){
 }
 function nodeGroup(r,x,y,color,isNew){
   const st=nodeState(r);
-  const g=el('g',{transform:'translate('+x+','+y+')',
-    class:'node-hit state-'+st+(isNew?' revealing':'')});
-  if(armedId===r.id) g.appendChild(el('circle',{r:NODE_R+7,fill:'none',stroke:color,'stroke-width':2,opacity:.85}));
-  if(st==='buyable') g.appendChild(el('circle',{class:'halo-pulse',r:NODE_R,fill:'none',stroke:color,'stroke-width':2}));
-  // zone tactile confortable, indépendante de la taille de l'icône
-  g.appendChild(el('circle',{r:NODE_R+10,fill:'transparent'}));
-  g.appendChild(el('circle',{class:'node-shape',r:NODE_R-4,fill:'var(--navy-800)',stroke:color,
-    'stroke-width':st==='done'?3:2,'stroke-dasharray':st==='locked'?'5,4':''}));
-  g.appendChild(el('g',{class:'node-shape',style:'color:'+color,
+  // le positionnement (attribut SVG transform="translate(x,y)") et l'animation de reveal
+  // (CSS transform: scale(...)) doivent vivre sur deux <g> DIFFÉRENTS : un transform CSS
+  // sur un élément remplace entièrement son transform attribut, pas ne compose pas avec
+  // lui — sinon le nœud est translaté à (0,0) pendant toute l'animation et "flashe" au
+  // centre avant de sauter à sa vraie place.
+  const g=el('g',{transform:'translate('+x+','+y+')', class:'node-hit state-'+st});
+  const inner=el('g',{class:isNew?'revealing':''});
+  g.appendChild(inner);
+  const S=NODE_R;   // demi-côté du carré
+  if(armedId===r.id) inner.appendChild(el('rect',{x:-S-7,y:-S-7,width:2*(S+7),height:2*(S+7),rx:8,
+    fill:'none',stroke:color,'stroke-width':2,opacity:.85}));
+  if(st==='buyable') inner.appendChild(el('rect',{class:'halo-pulse',x:-S,y:-S,width:2*S,height:2*S,rx:6,
+    fill:'none',stroke:color,'stroke-width':2}));
+  // zone tactile confortable, indépendante de la taille visuelle du carré
+  inner.appendChild(el('rect',{x:-S-10,y:-S-10,width:2*(S+10),height:2*(S+10),fill:'transparent'}));
+  inner.appendChild(el('rect',{class:'node-shape',x:-S+3,y:-S+3,width:2*(S-3),height:2*(S-3),rx:5,
+    fill:'var(--navy-800)',stroke:color,'stroke-width':st==='done'?3:2,
+    'stroke-dasharray':st==='locked'?'5,4':''}));
+  inner.appendChild(el('g',{class:'node-shape',style:'color:'+color,
     transform:'scale('+ICON_SCALE+')'},iconSvg(iconType(r))));
   if(st==='done'){
-    g.appendChild(el('g',{transform:'translate('+(NODE_R-8)+',-'+(NODE_R-8)+') scale(1.5)'},
+    inner.appendChild(el('g',{transform:'translate('+(S-6)+',-'+(S-6)+') scale(1.3)'},
       '<circle r="7" fill="'+color+'"/><path d="M-3.2,0 l2.2,2.5 4.3,-5" stroke="var(--navy-900)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'));
   }
   if(st==='locked'){
-    g.appendChild(el('g',{transform:'translate('+(NODE_R-8)+','+(NODE_R-10)+') scale(1.3)',style:'color:'+color,opacity:.9},
+    inner.appendChild(el('g',{transform:'translate('+(S-6)+',-'+(S-8)+') scale(1.15)',style:'color:'+color,opacity:.9},
       '<rect x="-5" y="-3.5" width="10" height="8" rx="1.2" fill="var(--navy-900)" stroke="currentColor" stroke-width="1.6"/><path d="M-2.8,-3.5 v-2.2 a2.8,2.8 0 0 1 5.6,0 v2.2" fill="none" stroke="currentColor" stroke-width="1.6"/>'));
   }
   g.addEventListener('click',ev=>{ ev.stopPropagation(); onNodeClick(r); });
@@ -445,11 +459,13 @@ function draw(){
     const A=b.angle*Math.PI/180;
 
     if(!b.active){
-      const x=Math.cos(A)*(BASE_R+STEP_R*0.35), y=Math.sin(A)*(BASE_R+STEP_R*0.35);
+      const x=Math.cos(A)*(BASE_R+STEP_R), y=Math.sin(A)*(BASE_R+STEP_R);
+      g.appendChild(el('line',{class:'spoke',x1:0,y1:0,x2:x,y2:y,style:'stroke:'+color}));
+      const S=NODE_R;
       const ph=el('g',{transform:'translate('+x+','+y+')',class:'node-hit state-locked'});
-      ph.appendChild(el('circle',{r:NODE_R+10,fill:'transparent'}));
-      ph.appendChild(el('circle',{class:'node-shape',r:NODE_R-4,fill:'var(--navy-800)',stroke:color,
-        'stroke-width':2,'stroke-dasharray':'5,4'}));
+      ph.appendChild(el('rect',{x:-S-10,y:-S-10,width:2*(S+10),height:2*(S+10),fill:'transparent'}));
+      ph.appendChild(el('rect',{class:'node-shape',x:-S+3,y:-S+3,width:2*(S-3),height:2*(S-3),rx:5,
+        fill:'var(--navy-800)',stroke:color,'stroke-width':2,'stroke-dasharray':'5,4'}));
       ph.appendChild(el('g',{class:'node-shape',style:'color:'+color,transform:'scale('+ICON_SCALE+')'},iconSvg('unlock')));
       ph.addEventListener('click',ev=>{ ev.stopPropagation(); armedId=null;
         sheet.innerHTML='<div class="sn">'+b.n+'</div>'+
@@ -458,14 +474,16 @@ function draw(){
           '<div class="hintline muted">Atteins l\'étape '+b.stage+' en jeu pour la débloquer.</div>';
         sheet.className='show'; draw(); });
       g.appendChild(ph); track(x,y);
-      const lx=Math.cos(A)*(BASE_R-110), ly=Math.sin(A)*(BASE_R-110);
-      const lab=el('text',{class:'branch-label',x:lx,y:ly,'text-anchor':'middle',style:'fill:'+color});
-      lab.textContent=b.n; g.appendChild(lab);
       return;
     }
 
     const {nodes,links}=layoutBranch(b.id,b.angle);
     const vis=visibleNodes(b.id);
+    // rayon discret du centre vers chaque point d'entrée de la branche (même avant tout
+    // achat) : structure hub-and-spoke lisible sans le moindre texte
+    const entries=RTREE.filter(rr=>rr.br===b.id&&(!rr.req||(RBY[rr.req]&&RBY[rr.req].br!==b.id)));
+    entries.forEach(rr=>{ const nd=nodes.find(n=>n.r.id===rr.id); if(nd)
+      g.appendChild(el('line',{class:'spoke',x1:0,y1:0,x2:nd.x,y2:nd.y,style:'stroke:'+color})); });
 
     links.forEach(l=>{ if(!vis.has(l.r.id))return;
       g.appendChild(el('line',{class:'link',x1:l.from[0],y1:l.from[1],x2:l.to[0],y2:l.to[1],
@@ -476,27 +494,27 @@ function draw(){
       if(isNew) fresh.push(nd.r.id);
       g.appendChild(nodeGroup(nd.r,nd.x,nd.y,color,isNew));
       track(nd.x,nd.y); });
-
-    const lx=Math.cos(A)*(BASE_R-110), ly=Math.sin(A)*(BASE_R-110);
-    const lab=el('text',{class:'branch-label',x:lx,y:ly,'text-anchor':'middle',style:'fill:'+color});
-    lab.textContent=b.n; g.appendChild(lab);
   });
 
-  // racine
+  // racine — carré comme le reste, légèrement plus grand pour marquer le centre
   const rootDone=SAVE.state.recherche.root;
   const rootSt=rootDone?'done':(sci()>=1?'buyable':'dim');
+  const RS=NODE_R+4;
   const root=el('g',{class:'node-hit state-'+rootSt});
-  if(armedId==='__root__') root.appendChild(el('circle',{r:NODE_R+13,fill:'none',stroke:'var(--brass)','stroke-width':2,opacity:.85}));
-  if(rootSt==='buyable') root.appendChild(el('circle',{class:'halo-pulse',r:NODE_R+6,fill:'none',stroke:'var(--brass)','stroke-width':2}));
-  root.appendChild(el('circle',{r:NODE_R+16,fill:'transparent'}));
-  root.appendChild(el('circle',{class:'node-shape',r:NODE_R+2,fill:'var(--navy-700)',stroke:'var(--brass)','stroke-width':3}));
-  root.appendChild(el('g',{class:'node-shape',style:'color:var(--brass)',transform:'scale('+ICON_SCALE+')'},iconSvg('root')));
+  if(armedId==='__root__') root.appendChild(el('rect',{x:-RS-9,y:-RS-9,width:2*(RS+9),height:2*(RS+9),rx:9,
+    fill:'none',stroke:'var(--brass)','stroke-width':2,opacity:.85}));
+  if(rootSt==='buyable') root.appendChild(el('rect',{class:'halo-pulse',x:-RS-3,y:-RS-3,width:2*(RS+3),height:2*(RS+3),rx:8,
+    fill:'none',stroke:'var(--brass)','stroke-width':2}));
+  root.appendChild(el('rect',{x:-RS-12,y:-RS-12,width:2*(RS+12),height:2*(RS+12),fill:'transparent'}));
+  root.appendChild(el('rect',{class:'node-shape',x:-RS,y:-RS,width:2*RS,height:2*RS,rx:7,
+    fill:'var(--navy-700)',stroke:'var(--brass)','stroke-width':3}));
+  root.appendChild(el('g',{class:'node-shape',style:'color:var(--brass)',transform:'scale('+(ICON_SCALE+.15)+')'},iconSvg('root')));
   root.addEventListener('click',ev=>{ ev.stopPropagation(); onRootClick(); });
   g.appendChild(root);
 
   // emprise réelle des nœuds visibles, à échelle fixe lisible ; la carte grandit
   // au fil des révélations et reste navigable au doigt
-  const pad=NODE_R+80;
+  const pad=NODE_R+22;
   const vx=minX-pad, vy=minY-pad, vw=(maxX-minX)+pad*2, vh=(maxY-minY)+pad*2;
   svg.setAttribute('viewBox',vx+' '+vy+' '+vw+' '+vh);
   svg.setAttribute('width',Math.round(vw*PX_PER_UNIT));

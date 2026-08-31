@@ -979,7 +979,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.3.0';
+const GAME_VERSION='0.3.3';
 
 let cache={global:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1431,7 +1431,7 @@ function drawLoops(){
     const cx=slot*(col+.5), cy=row*rowH+R+12;
     x.globalAlpha=p.paused?0.42:1;
     const angAt=t=>-Math.PI/2+t*Math.PI*2;
-    const pt=t=>{const a=angAt(t); return [cx+Math.cos(a)*R, cy+Math.sin(a)*R];};
+    const pt=(t,radius)=>{const a=angAt(t),r=radius===undefined?R:radius; return [cx+Math.cos(a)*r, cy+Math.sin(a)*r];};
     x.strokeStyle='#1c2f45'; x.lineWidth=Math.max(6,R*0.22); x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
     x.strokeStyle='#22384f'; x.lineWidth=1; x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
     // arc de file en rouge/ambre quand un bouchon est actif, pour le voir d'un coup d'oeil
@@ -1445,8 +1445,20 @@ function drawLoops(){
     const L=pt(p.load), Uo=pt(p.unload);
     x.fillStyle='#c9963f'; x.beginPath(); x.arc(L[0],L[1],4.5,0,7); x.fill();
     x.fillStyle='#e8703a'; x.beginPath(); x.arc(Uo[0],Uo[1],4.5,0,7); x.fill();
-    // véhicules — silhouette du palier ; rouge terne si bloqué en file
-    (state.veh[p.id]||[]).forEach(v=>{ const q=pt(v.p);
+    // véhicules — silhouette du palier ; rouge terne si bloqué en file.
+    // En file d'attente (minGap), l'écart entre véhicules ne représente que quelques
+    // pixels à cette échelle — bien moins que la taille d'une icône — donc un véhicule
+    // fraîchement acheté peut se retrouver visuellement entièrement caché derrière un
+    // autre. On les décale légèrement en rayon (empilage en éventail) dès qu'ils sont
+    // trop proches à l'écran, pour qu'aucun véhicule ne disparaisse visuellement.
+    const arcPxPerUnit=2*Math.PI*R, STACK_PX=9, STACK_STEP=Math.max(4,R*0.16);
+    const sortedV=[...(state.veh[p.id]||[])].sort((a,b)=>a.p-b.p);
+    let lastP=null, stackN=0;
+    sortedV.forEach(v=>{
+      const d = lastP===null ? Infinity : circDist(lastP,v.p)*arcPxPerUnit;
+      stackN = d<STACK_PX ? stackN+1 : 0; lastP=v.p;
+      const Rv = stackN===0 ? R : R + Math.ceil(stackN/2)*STACK_STEP*(stackN%2?1:-1);
+      const q=pt(v.p,Rv);
       const loaded=v.state==='traveling_loaded'||v.state==='unloading';
       const col2=v.blocked?'#b8564a':(loaded?'#dfe9f2':'#5a7186');
       drawVehicleIcon(x,q[0],q[1],angAt(v.p),col2,p.dest);
