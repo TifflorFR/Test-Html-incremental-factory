@@ -219,8 +219,6 @@ nav::-webkit-scrollbar{display:none}
     padding:5px 9px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
 .tg:hover{border-color:var(--brass-dim)}
 .tg.off{color:var(--bad);border-color:#5a2c22;background:#1a0f0c}
-.rbh{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f97ad;margin:12px 0 6px}
-.up.rn.spine{border-left:3px solid var(--ember)}
 .up.rn .lv{color:#7f97ad;font-size:10px}
 .up.rn.locked{opacity:.5}
 .stack{font-size:9px;color:#5b7691;margin-top:5px;line-height:1.5;font-variant-numeric:tabular-nums}
@@ -260,6 +258,7 @@ footer{
 .mini:hover{color:var(--ink);border-color:var(--brass-dim)}
 .mini.on{color:var(--ember);border-color:var(--ember-dim)}
 .mini.prestige{color:var(--ember);border-color:var(--ember-dim)}
+.mini.research{color:var(--brass);border-color:var(--brass-dim)}
 .fw .sp{flex:1}
 #devpanel{display:none;border-top:1px dashed #2a445f}
 #devpanel.open{display:block}
@@ -313,7 +312,6 @@ footer{
     <div class="logo">INCRÉMENTAL <b>FACTORY</b></div>
     <div class="tag">salle de contrôle · v<span id="hVer">0</span></div>
     <div class="spacer"></div>
-    <button class="mini" id="btnRecherche" style="display:none">recherche</button>
     <div class="mult">×<b id="hGlobal">1</b> global</div>
     <div class="mult">valeur <b id="hValeur">0</b></div>
     <div class="mult">brevets <b id="hBrevets">0</b></div>
@@ -335,6 +333,7 @@ footer{
 <footer>
   <div class="fw">
     <button class="mini" id="buyMode">achat ×1</button>
+    <button class="mini research" id="btnRecherche" style="display:none">▣ recherche</button>
     <button class="mini prestige" id="btnPrestige" style="display:none">restructurer</button>
     <div class="sp"></div>
     <button class="mini" id="btnFmt">nombres : court</button>
@@ -847,7 +846,6 @@ const RTREE=[
   {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:260,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
 ];
 const RBY={}; RTREE.forEach(r=>RBY[r.id]=r);
-const RBRANCH={spine:'Épine dorsale',extraction:'Extraction',industrie:'Industrie',spatial:'Spatial'};
 
 function rLevel(id){ return state.research[id]||0; }
 function rDone(id){ return rLevel(id)>0; }
@@ -981,7 +979,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.2.0';
+const GAME_VERSION='0.2.1';
 
 let cache={global:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1688,29 +1686,6 @@ function dysonPanel(stage){
   }
   return h+'</div>';
 }
-function researchPanel(){
-  let h='<div class="sec">Arbre de recherche<span class="hint">dépensable, sans respec · science : '+fmt(state.res.science||0)+'</span></div>';
-  for(const br of ['spine','extraction','industrie','spatial']){
-    const nodes=RTREE.filter(r=>r.br===br);
-    if(!nodes.length)continue;
-    h+='<div class="rbh">'+RBRANCH[br]+(br==='spine'?' — bloquante':' — optionnelle')+'</div><div class="grid">';
-    for(const r of nodes){
-      const lv=rLevel(r.id), av=rAvail(r), c=rCost(r);
-      const owned=!r.rep&&lv>0;
-      const cls='up rn'+(br==='spine'?' spine':'')+(owned?' done':'')+(av?'':' locked');
-      h+='<div class="'+cls+'">'+
-         '<div class="nm">'+(br==='spine'?'▣ ':'◇ ')+r.n+(r.rep&&lv?' <span class="lv">niv '+lv+'</span>':'')+'</div>'+
-         '<div class="dd">'+r.d+'</div>'+
-         (owned?'<div class="done-tag">■ acquise</div>'
-              : av?'<button class="buy" data-res-node="'+r.id+'" '+((state.res.science||0)>=c?'':'disabled')+
-                   '><span>Rechercher</span><span class="px">🔬'+fmt(c)+'</span></button>'
-                 : '<div class="done-tag" style="color:#5b7691">requiert '+(r.req?RBY[r.req].n:'—')+'</div>')+
-         '</div>';
-    }
-    h+='</div>';
-  }
-  return h;
-}
 /* pile de multiplicateurs, affichée sous chaque machine de production */
 function multStack(m){
   if(!m.out||m.boost||m.global||m.colon)return '';
@@ -1727,7 +1702,6 @@ function multStack(m){
 
 function render(){
   buildResbar(); buildTabs();
-  $('btnRecherche').style.display = state.stage>=6?'inline-block':'none';
   const s=state.tab, st=STAGES[s-1];
   let h='<div class="ptitle"><h2>'+st.nom+'</h2><span class="st">'+st.code+'</span></div>'+
         '<div class="desc">'+st.desc+'</div>'+blackBox(s);
@@ -1784,7 +1758,8 @@ function render(){
   }
 
   // Recherches — si l'étape en a une (arbre de recherche, à partir de l'étape 6)
-  if(s>=6) h+=researchPanel();   // B3-B5 sont des noeuds d'étape 7 : l'arbre reste accessible
+  // L'arbre de recherche a sa propre page (recherche.html), ouverte via le bouton du pied
+  // de page : il n'est plus rendu dans le panneau d'étape.
 
   // Améliorations
   const us=upsInStage(s);
@@ -1809,7 +1784,6 @@ function bind(){
     state.labActiveTarget=Math.max(0,Math.min(N,t));
     structuralDirty=true;
   });
-  $('panel').querySelectorAll('[data-res-node]').forEach(b=>b.onclick=()=>rBuy(b.dataset.resNode));
   $('panel').querySelectorAll('[data-dyson]').forEach(b=>b.onclick=()=>{
     const st=state.dyson[b.dataset.dyson]; if(st&&!st.done){ st.running=!st.running; structuralDirty=true; }
   });
@@ -1863,6 +1837,11 @@ function paint(){
     pb.style.display=pOK?'':'none';
     if(pOK)pb.textContent='restructurer +'+brevetsGain();
   }
+  // arbre de recherche : disponible dès l'étape 6. Rafraîchi ici (et pas seulement dans
+  // render()) pour que le bouton apparaisse dès le déblocage, sans attendre un
+  // changement structurel du panneau.
+  const rb=$('btnRecherche');
+  if(rb) rb.style.display = state.stage>=6?'':'none';
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(flow['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.global*cache.stage[1]); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
