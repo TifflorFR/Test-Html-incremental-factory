@@ -258,7 +258,8 @@ footer{
 .mini:hover{color:var(--ink);border-color:var(--brass-dim)}
 .mini.on{color:var(--ember);border-color:var(--ember-dim)}
 .mini.prestige{color:var(--ember);border-color:var(--ember-dim)}
-.mini.research{color:var(--brass);border-color:var(--brass-dim)}
+.ropen{margin-top:8px}
+.ropen .buy{width:100%;max-width:420px}
 .fw .sp{flex:1}
 #devpanel{display:none;border-top:1px dashed #2a445f}
 #devpanel.open{display:block}
@@ -333,7 +334,6 @@ footer{
 <footer>
   <div class="fw">
     <button class="mini" id="buyMode">achat ×1</button>
-    <button class="mini research" id="btnRecherche" style="display:none">▣ recherche</button>
     <button class="mini prestige" id="btnPrestige" style="display:none">restructurer</button>
     <div class="sp"></div>
     <button class="mini" id="btnFmt">nombres : court</button>
@@ -979,7 +979,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.2.1';
+const GAME_VERSION='0.2.2';
 
 let cache={global:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1757,9 +1757,15 @@ function render(){
     h+='<div class="sec">Véhicules<span class="hint">capacité et débit à faire progresser ensemble pour un diagnostic de bouchon fiable</span></div><div class="grid">'+vehM.map(machRow).join('')+'</div>';
   }
 
-  // Recherches — si l'étape en a une (arbre de recherche, à partir de l'étape 6)
-  // L'arbre de recherche a sa propre page (recherche.html), ouverte via le bouton du pied
-  // de page : il n'est plus rendu dans le panneau d'étape.
+  // Recherches — si l'étape en a une (arbre de recherche, à partir de l'étape 6).
+  // L'arbre lui-même vit dans sa propre page (recherche.html) : la section n'affiche
+  // qu'un point d'entrée, à l'emplacement où la liste brute se trouvait auparavant.
+  if(s>=6){
+    h+='<div class="sec">Recherche<span class="hint">dépensable, sans respec · science : '+fmt(state.res.science||0)+'</span></div>'+
+       '<div class="ropen"><button class="buy" data-openresearch="1">'+
+       '<span>▣ Ouvrir l\'arbre de recherche</span>'+
+       '<span class="px">🔬'+fmt(state.res.science||0)+'</span></button></div>';
+  }
 
   // Améliorations
   const us=upsInStage(s);
@@ -1773,6 +1779,7 @@ function render(){
 }
 
 function bind(){
+  $('panel').querySelectorAll('[data-openresearch]').forEach(b=>b.onclick=()=>openResearch());
   $('panel').querySelectorAll('[data-pathoff]').forEach(b=>b.onclick=()=>{
     const k='path_'+b.dataset.pathoff; state.off[k]=!state.off[k]; structuralDirty=true; });
   $('panel').querySelectorAll('[data-pipeoff]').forEach(b=>b.onclick=()=>{
@@ -1837,11 +1844,6 @@ function paint(){
     pb.style.display=pOK?'':'none';
     if(pOK)pb.textContent='restructurer +'+brevetsGain();
   }
-  // arbre de recherche : disponible dès l'étape 6. Rafraîchi ici (et pas seulement dans
-  // render()) pour que le bouton apparaisse dès le déblocage, sans attendre un
-  // changement structurel du panneau.
-  const rb=$('btnRecherche');
-  if(rb) rb.style.display = state.stage>=6?'':'none';
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(flow['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.global*cache.stage[1]); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
@@ -1932,7 +1934,6 @@ async function closeResearch(){
   if(raw){ restore(raw); structuralDirty=true; render(); paint(); }
   syncAwake();
 }
-$('btnRecherche').onclick=openResearch;
 document.querySelector('#rechercheOverlay .rback').onclick=closeResearch;
 window.addEventListener('message',e=>{ if(e.data&&e.data.type==='recherche:close')closeResearch(); });
 
