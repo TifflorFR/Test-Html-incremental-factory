@@ -450,11 +450,11 @@ const MACH=[
  {id:'fleet_s2', s:2, n:'Camion supplémentaire', fleet:2, maxCount:4,
              c:{fer:800,pierre:1280}, g:4.6},
  {id:'spd_s2',   s:2, n:'Vitesse — camion', spdUp:2,
-             c:{fer:400}, g:1.12},
+             c:{fer:400}, g:1.09},
  {id:'cap_s2',   s:2, n:'Capacité — camion', capUp:2,
-             c:{pierre:400}, g:1.16},
+             c:{pierre:400}, g:1.11},
  {id:'xfer_s2',  s:2, n:'Débit — camion', xferUp:2,
-             c:{fer:520,pierre:200}, g:1.12},
+             c:{fer:520,pierre:200}, g:1.09},
  // --- 3 usine
  {id:'assem', s:3,n:'Assembleur',       in:{acier:2,bois:1},   out:{module:1}, r:.5, c:{acier:400,pierre:3000}, g:1.11},
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
@@ -462,11 +462,11 @@ const MACH=[
  {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
              c:{acier:2500,module:4000}, g:4.6},
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
-             c:{acier:1200}, g:1.12},
+             c:{acier:1200}, g:1.09},
  {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
-             c:{module:1200}, g:1.16},
+             c:{module:1200}, g:1.11},
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
-             c:{acier:1560,module:600}, g:1.12},
+             c:{acier:1560,module:600}, g:1.09},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  c:{acier:9000},              g:1.18},
@@ -477,22 +477,22 @@ const MACH=[
  {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
              c:{module:9000,moteur:14400}, g:4.7},
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
-             c:{module:4000}, g:1.12},
+             c:{module:4000}, g:1.09},
  {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
-             c:{moteur:4000}, g:1.16},
+             c:{moteur:4000}, g:1.11},
  {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
-             c:{module:5200,moteur:2000}, g:1.12},
+             c:{module:5200,moteur:2000}, g:1.09},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'avion', s:5,n:'Cadence — Logistique nationale (étape précédente)', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
  {id:'fleet_s5', s:5, n:'Avion supplémentaire', fleet:5, maxCount:4,
              c:{moteur:25000,plastique:40000}, g:4.7},
  {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
-             c:{moteur:12000}, g:1.12},
+             c:{moteur:12000}, g:1.09},
  {id:'cap_s5',   s:5, n:'Capacité — avion', capUp:5,
-             c:{plastique:12000}, g:1.16},
+             c:{plastique:12000}, g:1.11},
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
-             c:{moteur:15600,plastique:6000}, g:1.12},
+             c:{moteur:15600,plastique:6000}, g:1.09},
  // --- 6 spatiale
  {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
              c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
@@ -505,22 +505,22 @@ const MACH=[
  {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
              c:{science:120000,fusee:2000}, g:4.8},
  {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
-             c:{science:45000}, g:1.12},
+             c:{science:45000}, g:1.09},
  {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
-             c:{fusee:900}, g:1.16},
+             c:{fusee:900}, g:1.11},
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
-             c:{science:58000,fusee:450}, g:1.12},
+             c:{science:58000,fusee:450}, g:1.09},
  // --- 8 expansion
  {id:'forge', s:8,n:'Forge d\'essaim',      colon:.0008,     c:{science:500000,fusee:6000},g:1.14},
  {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
  {id:'fleet_s8', s:8, n:'Vaisseau de distorsion supplémentaire', fleet:8, maxCount:4,
              c:{science:900000,fusee:15000}, g:4.9},
  {id:'spd_s8',   s:8, n:'Vitesse — vaisseau de distorsion', spdUp:8,
-             c:{science:320000}, g:1.12},
+             c:{science:320000}, g:1.09},
  {id:'cap_s8',   s:8, n:'Capacité — vaisseau de distorsion', capUp:8,
-             c:{fusee:6000}, g:1.16},
+             c:{fusee:6000}, g:1.11},
  {id:'xfer_s8',  s:8, n:'Débit — vaisseau de distorsion', xferUp:8,
-             c:{science:420000,fusee:3000}, g:1.12},
+             c:{science:420000,fusee:3000}, g:1.09},
 ];
 
 /* améliorations. e = effet : click, auto, mult{machine}, stage{n}, global */
@@ -979,7 +979,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.3.3';
+const GAME_VERSION='0.3.4';
 
 let cache={global:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
