@@ -109,11 +109,22 @@ button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:n
    ou d'effet doit être répercutée des deux côtés.
    ========================================================================== */
 const RTREE=[
-  {id:'B1',br:'spine',n:'Vaisseaux rudimentaires', sci:2480,  req:null, d:'Ouvre la construction de vaisseaux coloniaux.'},
-  {id:'B2',br:'spine',n:'Colonisation',            sci:5460,  req:'B1', d:'JALON — débloque l\'étape 7.', milestone:7},
-  {id:'B3',br:'spine',n:'Voyage interstellaire',   sci:145000,req:'B2', d:'Ouvre la portée interstellaire.'},
-  {id:'B4',br:'spine',n:'Vaisseaux avancés',       sci:332000,req:'B3', d:'Coques capables de distorsion.'},
-  {id:'B5',br:'spine',n:'Colonisation avancée',    sci:788000,req:'B4', d:'JALON — débloque l\'étape 8.', milestone:8},
+  /* ÉPINE DORSALE — 8 paliers depuis 0.4.0 (5 auparavant).
+     B1, B3 et B4 n'avaient aucun effet mécanique : c'étaient des péages nus, et les trois
+     seuls paliers de l'étape 7 tenaient sur 0,7 ordre de grandeur, franchis en rafale.
+     Chaque nœud porte désormais un effet réel, et B1b / B3b / B4b intercalent des paliers
+     intermédiaires. Deux bénéfices : l'attente est ponctuée d'achats utiles, et la science
+     continue de croître pendant l'étape 7 — donc le jalon B5 tombe sur une portion PENTUE
+     de la courbe, où un écart de coût se traduit par un écart de durée proportionné.
+     Calibré par simulation : étape 6 = 47,5 min (cible 50), étape 7 = 78,8 min (cible 85). */
+  {id:'B1', br:'spine',n:'Vaisseaux rudimentaires', sci:2480,      req:null,  e:{mult:{lab:2}},   d:'Ouvre la construction de vaisseaux coloniaux. Laboratoires ×2.'},
+  {id:'B1b',br:'spine',n:'Métallurgie orbitale',    sci:60000,     req:'B1',  e:{global:1.5},     d:'Alliages coulés en apesanteur. Production globale ×1,5.'},
+  {id:'B2', br:'spine',n:'Colonisation',            sci:4e11,      req:'B1b', d:'JALON — débloque l\'étape 7.', milestone:7},
+  {id:'B3', br:'spine',n:'Voyage interstellaire',   sci:2e12,      req:'B2',  e:{mult:{lab:3}},   d:'Ouvre la portée interstellaire. Laboratoires ×3.'},
+  {id:'B3b',br:'spine',n:'Réacteur à confinement',  sci:2e13,      req:'B3',  e:{global:2},       d:'Fusion compacte embarquée. Production globale ×2.'},
+  {id:'B4', br:'spine',n:'Vaisseaux avancés',       sci:2e14,      req:'B3b', e:{mult:{lab:3}},   d:'Coques capables de distorsion. Laboratoires ×3.'},
+  {id:'B4b',br:'spine',n:'Cartographie stellaire',  sci:2e15,      req:'B4',  e:{global:2.5},     d:'Relevé complet du bras local. Production globale ×2,5.'},
+  {id:'B5', br:'spine',n:'Colonisation avancée',    sci:3e16,      req:'B4b', d:'JALON — débloque l\'étape 8.', milestone:8},
   {id:'ND1',br:'spatial',n:'Chantier Dyson 1',sci:745,     req:null, dyson:'D1', d:'Ouvre le premier segment de la sphère.'},
   {id:'ND2',br:'spatial',n:'Chantier Dyson 2',sci:14500,   req:'ND1',dyson:'D2', d:'Deuxième segment.'},
   {id:'ND3',br:'spatial',n:'Chantier Dyson 3',sci:41500,   req:'ND2',dyson:'D3', d:'Troisième segment.'},
@@ -127,7 +138,7 @@ const RTREE=[
   {id:'I3',br:'industrie', n:'Standardisation totale',sci:5200,req:'I2',e:{global:2},         d:'Production globale ×2.'},
   {id:'S1',br:'spatial',   n:'Assemblage en apesanteur',sci:300,req:null,e:{mult:{lab:2}},d:'Laboratoires ×2.'},
   {id:'S2',br:'spatial',   n:'Théorie unifiée',    sci:2400,req:'S1', e:{global:2},           d:'Production globale ×2.'},
-  {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:220,req:'S2',rep:true,repMult:1.62,e:{mult:{lab:1.22}},d:'+22 % de science par niveau.'},
+  {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:220,req:'S2',rep:true,repMult:2.0,e:{mult:{lab:1.15}},d:'+15 % de science par niveau. Le coût double à chaque niveau : le rendement s\'épuise vite, c\'est voulu.'},
   {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:260,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
 ];
 const RBY={}; RTREE.forEach(r=>RBY[r.id]=r);
