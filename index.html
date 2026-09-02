@@ -460,13 +460,13 @@ const MACH=[
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
  {id:'camion',s:3,n:'Cadence — Fonderie (étape précédente)', boost:{s:2,p:.15},                c:{module:40,acier:2000},        g:1.48},
  {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
-             c:{acier:2500,module:4000}, g:4.6},
+             c:{acier:2500,lcuivre:800}, g:4.6},
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
              c:{acier:1200}, g:1.055},
  {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
-             c:{module:1200}, g:1.07},
+             c:{bois:3000}, g:1.07},
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
-             c:{acier:1560,module:600}, g:1.055},
+             c:{acier:1560,lcuivre:400}, g:1.055},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  c:{acier:9000},              g:1.18},
@@ -475,13 +475,13 @@ const MACH=[
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
  {id:'train', s:4,n:'Cadence — Usine (étape précédente)',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
  {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
-             c:{module:9000,moteur:14400}, g:4.7},
+             c:{module:9000,circuit:3000}, g:4.7},
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
-             c:{module:4000}, g:1.055},
+             c:{circuit:2500}, g:1.055},
  {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
-             c:{moteur:4000}, g:1.07},
+             c:{module:4000}, g:1.07},
  {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
-             c:{module:5200,moteur:2000}, g:1.055},
+             c:{module:5200,circuit:1500}, g:1.055},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'avion', s:5,n:'Cadence — Logistique nationale (étape précédente)', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
@@ -503,24 +503,21 @@ const MACH=[
  {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{fusee:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
  {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
-             c:{science:120000,fusee:2000}, g:4.8},
+             c:{science:120000}, g:4.8},
  {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
              c:{science:45000}, g:1.055},
  {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
-             c:{fusee:900}, g:1.07},
+             c:{science:20000}, g:1.07},
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
-             c:{science:58000,fusee:450}, g:1.055},
+             c:{science:58000}, g:1.055},
  // --- 8 expansion
+ /* SUPPRIMÉ en 0.4.0 — fleet_s8 / spd_s8 / cap_s8 / xfer_s8 étaient des achats morts.
+    Aucune machine d'étape 8 n'a d'entrée (forge et vaisseau produisent des systèmes sans
+    consommer de matière), donc PATHS ne contient aucun chemin de destination 8 et ces quatre
+    leviers ne pilotaient rien : ~1,6 M de Science et 24 000 Fusées dépensés sans effet.
+    Si l'étape 8 reçoit un jour une recette, les rétablir en même temps. */
  {id:'forge', s:8,n:'Forge d\'essaim',      colon:.0008,     c:{science:500000,fusee:6000},g:1.14},
  {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
- {id:'fleet_s8', s:8, n:'Vaisseau de distorsion supplémentaire', fleet:8, maxCount:4,
-             c:{science:900000,fusee:15000}, g:4.9},
- {id:'spd_s8',   s:8, n:'Vitesse — vaisseau de distorsion', spdUp:8,
-             c:{science:320000}, g:1.055},
- {id:'cap_s8',   s:8, n:'Capacité — vaisseau de distorsion', capUp:8,
-             c:{fusee:6000}, g:1.07},
- {id:'xfer_s8',  s:8, n:'Débit — vaisseau de distorsion', xferUp:8,
-             c:{science:420000,fusee:3000}, g:1.055},
 ];
 
 /* améliorations. e = effet : click, auto, mult{machine}, stage{n}, global */
@@ -597,7 +594,13 @@ const CLICKABLE=[
    de la position (arc chargé → décharge → arc à vide → chargement).
    Vitesse partagée par flotte. Un véhicule ralentit s'il rattrape celui devant.
    ========================================================================== */
-const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',7:'fleet_s7',8:'fleet_s8'};  // flotte de l'étape (achat dédié, plafonné) — pas d'étape 6, plus de transport côté labo
+/* RÈGLE DE TARIFICATION DU TRANSPORT — invariante, à ne jamais violer :
+   les leviers de transport d'une étape se paient TOUJOURS en ressources AMONT, jamais dans
+   la ressource que ce transport permet de produire. Sinon la dépendance est circulaire (il
+   faut des Modules pour financer le transport qui permet de fabriquer des Modules) et la
+   boucle n'a aucune sortie, puisqu'on ne peut ni vendre une machine ni annuler un achat.
+   L'étape 8 n'a aucune machine à entrées, donc aucun chemin, donc aucun levier de transport. */
+const DUP={2:'fleet_s2',3:'fleet_s3',4:'fleet_s4',5:'fleet_s5',7:'fleet_s7'};  // flotte de l'étape (achat dédié, plafonné) — pas d'étape 6 ni 8 : aucun chemin n'y aboutit
 const FLEET_MAX=30;
 /* §2 — le tampon d'entrée n'est plus un achat : sa capacité est dérivée automatiquement
    de la consommation du plus GROS consommateur de la ressource dans l'étape (jamais la
@@ -686,14 +689,20 @@ function tickPaths(dt){
     // (§2 : le tampon se dimensionne sur le max, jamais sur la somme).
     let dem=0, demMax=0, demRef=0;
     for(const m of MACH){ if(m.s!==p.dest||!m.in||!m.in[p.res])continue;
+      if(state.off[m.id])continue;   // ligne coupée : elle ne consomme rien, elle ne doit donc
+                                     // ni gonfler le tampon ni tirer la capacité des véhicules.
+                                     // Sans ça, le seul outil de diagnostic du joueur (le ON/OFF)
+                                     // n'avait aucun effet sur le goulot qu'il cherche à isoler.
       const per=(m.r||0)*m.in[p.res]*mMult(m);           // conso/s d'UNE machine de ce type
       const tot=(state.cnt[m.id]||0)*per;
       dem+=tot; if(tot>demMax)demMax=tot;
-      // référence §4 : conso d'UNE machine de chaque type, hors palier de duplication.
-      // Elle suit les multiplicateurs globaux (sinon le transport décroche irrémédiablement
-      // en fin de partie) mais PAS le nombre de machines : acheter de la production fait
-      // donc bien chuter R, acheter du transport le fait remonter.
-      demRef+=per/Math.max(1,cache.mach[m.id]||1);
+      // référence §4 : conso d'UNE machine de chaque type, TOUS multiplicateurs inclus —
+      // y compris le palier de duplication ×2/25. Elle ne suit toujours PAS le NOMBRE de
+      // machines : acheter de la production fait donc bien chuter R, acheter du transport le
+      // fait remonter. En revanche le palier ×2 doit être inclus, sinon la demande double
+      // tous les 25 achats sans que l'offre ne bouge : la chute devient une falaise (×1600
+      // entre 1 et 100 machines) au lieu d'une pente, et aucun niveau de capacité ne rattrape.
+      demRef+=per;
     }
     dem*=state.speed; demMax*=state.speed; demRef*=state.speed;
     const spd=Math.min(.6,p.baseSpeed*Math.pow(SPD_STEP,state.cnt['spd_s'+p.dest]||0));  // vitesse — dédiée, indépendante de la flotte
@@ -784,7 +793,32 @@ function dysonMW(){ return DYSON.reduce((a,d)=>a+((state.dyson[d.id]&&state.dyso
 
 /* un labo est offert dès l'arrivée en étape 6 */
 function labCount(){ return state.stage>=6 ? 1+(state.cnt.lab||0) : 0; }   // labos CONSTRUITS (N)
-function labLevel(){ return 1+(state.cnt.labLvl||0); }                    // niveau cible, commun, acheté librement
+/* Le niveau de laboratoire a deux valeurs distinctes depuis 0.4.0 :
+     - labLvlOwned() : le niveau ACHETÉ. Monte seul, jamais remboursé, sert au calcul du coût.
+     - labLevel()    : le niveau EXPLOITÉ, choisi au curseur, plafonné par le niveau acheté.
+   Sans cette séparation, acheter un niveau trop haut avec peu de laboratoires faisait tomber
+   maxActiveAt() à 0 et donc la science à 0, sans aucun moyen de revenir en arrière : le
+   curseur de labos actifs ne peut que réduire le nombre d'actifs, jamais relever le plafond
+   énergétique. Le niveau acheté est désormais un plafond, pas une contrainte. */
+function labLvlOwned(){ return 1+(state.cnt.labLvl||0); }                 // niveau acheté, monotone
+/* Curseur laissé sur AUTO (null) : on exploite le niveau qui maximise la science totale,
+   c'est-à-dire le meilleur compromis entre "science par labo" (×1,18/niveau) et "nombre de
+   labos que l'énergie laisse tourner" (conso ×1,20/niveau). Sans marge d'énergie, l'optimum
+   se cale naturellement sur le niveau 10, celui que les panneaux embarqués couvrent
+   exactement ; chaque segment Dyson le fait remonter tout seul. Le joueur peut à tout moment
+   figer une valeur au curseur, par exemple pour brider la conso avant un chantier Dyson. */
+function labLvlAuto(){
+  const o=labLvlOwned(), N=labCount(), prod=powerProd();
+  let best=1, bestSci=-1;
+  for(let L=1;L<=o;L++){
+    const a=Math.max(0,Math.min(N,Math.floor(prod/(C0*Math.pow(LAB_CONSO_STEP,L-1))+1e-9)));
+    const sci=a*Math.pow(LAB_SCI_STEP,L-1);
+    if(sci>bestSci){bestSci=sci;best=L;}
+  }
+  return best;
+}
+function labLevel(){ const t=state.labLvlTarget; const o=labLvlOwned();
+  return t==null?labLvlAuto():Math.max(1,Math.min(o,t)); }                // niveau exploité
 function labConso(L){ return C0*Math.pow(LAB_CONSO_STEP,(L===undefined?labLevel():L)-1); }
 function labSci(L){   return Math.pow(LAB_SCI_STEP,(L===undefined?labLevel():L)-1); }
 
@@ -811,7 +845,7 @@ function powerFree(){ return powerProd()-powerUse(); }
 function labSciTotal(){ return labActive()*labSci(); }
 /* coûts, payés en production d'étape 5 : sépare l'économie recherche de l'infra.
    Aucun plafond énergétique sur l'achat lui-même — seule l'activation l'est. */
-function labLevelCost(){ return 14*Math.pow(1.25,labLevel()-1)*STATION_SCALE; }
+function labLevelCost(){ return 14*Math.pow(1.25,labLvlOwned()-1)*STATION_SCALE; }   // basé sur l'acheté, pas l'exploité
 function nextLabCost(){ const n=labCount()+1; return 600*Math.pow(1.55,n-2)*STATION_SCALE; }
 
 /* ==========================================================================
@@ -877,6 +911,7 @@ const PRIME_TIME=0.5;   // amorçage fixe : délai de démarrage unique, indépe
 function pipeStats(){
   let dem=0, demMax=0;
   for(const m of MACH){ if(m.s!==PIPE.dest||!m.in||!m.in[PIPE.res])continue;
+    if(state.off[m.id])continue;   // idem oléoduc : une raffinerie coupée ne dimensionne rien
     const tot=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m);
     dem+=tot; if(tot>demMax)demMax=tot; }
   dem*=state.speed; demMax*=state.speed;   // cohérent avec les chemins véhicules
@@ -967,7 +1002,7 @@ function freshState(brevets=0,valeurTot=0){
   const res={}; for(const k in RES) res[k]=0;
   return {
     res, cnt:{}, ups:{}, planets:{}, systemes:0,
-    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pop:{}, labActiveTarget:null, pipe:{prime:0,flow:0,jam:false,starved:false},
+    buf:{}, veh:{}, off:{}, dyson:{}, research:{}, hold:{}, pop:{}, labActiveTarget:null, labLvlTarget:null, pipe:{prime:0,flow:0,jam:false,starved:false},
     stage:1, tab:1, seen:{1:true},
     click:1, auto:0,
     valeur:0, valeurTot, brevets,
@@ -979,7 +1014,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.3.5';
+const GAME_VERSION='0.4.0';
 
 let cache={global:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1112,7 +1147,15 @@ function tick(dt){
         let ok=true, miss=null;
         for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
           if(poolGet(m.s,k)<need-1e-9){ ok=false; miss=miss||k; } }
-        if(!ok){ cyc=0; m.eff=0; m.miss=miss; } else { m.eff=1; m.miss=null; }
+        // Tout-ou-rien : jamais de cycle partiellement consommé. Mais la règle s'applique au
+        // CYCLE, pas au lot : si le tampon alimente 60 machines sur 100, 60 tournent. Annuler
+        // le lot entier produisait un zéro absorbant (plus rien ne rentre, donc plus rien ne
+        // finance le transport, donc plus rien ne rentre) dont on ne pouvait plus sortir.
+        if(!ok){ let f=1;
+          for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
+            f=Math.min(f,poolGet(m.s,k)/need); }
+          f=Math.max(0,Math.min(1,f)); cyc*=f; m.eff=f; m.miss=f<1?miss:null;
+        } else { m.eff=1; m.miss=null; }
         m.effDisp=(m.effDisp===undefined?m.eff:m.effDisp)*0.85+m.eff*0.15;   // lissage visuel seulement
       } else { m.eff=1; m.miss=null; m.effDisp=1; }
       if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
@@ -1235,6 +1278,11 @@ function doPrestige(){
   const nb=state.brevets+g, vt=state.valeurTot+state.valeur;
   const sp=state.speed;
   state=freshState(nb,vt); state.speed=sp;
+  // flow et prodAvg sont des variables de module, pas des champs de state : sans ce reset
+  // explicite elles gardent les débits du run précédent pendant toute la fenêtre de moyenne
+  // (AVG_WINDOW = 10 s), et rateMet() les lit directement — tous les jalons des étapes 2 à 6
+  // se retrouvaient donc satisfaits dès la première seconde du nouveau run.
+  flow={}; prodAvg={}; pathTaken={}; pathAcc=0;
   for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
   structuralDirty=true; recompute(); toast('+'+g+' brevets');
 }
@@ -1324,7 +1372,7 @@ function blackBox(s){
 }
 
 function machRow(m){
-  const n=m.lab?labCount():(m.labLvl?labLevel():(state.cnt[m.id]||0));
+  const n=m.lab?labCount():(m.labLvl?labLvlOwned():(state.cnt[m.id]||0));
   let io='';
   if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n));
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
@@ -1333,8 +1381,9 @@ function machRow(m){
      ' · '+labActive()+' actif'+(labActive()>1?'s':'')+' (réglage ci-dessous). '+
      'Chaque labo actif produit '+fmt(labSci())+'× la science de base au niveau '+labLevel()+
      '<br>Panneaux embarqués : '+fmt(SOLAR_PER_LAB)+' MW/labo, actif ou non · conso actuelle '+fmt(powerUse())+' MW au total';
-  else if(m.labLvl){ const L=labLevel(), maxA=maxActiveAt();
-    io='<em>Niveau '+L+'</em> — commun à tous les laboratoires, achat libre (non plafonné par l\'énergie).'+
+  else if(m.labLvl){ const L=labLevel(), O=labLvlOwned(), maxA=maxActiveAt();
+    io='<em>Niveau '+L+(O>L?' <span style="opacity:.65">(acheté '+O+')</span>':'')+'</em> — commun à tous les laboratoires. '+
+       'L\'achat relève le plafond ; le niveau réellement exploité se règle au curseur ci-dessous, à tout moment.'+
        '<br>Science ×'+fmt(LAB_SCI_STEP)+' par niveau, conso ×'+fmt(LAB_CONSO_STEP)+' par niveau : '+
        'la facture énergétique monte plus vite que le gain.'+
        (maxA<labCount()?'<br><span style="color:#d8a13c">⚠ à ce niveau, l\'énergie ne suit que pour '+maxA+' / '+labCount()+' labos — désactive les autres ou attends un segment Dyson.</span>':'')+
@@ -1631,7 +1680,7 @@ function drawPipe(){
 function powerPanel(){
   const prod=powerProd(), use=powerUse(), free=powerFree();
   const f=prod>0?Math.max(0,Math.min(1,free/prod)):0;
-  const N=labCount(), L=labLevel(), maxA=maxActiveAt(), target=labActiveTarget(), A=labActive();
+  const N=labCount(), L=labLevel(), O=labLvlOwned(), maxA=maxActiveAt(), target=labActiveTarget(), A=labActive();
   const wantsMore=target>maxA;             // le joueur vise plus d'actifs que l'énergie ne permet
   const banking=target<N && !wantsMore;    // choix délibéré de garder des labos en réserve
   const sciTot=labSciTotal()*cache.mach.lab*cache.stage[6]*cache.global;   // science/s réellement produite
@@ -1658,11 +1707,25 @@ function powerPanel(){
           '<button data-labact="+1" '+(target>=N?'disabled':'')+'>+</button>'+
           '<button data-labact="max" title="Tout activer">⏭</button>'+
         '</div></div>'+
+      '<div class="labctl-row"><span>Niveau exploité</span>'+
+        '<div class="stepper">'+
+          '<button data-lablvl="1" title="Revenir au niveau 1">⏮</button>'+
+          '<button data-lablvl="-1" '+(L<=1?'disabled':'')+'>−</button>'+
+          '<span class="stepval">'+L+' / '+O+(state.labLvlTarget==null?' <i>(auto)</i>':'')+'</span>'+
+          '<button data-lablvl="+1" '+(L>=O?'disabled':'')+'>+</button>'+
+          '<button data-lablvl="max" title="Exploiter le niveau acheté">⏭</button>'+
+          '<button data-lablvl="auto" title="Laisser le jeu choisir le niveau le plus rentable" '+
+            (state.labLvlTarget==null?'class="on"':'')+'>auto</button>'+
+        '</div></div>'+
+      (O>L?'<div class="labctl-bank">🎚 Niveau bridé volontairement : '+O+' acheté, '+L+' exploité. '+
+        'Chaque cran en moins divise la conso par '+fmt(LAB_CONSO_STEP)+' et permet donc plus de labos actifs.</div>':'')+
       '<div class="labctl-sci">Science produite : <b>'+fmt(sciTot)+'/s</b>'+
         (A>0?' ('+A+' × '+fmt(labSci())+' × multiplicateurs)':'')+'</div>'+
       (wantsMore?'<div class="labctl-warn">⚡ Seuls '+maxA+' / '+target+' labos visés peuvent tourner au niveau '+L+
-        ' avec l\'énergie actuelle. Désactive des labos pour profiter pleinement du niveau acheté sur moins d\'unités, '+
-        'ou attends un nouveau segment Dyson pour tous les activer.</div>':'')+
+        ' avec l\'énergie actuelle. Trois réponses possibles : <b>baisser le niveau exploité</b> pour rallumer tous les labos, '+
+        'désactiver des labos pour concentrer l\'énergie sur moins d\'unités, ou construire un segment Dyson.'+
+        (maxA===0?'<br><b>Aucun labo ne peut tourner : baisse le niveau exploité, la science repartira immédiatement.</b>':'')+
+        '</div>':'')+
       (banking?'<div class="labctl-bank">🔋 '+(N-target)+' labo'+(N-target>1?'s':'')+' volontairement en réserve — '+
         'leurs panneaux alimentent quand même le pool commun. Relève le curseur pour les activer d\'un coup.</div>':'')+
       '<div class="labctl-tip">'+concentrationTip+'</div>'+
@@ -1796,6 +1859,14 @@ function bind(){
     const k='path_'+b.dataset.pathoff; state.off[k]=!state.off[k]; structuralDirty=true; });
   $('panel').querySelectorAll('[data-pipeoff]').forEach(b=>b.onclick=()=>{
     state.off['pipe']=!state.off['pipe']; structuralDirty=true; });
+  $('panel').querySelectorAll('[data-lablvl]').forEach(b=>b.onclick=()=>{
+    const O=labLvlOwned(), cur=labLevel(); let t;
+    const v=b.dataset.lablvl;
+    if(v==='auto'){ state.labLvlTarget=null; structuralDirty=true; return; }
+    if(v==='max')t=O; else if(v==='1')t=1; else t=cur+parseInt(v,10);
+    state.labLvlTarget=Math.max(1,Math.min(O,t));
+    structuralDirty=true;
+  });
   $('panel').querySelectorAll('[data-labact]').forEach(b=>b.onclick=()=>{
     const N=labCount(), cur=labActiveTarget(); let t;
     const v=b.dataset.labact;
@@ -1911,9 +1982,11 @@ function restore(raw){
   state.buf=state.buf||{}; state.veh=state.veh||{}; state.off=state.off||{}; state.speed=1;
   state.dyson=state.dyson||{}; state.research=state.research||{}; state.hold=state.hold||{}; state.pop=state.pop||{};
   if(state.labActiveTarget===undefined)state.labActiveTarget=null;
+  if(state.labLvlTarget===undefined)state.labLvlTarget=null;   // 0.4.0 — anciennes sauvegardes
   state.pipe=state.pipe||{prime:0,flow:0,jam:false,starved:false};
   if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
+  flow={}; prodAvg={}; pathTaken={}; pathAcc=0;   // même raison qu'au prestige : on repart d'une mesure vierge
   recompute();
   return d.ts?(Date.now()-d.ts)/1000:0;
 }
