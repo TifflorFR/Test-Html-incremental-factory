@@ -245,6 +245,21 @@ nav::-webkit-scrollbar{display:none}
 .planet .dot{font-size:30px;line-height:1}
 .planet.owned{border-color:var(--ember);background:#1a1a26}
 canvas{width:100%;height:190px;display:block;border:1px solid #22384f;background:#05090f}
+#galWrap{position:relative;width:100%}
+#galSol{position:absolute;left:0;top:0;pointer-events:none;font:9px ui-monospace,monospace;
+  color:#8fa8bf;opacity:0;transition:opacity .3s;text-shadow:0 0 6px rgba(5,9,15,.9)}
+#galSol.on{opacity:1}
+#galFull{position:fixed;inset:0;z-index:180;background:#05090f;display:none;flex-direction:column}
+#galFull.on{display:flex}
+#galFull .gfbar{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 14px;
+  border-bottom:1px solid #22384f;background:rgba(7,13,22,.92)}
+#galFull .gft{font-size:12px;letter-spacing:.12em;color:#c9963f}
+#galFull .gfn{margin-left:auto;font-size:11px;color:#8fa8bf}
+#galFull .gfx{border:1px solid #22384f;padding:6px 12px;font-size:11px;color:#8fa8bf;
+  background:none;font-family:inherit;cursor:pointer;border-radius:2px}
+#galFullBody{flex:1 1 auto;min-height:0;display:flex}
+#galFull #galWrap{flex:1 1 auto;min-height:0}
+#galFull canvas{border:none;touch-action:none}
 #loopsC{height:auto;background:#08111c}
 
 /* pied / dev */
@@ -301,6 +316,14 @@ footer{
   <div class="foot">Se joue hors ligne, tout tient dans ce fichier. La partie se sauvegarde toute seule&nbsp;: <span id="introStore">—</span>.<br>Le bouton « test » en bas accélère le jeu jusqu'à ×1000 pour voir toutes les étapes.</div>
 </div></div>
 
+<div id="galFull">
+  <div class="gfbar">
+    <div class="gft">CARTE GALACTIQUE</div>
+    <div class="gfn"><b id="galFullN">0</b> / 100 000</div>
+    <button class="gfx" id="galFullClose">✕ fermer</button>
+  </div>
+  <div id="galFullBody"></div>
+</div>
 <div id="pausedOverlay">
   <div class="pbox">
     <div class="pt">En pause</div>
@@ -516,8 +539,8 @@ const MACH=[
     consommer de matière), donc PATHS ne contient aucun chemin de destination 8 et ces quatre
     leviers ne pilotaient rien : ~1,6 M de Science et 24 000 Fusées dépensés sans effet.
     Si l'étape 8 reçoit un jour une recette, les rétablir en même temps. */
- {id:'forge', s:8,n:'Forge d\'essaim',      colon:.0008,     c:{science:500000,fusee:6000},g:1.14},
- {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:.0006,     c:{science:350000,fusee:4000},                      g:1.1},
+ {id:'forge', s:8,n:'Forge d\'essaim',      colon:1.6e-5,     c:{science:500000,fusee:6000},g:1.14},
+ {id:'vaisseau',s:8,n:'Vaisseau-colonisateur',colon:1.2e-5,     c:{science:350000,fusee:4000},                      g:1.1},
 ];
 
 /* améliorations. e = effet : click, auto, mult{machine}, stage{n}, global */
@@ -889,6 +912,23 @@ const RTREE=[
   // --- répétables en bout de branche ---
   {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:220,req:'S2',rep:true,repMult:2.0,e:{mult:{lab:1.15}},d:'+15 % de science par niveau. Le coût double à chaque niveau : le rendement s\'épuise vite, c\'est voulu.'},
   {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:260,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
+
+  // --- expansion : vitesse de colonisation ---
+  /* La branche pilote toute l'étape 8. Sans elle la colonisation plafonne à ~0,45 système/s :
+     l'étape n'est plus une attente à débit constant (mesurée à 33/s plate, 51 min sans la
+     moindre décision) mais une suite de six paliers, à 3 / 17 / 37 / 66 / 92 / 112 min.
+     Multiplicateurs DÉCROISSANTS : les premiers nœuds sont les plus spectaculaires, sinon
+     toute la galaxie se colonise dans les dernières minutes.
+     Coûts calés sur la bande de science réellement accumulable à l'étape 8 (production
+     mesurée : 2,0e15 -> 1,1e16 /s, stock oscillant entre 1e17 et 5e18) — au-delà de ~1e18
+     un nœud n'est plus atteignable avant la fin de la galaxie.
+     Calibré par simulation : 122 min, 10 % de la galaxie à 41 min, 50 % à 91 min. */
+  {id:'X1',br:'expansion',n:'Sondes autonomes',      sci:1.5e16, req:'B5',rep:false,e:{colon:3},   d:'Des sondes qui se guident seules, sans relais depuis la Terre. Colonisation ×3.'},
+  {id:'X2',br:'expansion',n:'Relais de distorsion',  sci:8e16, req:'X1',e:{colon:2.5}, d:'Un maillage de balises qui raccourcit chaque saut. Colonisation ×2,5.'},
+  {id:'X3',br:'expansion',n:'Essaim von Neumann',    sci:2e17, req:'X2',e:{colon:2},   d:'Chaque vaisseau arrivé en construit deux autres sur place. Colonisation ×2.'},
+  {id:'X4',br:'expansion',n:'Portails stables',      sci:4e17, req:'X3',e:{colon:1.6}, d:"Des portes fixes : plus besoin de traverser, il suffit d'ouvrir. Colonisation ×1,6."},
+  {id:'X5',br:'expansion',n:'Conscience distribuée', sci:6.2e17, req:'X4',e:{colon:1.4}, d:"L'essaim décide seul où aller. Tu ne pilotes plus, tu regardes. Colonisation ×1,4."},
+  {id:'RX',br:'expansion',n:"Réglage de l'essaim",   sci:7.6e17, req:'X5',rep:true,repMult:2.0,e:{colon:1.35}, d:'+35 % de vitesse de colonisation par niveau.'},
 ];
 const RBY={}; RTREE.forEach(r=>RBY[r.id]=r);
 
@@ -1025,7 +1065,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.4.0';
+const GAME_VERSION='0.5.0';
 
 let cache={global:1,astro:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1049,6 +1089,7 @@ function recompute(){
     if(e.global)c.global*=Math.pow(e.global,k);
     if(e.stage)for(const st in e.stage)c.stage[st]*=Math.pow(e.stage[st],k);
     if(e.mult)for(const mk in e.mult)c.mach[mk]*=Math.pow(e.mult[mk],k);
+    if(e.colon)c.colon*=Math.pow(e.colon,k);      // branche Expansion : vitesse de colonisation
   }
   // machines de type boost / global
   MACH.forEach(m=>{ const n=state.cnt[m.id]||0; if(!n)return;
@@ -1560,93 +1601,512 @@ function drawLoops(){
   });
 }
 function galaxyCanvas(){
-  return '<canvas id="gal"></canvas>';
+  return '<div id="galHost"></div>'+
+    '<div class="toggles"><button class="tg" data-galfull="1">⛶ plein écran</button></div>';
 }
 
 /* ==========================================================================
-   GALAXIE PROCÉDURALE — spirale logarithmique, 2 bras majeurs + 2 mineurs.
-   Positions générées UNE fois en Float32Array. Couche grise pré-rendue hors
-   écran ; par frame on ne redessine que le disque colonisé et la frontière.
-   Les 100 000 systèmes restent un compteur abstrait, jamais des entités.
+   GALAXIE — rendu WebGL. Spirale logarithmique, 2 bras majeurs + 2 mineurs,
+   bulbe sphéroïdal et population de champ. Chaque point est un système.
+
+   Le mécanisme central : chaque étoile porte un attribut `aOrder` ∈ [0,1], son
+   RANG dans l'ordre de colonisation, calculé une fois à la génération. Le shader
+   compare aOrder à l'uniform uProgress = state.systemes / 100000. Faire avancer
+   la colonisation coûte donc une seule écriture de float par image, quel que
+   soit le nombre de points — là où l'ancienne version 2D redessinait un masque
+   circulaire, et où du DOM se serait effondré bien avant 10 000 éléments.
+
+   L'ordre n'est pas la distance pure à Sol : il est brouillé par un facteur
+   aléatoire large et un bruit spatial basse fréquence, pour que l'expansion
+   s'allume système par système et par grappes plutôt qu'en anneau régulier.
+
+   Le canvas est créé UNE fois et déplacé entre le panneau et l'overlay plein
+   écran. Il ne doit jamais être recréé par render() : un contexte WebGL par
+   reconstruction de panneau épuiserait le quota du navigateur en quelques
+   dizaines de secondes.
    ========================================================================== */
-const GAL={built:false,N:2600,pos:null,rad:null,hue:null,grey:null,color:null,W:0,H:0,solIdx:0};
-function buildGalaxy(W,H){
-  const N=GAL.N, pos=new Float32Array(N*2), rad=new Float32Array(N), hue=new Float32Array(N);
+const GAL={
+  wrap:null, cv:null, gl:null, mode:null,       // mode : 'gl' | '2d' | 'off'
+  prog:null, coreProg:null, uS:{}, uC:{}, at:{},
+  bufs:{}, coreBuf:null, N:0, built:false, W:0, H:0, PR:1,
+  full:false, host:null, sol:[0,0,0],
+  az:0.62, pol:0.74, rot:0, lastT:0, lastSys:0, rate:0, flashW:0.004,
+  drag:false, lx:0, ly:0, pinch:0, dist:150
+};
+
+/* --- forme : réglages retenus au calibrage visuel --- */
+const G_R=70, G_PITCH=Math.tan(19*Math.PI/180), G_PITCH2=Math.tan(20.5*Math.PI/180);
+const G_ARMD=0.85, G_MAJOR=0.80, G_SIZE=0.65;
+
+const G_VERT=`
+precision highp float;
+attribute vec3 aPos;
+attribute float aSeed, aOrder, aLum, aTemp;
+uniform mat4 uProj, uView;
+uniform float uProgress, uSize, uPR, uTime, uFog, uFlashW;
+varying vec3 vCol;
+varying float vAlpha;
+
+const vec3 VIERGE   = vec3(0.29, 0.42, 0.56);
+const vec3 FRONT    = vec3(1.00, 0.48, 0.20);
+const vec3 COLONISE = vec3(0.86, 0.63, 0.26);
+
+/* corps noir stellaire, six ancres de M (~3 000 K) à O (~30 000 K) */
+vec3 tempColor(float t){
+  vec3 c =   vec3(1.00, 0.55, 0.33);
+  c = mix(c, vec3(1.00, 0.76, 0.55), smoothstep(0.00, 0.25, t));
+  c = mix(c, vec3(1.00, 0.94, 0.86), smoothstep(0.25, 0.45, t));
+  c = mix(c, vec3(0.96, 0.96, 1.00), smoothstep(0.45, 0.60, t));
+  c = mix(c, vec3(0.84, 0.89, 1.00), smoothstep(0.60, 0.76, t));
+  c = mix(c, vec3(0.63, 0.75, 1.00), smoothstep(0.76, 1.00, t));
+  return c;
+}
+
+void main(){
+  float d = uProgress - aOrder;
+  float on = step(0.0, d);
+  /* uFlashW suit la cadence réelle de colonisation : l'éclat d'allumage doit
+     durer quelques secondes de jeu, or cette cadence varie d'un facteur 10 000
+     entre le début et la fin de l'étape. Une largeur fixe donnerait soit une
+     bande permanente, soit rien du tout. */
+  float flash = on * exp(-d/uFlashW);
+
+  float lum = aLum;
+  vec3 star = tempColor(aTemp);
+  /* la température porte la teinte, l'état de colonisation porte la SATURATION :
+     un système vierge est presque monochrome, un système acquis révèle sa vraie
+     couleur tirée vers le laiton */
+  vec3 c = mix(mix(star, VIERGE, 0.82), mix(star, COLONISE, 0.40), on);
+  c += FRONT * flash * 1.6;
+  c += COLONISE * on * 0.10 * sin(uTime*2.0 + aSeed*50.0);
+
+  vec4 mv = uView * vec4(aPos,1.0);
+  float dist = -mv.z;
+  float fog = exp(-dist*dist*uFog);
+
+  vCol = c;
+  vAlpha = (mix(0.17, 0.60, on) * min(lum, 3.0) + flash*1.0) * fog;
+
+  /* le rayon suit la racine de la luminosité : un facteur 9 en éclat ne donne
+     qu'un facteur 3 en taille, sinon les étoiles chaudes mangent l'image */
+  float s = uSize * (0.75 + aSeed*0.25) * sqrt(lum) * (1.0 + on*0.30 + flash*2.6);
+  gl_PointSize = s * uPR * (300.0 / max(dist,1.0));
+  gl_Position = uProj * mv;
+}`;
+
+const G_FRAG=`
+precision mediump float;
+varying vec3 vCol;
+varying float vAlpha;
+void main(){
+  vec2 p = gl_PointCoord - 0.5;
+  float r = dot(p,p);
+  if(r > 0.25) discard;
+  float a = smoothstep(0.25, 0.0, r);
+  gl_FragColor = vec4(vCol, a*a*vAlpha);
+}`;
+
+/* halo du bulbe : un quad additif dans le plan galactique, bien moins cher
+   qu'une passe de bloom et suffisant à cette échelle */
+const GC_VERT=`precision highp float; attribute vec2 aXZ; uniform mat4 uProj,uView;
+uniform float uR; varying vec2 vP;
+void main(){ vP=aXZ; gl_Position=uProj*uView*vec4(aXZ.x*uR,0.0,aXZ.y*uR,1.0); }`;
+const GC_FRAG=`precision mediump float; varying vec2 vP;
+void main(){ float d=length(vP); if(d>1.0) discard;
+  gl_FragColor=vec4(0.78,0.60,0.34, pow(1.0-d,3.0)*0.30); }`;
+
+/* --- algèbre minimale : de quoi se passer d'une bibliothèque 3D entière --- */
+function gPersp(fovy,aspect,near,far){
+  const f=1/Math.tan(fovy/2), nf=1/(near-far);
+  return new Float32Array([f/aspect,0,0,0, 0,f,0,0,
+    0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
+}
+function gLookAt(ex,ey,ez){
+  let zx=ex, zy=ey, zz=ez;
+  let l=Math.hypot(zx,zy,zz)||1; zx/=l; zy/=l; zz/=l;
+  let xx=zz, xy=0, xz=-zx;
+  l=Math.hypot(xx,xy,xz);
+  if(l<1e-6){ xx=1; xy=0; xz=0; } else { xx/=l; xy/=l; xz/=l; }
+  const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+  return new Float32Array([xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+    -(xx*ex+xy*ey+xz*ez), -(yx*ex+yy*ey+yz*ez), -(zx*ex+zy*ey+zz*ez), 1]);
+}
+function gMul(m,x,y,z){
+  return [m[0]*x+m[4]*y+m[8]*z+m[12], m[1]*x+m[5]*y+m[9]*z+m[13],
+          m[2]*x+m[6]*y+m[10]*z+m[14], m[3]*x+m[7]*y+m[11]*z+m[15]];
+}
+function gCompile(gl,vs,fs){
+  const p=gl.createProgram();
+  [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]].forEach(([t,src])=>{
+    const sh=gl.createShader(t); gl.shaderSource(sh,src); gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    gl.attachShader(p,sh);
+  });
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+/* répartition des classes spectrales dans le voisinage solaire, en proportions
+   réelles : [part, tMin, tMax]. Les naines rouges écrasent tout — 3 sur 4. */
+const G_SPEC=[[0.7645,0,0.20],[0.1210,0.20,0.38],[0.0760,0.38,0.50],
+              [0.0300,0.50,0.62],[0.0060,0.62,0.76],[0.0013,0.76,0.95],[0.00003,0.95,1]];
+const G_SPECT=G_SPEC.reduce((a,c)=>a+c[0],0);
+function gDrawTemp(){
+  let r=Math.random()*G_SPECT, acc=0;
+  for(let k=0;k<G_SPEC.length;k++){
+    acc+=G_SPEC[k][0];
+    if(r<acc||k===G_SPEC.length-1) return G_SPEC[k][1]+Math.random()*(G_SPEC[k][2]-G_SPEC[k][1]);
+  }
+}
+const gGauss=()=>(Math.random()+Math.random()+Math.random()+Math.random()-2)*1.15;
+
+/* --- création du canvas persistant, une seule fois --- */
+function galInit(){
+  if(GAL.mode) return GAL.mode;
+  /* Le DOM n'est créé qu'une fois. Sur restauration de contexte on repasse ici
+     avec GAL.mode remis à null : il faut alors reprendre le canvas existant,
+     sinon l'ancien reste orphelin dans le panneau et les gestes sont câblés
+     deux fois. */
+  const fresh=!GAL.cv;
+  if(fresh){
+    const w=document.createElement('div'); w.id='galWrap';
+    const c=document.createElement('canvas'); c.id='gal';
+    const lab=document.createElement('div'); lab.id='galSol'; lab.textContent='Sol';
+    w.appendChild(c); w.appendChild(lab);
+    GAL.wrap=w; GAL.cv=c; GAL.lab=lab;
+  }
+  const c=GAL.cv;
+
+  let gl=null;
+  try{ gl=c.getContext('webgl',{alpha:false,antialias:false,depth:false,powerPreference:'high-performance'})
+        ||c.getContext('experimental-webgl',{alpha:false,antialias:false,depth:false}); }catch(e){}
+  if(!gl){ GAL.mode='2d'; return GAL.mode; }   // repli : rendu 2D d'origine
+
+  try{
+    GAL.gl=gl;
+    GAL.prog=gCompile(gl,G_VERT,G_FRAG);
+    GAL.coreProg=gCompile(gl,GC_VERT,GC_FRAG);
+  }catch(e){ GAL.gl=null; GAL.mode='2d'; return GAL.mode; }
+
+  ['uProj','uView','uProgress','uSize','uPR','uTime','uFog','uFlashW']
+    .forEach(n=>GAL.uS[n]=gl.getUniformLocation(GAL.prog,n));
+  ['uProj','uView','uR'].forEach(n=>GAL.uC[n]=gl.getUniformLocation(GAL.coreProg,n));
+  ['aPos','aSeed','aOrder','aLum','aTemp'].forEach(n=>GAL.at[n]=gl.getAttribLocation(GAL.prog,n));
+  GAL.at.aXZ=gl.getAttribLocation(GAL.coreProg,'aXZ');
+
+  GAL.coreBuf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,GAL.coreBuf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+
+  gl.clearColor(5/255,9/255,15/255,1);
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);          // additif
+
+  // un contexte perdu (onglet en arrière-plan, veille GPU) doit se reconstruire
+  if(fresh){
+    c.addEventListener('webglcontextlost',e=>{ e.preventDefault(); GAL.built=false; });
+    c.addEventListener('webglcontextrestored',()=>{ GAL.mode=null; galInit(); });
+  }
+
+  if(fresh) galBindPointer(c);
+  GAL.bufs={}; GAL.N=0; GAL.built=false;   // les tampons de l'ancien contexte sont morts
+  GAL.mode='gl';
+  return GAL.mode;
+}
+
+/* --- génération : positions, ordre de colonisation, luminosité, température --- */
+function galBuild(n){
+  const gl=GAL.gl; GAL.N=n;
+  const R=G_R, R0=R*0.07;
+  const armCut=0.10+0.35+0.55*G_ARMD, widthMul=1.45-0.95*G_ARMD;
+  const pos=new Float32Array(n*3), seed=new Float32Array(n), raw=new Float32Array(n),
+        order=new Float32Array(n), lum=new Float32Array(n), temp=new Float32Array(n);
+
+  const rs=R*0.60, as=Math.log(rs/R0)/G_PITCH;
+  GAL.sol=[Math.cos(as)*rs, 0, Math.sin(as)*rs];      // Sol, sur un bras principal
+
+  for(let i=0;i<n;i++){
+    let x,y,z, armBoost=1;
+    const u=Math.random();
+    if(u<0.10){
+      // bulbe : sphéroïde aplati, population vieille
+      const r=R*0.17*Math.pow(Math.random(),0.55);
+      const th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1), st=Math.sin(ph);
+      x=r*st*Math.cos(th); z=r*st*Math.sin(th); y=r*Math.cos(ph)*0.60;
+    }else{
+      let r;
+      do{ r=-Math.log(1-Math.random())*R*0.32; }while(r>R||r<R0);
+      let th;
+      if(u<armCut){
+        /* Le décalage est PERPENDICULAIRE au bras et de largeur quasi constante :
+           c'est ce qui donne des bras larges plutôt que des filaments. Un décalage
+           purement angulaire produisait des rubans serrés, lus comme une hélice.
+           Les semi-bras ont un angle d'ouverture à peine différent (20,5° contre
+           19°) : assez pour casser la symétrie, pas assez pour qu'ils dérivent
+           jusqu'à traverser les bras principaux. */
+        const base=Math.random()<0.5?0:Math.PI;
+        let w;
+        if(Math.random()<G_MAJOR){
+          th=base+Math.log(r/R0)/G_PITCH;
+          w=(R*0.078+r*0.14)*widthMul; armBoost=1.18;
+        }else{
+          th=base+Math.PI*0.5+0.25+Math.log(r/R0)/G_PITCH2;
+          w=(R*0.078+r*0.14)*1.15*widthMul; armBoost=1.05;
+        }
+        th+=gGauss()*w/Math.max(r,10)*0.9;
+        r=Math.max(3,r+gGauss()*w*0.7);
+      }else{
+        // champ : sans cette population l'œil ne voit que des rubans
+        th=Math.random()*Math.PI*2;
+      }
+      x=Math.cos(th)*r; z=Math.sin(th)*r;
+      const h=R*0.017+R*0.065*Math.exp(-r/(R*0.16));
+      y=gGauss()*h*0.55;
+    }
+    pos[i*3]=x; pos[i*3+1]=y; pos[i*3+2]=z;
+    seed[i]=Math.random();
+
+    let T=gDrawTemp();
+    if(u<0.10&&T>0.55) T=Math.random()*0.38;     // le bulbe ne forme plus d'étoiles chaudes
+    temp[i]=T;
+
+    /* relation masse-luminosité : les chaudes sont brillantes, les naines rouges
+       sombres. C'est ce couplage qui fait ressortir les bras en bleu sur fond
+       rouge — l'œil ne compte pas les étoiles, il les pondère par leur éclat. */
+    lum[i]=armBoost*Math.exp(gGauss()*0.65)/1.10*Math.exp((T-0.30)*1.9);
+
+    const dx=x-GAL.sol[0], dy=y*2.2, dz=z-GAL.sol[2];
+    const d=Math.sqrt(dx*dx+dy*dy+dz*dz), th2=Math.atan2(dz,dx);
+    const lobes=1+0.16*Math.sin(th2*3+1.1);
+    const patch=R*0.13*Math.sin(x*8.625/R+1.3)*Math.sin(z*9.775/R-0.6);
+    raw[i]=d*lobes*(0.50+1.05*Math.random())+patch+9*Math.random();
+  }
+
+  let mean=0; for(let i=0;i<n;i++) mean+=lum[i];
+  mean/=n; for(let i=0;i<n;i++) lum[i]/=mean;
+
+  /* Normalisation PAR RANG : order = k/n. Le nombre de points allumés vaut alors
+     exactement uProgress × n, donc l'image reste fidèle au compteur même quand n
+     s'adapte à la taille du canvas. */
+  const idx=new Uint32Array(n);
+  for(let i=0;i<n;i++) idx[i]=i;
+  idx.sort((a,b)=>raw[a]-raw[b]);
+  for(let k=0;k<n;k++) order[idx[k]]=k/(n-1);
+
+  const mk=(old,data)=>{
+    if(old) gl.deleteBuffer(old);
+    const b=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
+    return b;
+  };
+  GAL.bufs.pos=mk(GAL.bufs.pos,pos);   GAL.bufs.seed=mk(GAL.bufs.seed,seed);
+  GAL.bufs.order=mk(GAL.bufs.order,order); GAL.bufs.lum=mk(GAL.bufs.lum,lum);
+  GAL.bufs.temp=mk(GAL.bufs.temp,temp);
+  GAL.built=true;
+}
+
+/* --- navigation, active uniquement en plein écran pour ne pas voler le défilement --- */
+function galBindPointer(c){
+  const dn=(x,y)=>{ if(!GAL.full)return; GAL.drag=true; GAL.lx=x; GAL.ly=y; };
+  const mv=(x,y)=>{ if(!GAL.drag)return;
+    GAL.az-=(x-GAL.lx)*0.006;
+    GAL.pol=Math.max(-1.45,Math.min(1.45,GAL.pol+(y-GAL.ly)*0.005));
+    GAL.lx=x; GAL.ly=y; };
+  const d2=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  c.addEventListener('mousedown',e=>dn(e.clientX,e.clientY));
+  window.addEventListener('mousemove',e=>mv(e.clientX,e.clientY));
+  window.addEventListener('mouseup',()=>GAL.drag=false);
+  c.addEventListener('wheel',e=>{ if(!GAL.full)return; e.preventDefault();
+    GAL.dist=Math.max(30,Math.min(420,GAL.dist*(1+Math.sign(e.deltaY)*0.12))); },{passive:false});
+  c.addEventListener('touchstart',e=>{
+    if(!GAL.full)return;
+    if(e.touches.length===1) dn(e.touches[0].clientX,e.touches[0].clientY);
+    else if(e.touches.length===2){ GAL.drag=false; GAL.pinch=d2(e.touches); }
+  },{passive:true});
+  c.addEventListener('touchmove',e=>{
+    if(!GAL.full)return;
+    e.preventDefault();
+    if(e.touches.length===1) mv(e.touches[0].clientX,e.touches[0].clientY);
+    else if(e.touches.length===2){ const d=d2(e.touches);
+      if(GAL.pinch) GAL.dist=Math.max(30,Math.min(420,GAL.dist*GAL.pinch/d));
+      GAL.pinch=d; }
+  },{passive:false});
+  c.addEventListener('touchend',()=>{ GAL.drag=false; GAL.pinch=0; });
+}
+
+function galFull(on){
+  GAL.full=on;
+  const ov=$('galFull');
+  if(ov) ov.classList.toggle('on',on);
+  if(!on){ GAL.az=0.62; GAL.pol=0.74; GAL.dist=150; }
+  GAL.built=false;                       // la densité se recalcule sur la nouvelle taille
+  drawGalaxy();
+}
+
+/* --- rendu --- */
+function drawGalaxy(){
+  /* Le contexte WebGL n'est créé qu'au premier affichage réel de l'étape 8 :
+     render() appelle drawGalaxy() à chaque reconstruction de panneau, y compris
+     étape 1, et un contexte réservé pendant six heures pour rien serait du
+     gaspillage sur mobile. */
+  const host = GAL.full ? $('galFullBody') : $('galHost');
+  if(!host) return;
+
+  const m=galInit();
+  if(m==='off') return;
+  if(GAL.wrap.parentNode!==host) host.appendChild(GAL.wrap);
+
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const W=Math.max(240,GAL.wrap.clientWidth||320);
+  const H=GAL.full ? Math.max(220,GAL.wrap.clientHeight||400)
+                   : Math.round(Math.min(300,Math.max(180,W*0.52)));
+  GAL.cv.style.height=H+'px';
+
+  if(m==='2d'){ drawGalaxy2D(W,H,dpr); return; }
+
+  const gl=GAL.gl;
+  if(gl.isContextLost&&gl.isContextLost()) return;
+
+  if(GAL.W!==W||GAL.H!==H||GAL.PR!==dpr||!GAL.built){
+    GAL.W=W; GAL.H=H; GAL.PR=dpr;
+    GAL.cv.width=Math.round(W*dpr); GAL.cv.height=Math.round(H*dpr);
+    gl.viewport(0,0,GAL.cv.width,GAL.cv.height);
+    GAL.proj=gPersp(52*Math.PI/180, W/H, 1, 900);
+    /* Densité adaptée à la surface réelle du canvas : à densité de points
+       constante par pixel, l'image garde le même grain d'un écran à l'autre.
+       Plafonné à 100 000, soit un point par système — au-delà on afficherait
+       des étoiles qui ne correspondent à rien. */
+    const want=Math.max(12000,Math.min(100000,Math.round(GAL.cv.width*GAL.cv.height*0.22)));
+    if(GAL.N!==want||!GAL.built) galBuild(want);
+  }
+
+  const now=performance.now()/1000;
+  const dt=GAL.lastT?Math.min(0.25,now-GAL.lastT):0.016;
+  GAL.lastT=now;
+  GAL.rot+=dt*0.035;                                   // dérive lente, jamais pilotée
+  if(dt>0){
+    const inst=(state.systemes-GAL.lastSys)/dt;
+    GAL.rate=GAL.rate*0.9+inst*0.1;                    // lissage : la cadence est très bruitée
+  }
+  GAL.lastSys=state.systemes;
+  /* l'éclat d'allumage doit durer ~3 s de jeu : sa largeur suit donc la cadence,
+     bornée pour rester visible au début et lisible à la fin */
+  GAL.flashW=Math.max(0.0008,Math.min(0.03,GAL.rate*3/100000));
+
+  const az=GAL.az+(GAL.full?0:GAL.rot), p=GAL.pol, r=GAL.dist;
+  const ex=Math.sin(az)*Math.cos(p)*r, ey=Math.sin(p)*r, ez=Math.cos(az)*Math.cos(p)*r;
+  const view=gLookAt(ex,ey,ez);
+
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(GAL.coreProg);
+  gl.uniformMatrix4fv(GAL.uC.uProj,false,GAL.proj);
+  gl.uniformMatrix4fv(GAL.uC.uView,false,view);
+  gl.uniform1f(GAL.uC.uR,G_R*0.33);
+  gl.bindBuffer(gl.ARRAY_BUFFER,GAL.coreBuf);
+  gl.enableVertexAttribArray(GAL.at.aXZ);
+  gl.vertexAttribPointer(GAL.at.aXZ,2,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.TRIANGLES,0,6);
+
+  gl.useProgram(GAL.prog);
+  gl.uniformMatrix4fv(GAL.uS.uProj,false,GAL.proj);
+  gl.uniformMatrix4fv(GAL.uS.uView,false,view);
+  gl.uniform1f(GAL.uS.uProgress,Math.max(0,Math.min(1,state.systemes/100000)));
+  gl.uniform1f(GAL.uS.uSize,G_SIZE);
+  gl.uniform1f(GAL.uS.uPR,dpr);
+  gl.uniform1f(GAL.uS.uTime,now%3600);
+  gl.uniform1f(GAL.uS.uFog,4.0e-6*Math.pow(115/G_R,2));
+  gl.uniform1f(GAL.uS.uFlashW,GAL.flashW);
+  const bind=(loc,buf,sz)=>{ gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,sz,gl.FLOAT,false,0,0); };
+  bind(GAL.at.aPos,GAL.bufs.pos,3);   bind(GAL.at.aSeed,GAL.bufs.seed,1);
+  bind(GAL.at.aOrder,GAL.bufs.order,1); bind(GAL.at.aLum,GAL.bufs.lum,1);
+  bind(GAL.at.aTemp,GAL.bufs.temp,1);
+  gl.drawArrays(gl.POINTS,0,GAL.N);
+
+  /* étiquette Sol : elle reste du DOM, donc nette à tout zoom. Le texte sur
+     WebGL exigerait une texture, et se brouillerait en s'approchant. */
+  const c1=gMul(view,GAL.sol[0],GAL.sol[1],GAL.sol[2]);
+  const q=gMul(GAL.proj,c1[0],c1[1],c1[2]);
+  if(q[3]>0){
+    GAL.lab.classList.add('on');
+    GAL.lab.style.transform='translate('+((q[0]/q[3]*0.5+0.5)*W+8).toFixed(1)+'px,'+
+                                        ((-q[1]/q[3]*0.5+0.5)*H-6).toFixed(1)+'px)';
+  } else GAL.lab.classList.remove('on');
+}
+
+/* --------------------------------------------------------------------------
+   Repli 2D — conservé tel quel pour les navigateurs sans WebGL. Positions
+   générées une fois, deux couches pré-rendues, masque circulaire par frame.
+   -------------------------------------------------------------------------- */
+const G2={built:false,N:2600,pos:null,rad:null,hue:null,grey:null,color:null,W:0,H:0,solIdx:0};
+function build2D(W,H){
+  const N=G2.N, pos=new Float32Array(N*2), rad=new Float32Array(N), hue=new Float32Array(N);
   const cx=W/2, cy=H/2, maxR=Math.min(W,H)*0.46;
   const ARMS=[{off:0,w:.13,maj:1},{off:Math.PI,w:.13,maj:1},
               {off:Math.PI*0.55,w:.22,maj:0},{off:Math.PI*1.55,w:.22,maj:0}];
   let seed=20260829;
   const rnd=()=>{ seed=(seed*1664525+1013904223)&0x7fffffff; return seed/0x7fffffff; };
-  const gauss=()=>(rnd()+rnd()+rnd()-1.5)/1.5;
+  const gs=()=>(rnd()+rnd()+rnd()-1.5)/1.5;
   for(let i=0;i<N;i++){
     let r,th;
-    if(i<N*0.18){                                  // bulbe central : dense et jaune
-      r=Math.pow(rnd(),1.9)*maxR*0.22; th=rnd()*Math.PI*2; hue[i]=1;
-    } else {
-      const a=ARMS[(i%4)];
-      const t=Math.pow(rnd(),0.62);                // densité décroissante vers l'extérieur
+    if(i<N*0.18){ r=Math.pow(rnd(),1.9)*maxR*0.22; th=rnd()*Math.PI*2; hue[i]=1; }
+    else{
+      const a=ARMS[(i%4)], t=Math.pow(rnd(),0.62);
       r=maxR*(0.16+t*0.84);
-      const spread=a.w*(1-t*0.45)+0.05;
-      th=a.off+Math.log(r/(maxR*0.14))/0.42+gauss()*spread;
+      th=a.off+Math.log(r/(maxR*0.14))/0.42+gs()*(a.w*(1-t*0.45)+0.05);
       hue[i]=a.maj?0:0.35;
-      if(rnd()<0.12){ th=rnd()*Math.PI*2; hue[i]=0.6; }   // halo diffus
+      if(rnd()<0.12){ th=rnd()*Math.PI*2; hue[i]=0.6; }
     }
     pos[i*2]=cx+Math.cos(th)*r; pos[i*2+1]=cy+Math.sin(th)*r*0.82;
     rad[i]=r/maxR;
   }
-  // Sol : à ~2/3 du rayon, dans un éperon entre deux bras
   let best=0,bd=9;
   for(let i=0;i<N;i++){ const d=Math.abs(rad[i]-0.66); if(d<bd&&hue[i]===0.6){bd=d;best=i;} }
-  GAL.solIdx=best;
-  GAL.pos=pos; GAL.rad=rad; GAL.hue=hue; GAL.W=W; GAL.H=H;
-  // pré-rendu des deux couches statiques
+  G2.solIdx=best; G2.pos=pos; G2.rad=rad; G2.hue=hue; G2.W=W; G2.H=H;
   const mk=(colored)=>{
     const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
     const g=cv.getContext('2d');
     for(let i=0;i<N;i++){
-      const sz=GAL.hue[i]===1?1.5:(GAL.hue[i]===0?1.35:1);
-      if(colored) g.fillStyle = GAL.hue[i]===1?'rgba(232,200,120,.95)'
-                 : GAL.hue[i]===0?'rgba(232,112,58,.85)'
-                 : GAL.hue[i]===0.35?'rgba(201,150,63,.7)':'rgba(150,180,210,.5)';
-      else g.fillStyle = GAL.hue[i]===1?'rgba(120,124,132,.75)':'rgba(74,86,100,.55)';
-      g.fillRect(GAL.pos[i*2],GAL.pos[i*2+1],sz,sz);
+      const sz=G2.hue[i]===1?1.5:(G2.hue[i]===0?1.35:1);
+      if(colored) g.fillStyle = G2.hue[i]===1?'rgba(232,200,120,.95)'
+                 : G2.hue[i]===0?'rgba(232,112,58,.85)'
+                 : G2.hue[i]===0.35?'rgba(201,150,63,.7)':'rgba(150,180,210,.5)';
+      else g.fillStyle = G2.hue[i]===1?'rgba(120,124,132,.75)':'rgba(74,86,100,.55)';
+      g.fillRect(G2.pos[i*2],G2.pos[i*2+1],sz,sz);
     }
     return cv;
   };
-  GAL.grey=mk(false); GAL.color=mk(true); GAL.built=true;
+  G2.grey=mk(false); G2.color=mk(true); G2.built=true;
 }
-function drawGalaxy(){
-  const c=$('gal'); if(!c)return;
-  const dpr=Math.min(2,window.devicePixelRatio||1);
-  const CSSW=Math.max(240,c.clientWidth||320), CSSH=Math.round(Math.min(300,Math.max(180,CSSW*0.52)));
-  if(c.width!==Math.round(CSSW*dpr)||c.height!==Math.round(CSSH*dpr)){
-    c.width=Math.round(CSSW*dpr); c.height=Math.round(CSSH*dpr); GAL.built=false;
+function drawGalaxy2D(W,H,dpr){
+  const c=GAL.cv;
+  if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){
+    c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); G2.built=false;
   }
-  c.style.height=CSSH+'px';
   const x=c.getContext('2d');
   x.setTransform(dpr,0,0,dpr,0,0);
-  if(!GAL.built||GAL.W!==CSSW||GAL.H!==CSSH) buildGalaxy(CSSW,CSSH);
-  x.clearRect(0,0,CSSW,CSSH);
-  x.drawImage(GAL.grey,0,0,CSSW,CSSH);
+  if(!G2.built||G2.W!==W||G2.H!==H) build2D(W,H);
+  x.clearRect(0,0,W,H);
+  x.drawImage(G2.grey,0,0,W,H);
   const frac=Math.max(0,Math.min(1,state.systemes/100000));
-  const cx=CSSW/2, cy=CSSH/2, maxR=Math.min(CSSW,CSSH)*0.46;
+  const cx=W/2, cy=H/2, maxR=Math.min(W,H)*0.46;
   if(frac>0){
-    // disque colonisé : la couche colorée révélée par masque circulaire
     const R=maxR*Math.sqrt(frac);
     x.save(); x.beginPath(); x.ellipse(cx,cy,R,R*0.82,0,0,Math.PI*2); x.clip();
-    x.drawImage(GAL.color,0,0,CSSW,CSSH); x.restore();
-    // frontière de colonisation animée
+    x.drawImage(G2.color,0,0,W,H); x.restore();
     const pulse=0.5+0.5*Math.sin(Date.now()/430);
     x.strokeStyle='rgba(232,112,58,'+(0.35+0.4*pulse)+')'; x.lineWidth=1.5;
     x.beginPath(); x.ellipse(cx,cy,R,R*0.82,0,0,Math.PI*2); x.stroke();
   }
-  // Sol
-  const sx=GAL.pos[GAL.solIdx*2]/GAL.W*CSSW, sy=GAL.pos[GAL.solIdx*2+1]/GAL.H*CSSH;
+  const sx=G2.pos[G2.solIdx*2]/G2.W*W, sy=G2.pos[G2.solIdx*2+1]/G2.H*H;
   x.fillStyle='#dfe9f2'; x.fillRect(sx-1.5,sy-1.5,3,3);
   x.strokeStyle='rgba(223,233,242,.5)'; x.lineWidth=1;
   x.beginPath(); x.arc(sx,sy,5,0,Math.PI*2); x.stroke();
-  x.fillStyle='#8fa8bf'; x.font='9px ui-monospace,monospace'; x.textAlign='left';
-  x.fillText('Sol', sx+8, sy+3);
+  GAL.lab.classList.add('on');
+  GAL.lab.style.transform='translate('+(sx+8).toFixed(1)+'px,'+(sy-6).toFixed(1)+'px)';
 }
 
 /* --- jauge électrique + chantiers Dyson + arbre de recherche --- */
@@ -1873,6 +2333,7 @@ function render(){
 
 function bind(){
   $('panel').querySelectorAll('[data-openresearch]').forEach(b=>b.onclick=()=>openResearch());
+  $('panel').querySelectorAll('[data-galfull]').forEach(b=>b.onclick=()=>galFull(true));
   $('panel').querySelectorAll('[data-pathoff]').forEach(b=>b.onclick=()=>{
     const k='path_'+b.dataset.pathoff; state.off[k]=!state.off[k]; structuralDirty=true; });
   $('panel').querySelectorAll('[data-pipeoff]').forEach(b=>b.onclick=()=>{
@@ -1965,7 +2426,8 @@ function paint(){
     b.lastElementChild.textContent=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' '); });
   document.querySelectorAll('[data-up]').forEach(b=>{ b.disabled=!afford(U[b.dataset.up].c); });
   document.querySelectorAll('[data-planet]').forEach(b=>{ b.disabled=!afford(PLANETS.find(x=>x.id===b.dataset.planet).c); });
-  if($('galn')){ $('galn').textContent=fmt(state.systemes); $('galm').textContent=fmt(1+3*state.systemes); drawGalaxy(); }
+  if($('galn')){ $('galn').textContent=fmt(state.systemes); $('galm').textContent=fmt(1+3*state.systemes); }
+  if(GAL.full) $('galFullN').textContent=fmt(state.systemes);
   drawLoops();
   $('belt').classList.toggle('stopped', (flow.bois||0)<=0 && (flow.acier||0)<=0);
 }
@@ -2092,6 +2554,10 @@ function loop(now){
   painter+=dt;
   if(structuralDirty)render();
   if(painter>0.1){ painter=0; paint(); }
+  /* La galaxie sort du rafraîchissement à 10 fps : à cette cadence la dérive
+     lente et les éclats d'allumage saccadent visiblement. Un drawArrays de
+     quelques dizaines de milliers de points est négligeable à côté du tick. */
+  if(GAL.full||(state.tab===8&&$('galHost'))) drawGalaxy();
 }
 function startSafe(raw){
   try{ start(raw); }
@@ -2119,6 +2585,7 @@ function start(raw){
 }
 (async()=>{
   recompute();
+  $('galFullClose').onclick=()=>galFull(false);
   $('hVer').textContent=GAME_VERSION;
   document.querySelector('.spd[data-s="1"]').classList.add('on');
   requestAnimationFrame(loop);
