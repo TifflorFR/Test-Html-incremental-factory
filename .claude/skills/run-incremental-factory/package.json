@@ -1,0 +1,9 @@
+{
+  "name": "run-incremental-factory",
+  "private": true,
+  "type": "module",
+  "description": "Playwright driver used only to launch/screenshot the Incrémental Factory game for agent verification. Not part of the game itself.",
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}
