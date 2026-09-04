@@ -2455,7 +2455,14 @@ const STORE=(()=>{
 })();
 let saveExists=false;
 function snapshot(){ return JSON.stringify({v:1,ts:Date.now(),state,unlockedClicks}); }
-async function save(){ try{ await STORE.set(snapshot()); }catch(e){} }
+/* researchOpen : pendant que l'overlay Recherche est ouvert, l'iframe est l'UNIQUE
+   propriétaire de la sauvegarde (elle écrit après chaque achat, voir recherche.html).
+   Cette page, elle, garde délibérément un `state` figé depuis l'ouverture (§1 — boucle
+   suspendue). Sans cette garde, la sauvegarde périodique (10 s), un blur (alt-tab, ou
+   simplement le clic qui transfère le focus dans l'iframe), ou pagehide écraserait le
+   localStorage avec ce `state` périmé — perdant silencieusement tout achat fait dans
+   l'arbre depuis l'ouverture, y compris ceux déjà écrits par l'iframe. */
+async function save(){ if(researchOpen)return; try{ await STORE.set(snapshot()); }catch(e){} }
 function restore(raw){
   const d=JSON.parse(raw);
   Object.assign(state,d.state);
