@@ -89,21 +89,23 @@ of the screenshots as "passing."
   page's `state`, until the overlay is closed.** Read `SAVE.state.research`
   (or the `BUY_RESULT_JSON` the driver prints) while the overlay is still
   open rather than closing it first.
-- **Closing the research overlay right after a purchase can silently discard
-  it.** `closeResearch()` does `researchOpen=false` → navigate the iframe to
-  `about:blank` → `await STORE.get()` → `restore(raw)`. Navigating the iframe
-  away fires a `window blur` on the top page, and its blur handler calls
-  `save()` — which serializes the top page's stale in-memory `state` (never
-  touched by the purchases made inside the iframe) and overwrites
-  `localStorage` *before* `closeResearch()`'s own `restore(raw)` gets a
-  chance to read the fresh data. Net effect, reproduced twice in a row here:
-  every node bought during that research-tree session is gone once the
-  overlay closes. This looks like a genuine pre-existing bug in the game
-  (not a driver artifact — traced with instrumented `save`/`restore`/`blur`
-  logging), independent of the Expansion-branch fix; worth a report and a fix
-  (e.g. skip the blur-triggered autosave while `researchOpen` was true, or
-  have `closeResearch()` win the race by restoring before touching
-  `rechercheFrame.src`).
+- **(Fixed) Any `save()` while the research overlay was open could silently
+  discard purchases made in the iframe.** While `researchOpen` is true, the
+  iframe is the sole writer of the shared save (one `writeSave()` per
+  purchase); the top page deliberately keeps a frozen `state` (game loop
+  suspended, §1) until `closeResearch()` explicitly resyncs it. `save()` used
+  to run unconditionally from four places — the 10s `setInterval`, `blur`,
+  `visibilitychange`, `pagehide` — any of which firing while the tree was
+  open would overwrite `localStorage` with that stale `state`, discarding
+  everything bought since opening. Easiest real repro: open the tree, buy a
+  node, `alt-tab` away and back, close normally — the purchase was gone.
+  (An earlier theory pinned this on the close click's own focus-transfer
+  triggering a blur; that specific path turned out to be a driver artifact —
+  `onNodeClick()` calls in the buy loop are direct JS calls with no real
+  focus movement, so the *first* real click ends up being `#closeBtn`, which
+  is not representative of normal play. The `alt-tab`-while-open repro above
+  is the real one and isn't specific to any test methodology.) Fixed in
+  `index.html`'s `save()`: it now no-ops while `researchOpen` is true.
 
 ## Troubleshooting
 
