@@ -17,6 +17,7 @@
   --br-extraction:#4fa8c9;
   --br-industrie:#e8703a;
   --br-spatial:#9b8fd9;
+  --br-expansion:#6bd0a3;
   --br-placeholder:#3c4f66;
 }
 *{box-sizing:border-box}
@@ -118,7 +119,7 @@ const RTREE=[
      de la courbe, où un écart de coût se traduit par un écart de durée proportionné.
      Calibré par simulation : étape 6 = 47,5 min (cible 50), étape 7 = 78,8 min (cible 85). */
   {id:'B1', br:'spine',n:'Vaisseaux rudimentaires', sci:2480,      req:null,  e:{mult:{lab:2}},   d:'Ouvre la construction de vaisseaux coloniaux. Laboratoires ×2.'},
-  {id:'B1b',br:'spine',n:'Métallurgie orbitale',    sci:60000,     req:'B1',  e:{global:1.5},     d:'Alliages coulés en apesanteur. Production globale ×1,5.'},
+  {id:'B1b',br:'spine',n:'Alliages en apesanteur',  sci:60000,     req:'B1',  e:{global:1.5},     d:'Alliages coulés en apesanteur. Production globale ×1,5.'},
   {id:'B2', br:'spine',n:'Colonisation',            sci:4e11,      req:'B1b', d:'JALON — débloque l\'étape 7.', milestone:7},
   {id:'B3', br:'spine',n:'Voyage interstellaire',   sci:2e12,      req:'B2',  e:{mult:{lab:3}},   d:'Ouvre la portée interstellaire. Laboratoires ×3.'},
   {id:'B3b',br:'spine',n:'Réacteur à confinement',  sci:2e13,      req:'B3',  e:{global:2},       d:'Fusion compacte embarquée. Production globale ×2.'},
@@ -140,19 +141,28 @@ const RTREE=[
   {id:'S2',br:'spatial',   n:'Théorie unifiée',    sci:2400,req:'S1', e:{global:2},           d:'Production globale ×2.'},
   {id:'RS',br:'spatial',   n:'Optimisation de la recherche',sci:220,req:'S2',rep:true,repMult:2.0,e:{mult:{lab:1.15}},d:'+15 % de science par niveau. Le coût double à chaque niveau : le rendement s\'épuise vite, c\'est voulu.'},
   {id:'RI',br:'industrie', n:'Optimisation industrielle',   sci:260,req:'I3',rep:true,repMult:1.62,e:{stage:{5:1.22}},     d:'+22 % de production d\'étape 5 par niveau.'},
+
+  // --- expansion : vitesse de colonisation ---
+  {id:'X1',br:'expansion',n:'Sondes autonomes',      sci:1.5e16, req:'B5',rep:false,e:{colon:3},   d:'Des sondes qui se guident seules, sans relais depuis la Terre. Colonisation ×3.'},
+  {id:'X2',br:'expansion',n:'Relais de distorsion',  sci:8e16, req:'X1',e:{colon:2.5}, d:'Un maillage de balises qui raccourcit chaque saut. Colonisation ×2,5.'},
+  {id:'X3',br:'expansion',n:'Essaim von Neumann',    sci:2e17, req:'X2',e:{colon:2},   d:'Chaque vaisseau arrivé en construit deux autres sur place. Colonisation ×2.'},
+  {id:'X4',br:'expansion',n:'Portails stables',      sci:4e17, req:'X3',e:{colon:1.6}, d:"Des portes fixes : plus besoin de traverser, il suffit d'ouvrir. Colonisation ×1,6."},
+  {id:'X5',br:'expansion',n:'Conscience distribuée', sci:6.2e17, req:'X4',e:{colon:1.4}, d:"L'essaim décide seul où aller. Tu ne pilotes plus, tu regardes. Colonisation ×1,4."},
+  {id:'RX',br:'expansion',n:"Réglage de l'essaim",   sci:7.6e17, req:'X5',rep:true,repMult:2.0,e:{colon:1.35}, d:'+35 % de vitesse de colonisation par niveau.'},
 ];
 const RBY={}; RTREE.forEach(r=>RBY[r.id]=r);
 
-/* Structure réelle : 4 branches (l'arbre existant ne distingue pas une branche par
+/* Structure réelle : 5 branches (l'arbre existant ne distingue pas une branche par
    étape — « Industrie » couvre Fonderie/Usine/National/International, « Spatial »
-   contient deux chaînes indépendantes Dyson + labo). 2 placeholders pour 7 et 8. */
+   contient deux chaînes indépendantes Dyson + labo). 1 placeholder pour l'étape 7 :
+   la Colonisation n'a pas de branche dédiée, son jalon (B2) vit sur l'épine dorsale. */
 const BRANCHES=[
   {id:'spine',       n:'Épine dorsale', angle:-90, color:'--br-spine',      active:true},
   {id:'extraction',  n:'Extraction',    angle:-30, color:'--br-extraction', active:true},
   {id:'industrie',   n:'Industrie',     angle:30,  color:'--br-industrie',  active:true},
   {id:'spatial',     n:'Spatial',       angle:90,  color:'--br-spatial',    active:true},
   {id:'colonisation',n:'Colonisation',  angle:150, color:'--br-placeholder',active:false, stage:7},
-  {id:'expansion',   n:'Expansion',     angle:210, color:'--br-placeholder',active:false, stage:8},
+  {id:'expansion',   n:'Expansion',     angle:210, color:'--br-expansion',  active:true},
 ];
 
 /* Condition d'étape : dérivée de la chaîne de jalons. Un nœud situé après un jalon
@@ -189,6 +199,7 @@ function iconType(r){
   if(r.e && r.e.global) return 'global';
   if(r.e && r.e.mult) return 'machine';
   if(r.e && r.e.stage) return 'stage';
+  if(r.e && r.e.colon) return 'stage';
   return 'unlock';
 }
 function iconSvg(type){
@@ -320,6 +331,7 @@ function effectText(r){
   if(r.e.global) p.push('production globale ×'+r.e.global);
   if(r.e.mult) for(const k in r.e.mult) p.push(k+' ×'+r.e.mult[k]);
   if(r.e.stage) for(const k in r.e.stage) p.push('étape '+k+' ×'+r.e.stage[k]);
+  if(r.e.colon) p.push('vitesse de colonisation ×'+r.e.colon);
   return p.join(', ')+'.';
 }
 
