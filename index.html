@@ -466,107 +466,107 @@ const AVG_WINDOW=10;    // s de moyenne glissante
 const MACH=[
  // --- 1 minage
  {id:'bucheron', s:1,n:'Bûcheron',      out:{bois:1},    r:.5, c:{bois:15},                 g:1.09},
- {id:'bucheron_cad',s:1,n:'Cadence — Bûcheron', cadenceUp:'bucheron', step:.08, maxCount:6, c:{bois:140}, g:1.15},
- {id:'bucheron_for',s:1,n:'Force — Bûcheron',   forceUp:'bucheron',   step:.08, maxCount:6, c:{bois:180}, g:1.15},
+ {id:'bucheron_cad',s:1,n:'Cadence — Bûcheron', cadenceUp:'bucheron', step:.025, maxCount:25, c:{bois:2}, g:1.12},
+ {id:'bucheron_for',s:1,n:'Force — Bûcheron',   forceUp:'bucheron',   c:{bois:16}, g:1.09},
  {id:'carriere', s:1,n:'Carrière',      out:{pierre:1},  r:.5, c:{bois:60,pierre:12},       g:1.09},
- {id:'carriere_cad',s:1,n:'Cadence — Carrière', cadenceUp:'carriere', step:.08, maxCount:6, c:{pierre:210}, g:1.15},
- {id:'carriere_for',s:1,n:'Force — Carrière',   forceUp:'carriere',   step:.08, maxCount:6, c:{pierre:270}, g:1.15},
+ {id:'carriere_cad',s:1,n:'Cadence — Carrière', cadenceUp:'carriere', step:.025, maxCount:25, c:{bois:9,pierre:2}, g:1.12},
+ {id:'carriere_for',s:1,n:'Force — Carrière',   forceUp:'carriere',   c:{bois:65,pierre:13}, g:1.09},
  {id:'minefer',  s:1,n:'Mine de fer',   out:{fer:1},     r:.4, c:{pierre:110,bois:80},      g:1.1},
- {id:'minefer_cad',s:1,n:'Cadence — Mine de fer', cadenceUp:'minefer', step:.096, maxCount:6, c:{fer:55,pierre:220}, g:1.15},
- {id:'minefer_for',s:1,n:'Force — Mine de fer',   forceUp:'minefer',   step:.096, maxCount:6, c:{fer:70,pierre:280}, g:1.15},
+ {id:'minefer_cad',s:1,n:'Cadence — Mine de fer', cadenceUp:'minefer', step:.025, maxCount:25, c:{pierre:16,bois:12}, g:1.12},
+ {id:'minefer_for',s:1,n:'Force — Mine de fer',   forceUp:'minefer',   c:{pierre:121,bois:88}, g:1.1},
  {id:'minecharb',s:1,n:'Mine de charbon',out:{charbon:1},r:.4, c:{pierre:200,fer:50},       g:1.1},
- {id:'minecharb_cad',s:1,n:'Cadence — Mine de charbon', cadenceUp:'minecharb', step:.096, maxCount:6, c:{fer:55,pierre:220}, g:1.15},
- {id:'minecharb_for',s:1,n:'Force — Mine de charbon',   forceUp:'minecharb',   step:.096, maxCount:6, c:{fer:70,pierre:280}, g:1.15},
+ {id:'minecharb_cad',s:1,n:'Cadence — Mine de charbon', cadenceUp:'minecharb', step:.025, maxCount:25, c:{pierre:30,fer:8}, g:1.12},
+ {id:'minecharb_for',s:1,n:'Force — Mine de charbon',   forceUp:'minecharb',   c:{pierre:220,fer:55}, g:1.1},
  {id:'minecuiv', s:1,n:'Mine de cuivre',out:{cuivre:1},  r:.35,c:{pierre:600,fer:180},      g:1.1, need:2},
- {id:'minecuiv_cad',s:1,n:'Cadence — Mine de cuivre', cadenceUp:'minecuiv', step:.096, maxCount:6, c:{pierre:210,fer:65}, g:1.15, need:2},
- {id:'minecuiv_for',s:1,n:'Force — Mine de cuivre',   forceUp:'minecuiv',   step:.096, maxCount:6, c:{pierre:270,fer:80}, g:1.15, need:2},
+ {id:'minecuiv_cad',s:1,n:'Cadence — Mine de cuivre', cadenceUp:'minecuiv', step:.025, maxCount:25, c:{pierre:90,fer:27}, g:1.12, need:2},
+ {id:'minecuiv_for',s:1,n:'Force — Mine de cuivre',   forceUp:'minecuiv',   c:{pierre:660,fer:198}, g:1.1, need:2},
  // --- 2 fonderie
  {id:'hf',    s:2,n:'Haut-fourneau',    in:{fer:2,charbon:1}, out:{acier:1},   r:.5, c:{fer:400,pierre:500},   g:1.1},
- {id:'hf_cad',s:2,n:'Cadence — Haut-fourneau', cadenceUp:'hf', step:.06, maxCount:6, c:{acier:55}, g:1.15},
- {id:'hf_for',s:2,n:'Force — Haut-fourneau',   forceUp:'hf',   step:.06, maxCount:6, c:{acier:70}, g:1.15},
+ {id:'hf_cad',s:2,n:'Cadence — Haut-fourneau', cadenceUp:'hf', step:.025, maxCount:25, c:{fer:60,pierre:75}, g:1.12},
+ {id:'hf_for',s:2,n:'Force — Haut-fourneau',   forceUp:'hf',   c:{fer:440,pierre:550}, g:1.1},
  {id:'conv',  s:2,n:'Convertisseur',    in:{cuivre:2,charbon:1},out:{lcuivre:1},r:.5,c:{fer:900,cuivre:250},   g:1.1},
- {id:'conv_cad',s:2,n:'Cadence — Convertisseur', cadenceUp:'conv', step:.08, maxCount:6, c:{lcuivre:140}, g:1.15},
- {id:'conv_for',s:2,n:'Force — Convertisseur',   forceUp:'conv',   step:.08, maxCount:6, c:{lcuivre:180}, g:1.15},
+ {id:'conv_cad',s:2,n:'Cadence — Convertisseur', cadenceUp:'conv', step:.025, maxCount:25, c:{fer:135,cuivre:38}, g:1.12},
+ {id:'conv_for',s:2,n:'Force — Convertisseur',   forceUp:'conv',   c:{fer:990,cuivre:275}, g:1.1},
  {id:'wagon', s:2,n:'Cadence — Minage (étape précédente)',  boost:{s:1,p:.15},                  c:{acier:60,pierre:1500},        g:1.45},
  {id:'fleet_s2', s:2, n:'Camion supplémentaire', fleet:2, maxCount:4,
-             c:{fer:800,pierre:1280}, g:4.6},
+             c:{fer:256,pierre:410}, g:3.2},
  {id:'spd_s2',   s:2, n:'Vitesse — camion', spdUp:2,
-             c:{fer:400}, g:1.055},
+             maxCount:6, c:{fer:88}, g:1.26},
  {id:'cap_s2',   s:2, n:'Capacité — camion', capUp:2,
-             c:{pierre:400}, g:1.07},
+             maxCount:20, c:{pierre:88}, g:1.28},
  {id:'xfer_s2',  s:2, n:'Débit — camion', xferUp:2,
-             c:{fer:520,pierre:200}, g:1.055},
+             maxCount:20, c:{fer:114,pierre:44}, g:1.26},
  // --- 3 usine
  {id:'assem', s:3,n:'Assembleur',       in:{acier:2,bois:1},   out:{module:1}, r:.5, c:{acier:400,pierre:3000}, g:1.11},
- {id:'assem_cad',s:3,n:'Cadence — Assembleur', cadenceUp:'assem', step:.06, maxCount:6, c:{module:70}, g:1.15},
- {id:'assem_for',s:3,n:'Force — Assembleur',   forceUp:'assem',   step:.06, maxCount:6, c:{module:90}, g:1.15},
+ {id:'assem_cad',s:3,n:'Cadence — Assembleur', cadenceUp:'assem', step:.025, maxCount:25, c:{acier:60,pierre:450}, g:1.12},
+ {id:'assem_for',s:3,n:'Force — Assembleur',   forceUp:'assem',   c:{acier:444,pierre:3330}, g:1.11},
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
- {id:'circ_cad',s:3,n:'Cadence — Atelier de circuits', cadenceUp:'circ', step:.08, maxCount:6, c:{circuit:55}, g:1.15},
- {id:'circ_for',s:3,n:'Force — Atelier de circuits',   forceUp:'circ',   step:.08, maxCount:6, c:{circuit:70}, g:1.15},
+ {id:'circ_cad',s:3,n:'Cadence — Atelier de circuits', cadenceUp:'circ', step:.025, maxCount:25, c:{acier:135,lcuivre:45}, g:1.12},
+ {id:'circ_for',s:3,n:'Force — Atelier de circuits',   forceUp:'circ',   c:{acier:999,lcuivre:333}, g:1.11},
  {id:'camion',s:3,n:'Cadence — Fonderie (étape précédente)', boost:{s:2,p:.15},                c:{module:40,acier:2000},        g:1.48},
  {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
-             c:{acier:2500,lcuivre:800}, g:4.6},
+             c:{acier:800,lcuivre:256}, g:3.2},
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
-             c:{acier:1200}, g:1.055},
+             maxCount:6, c:{acier:264}, g:1.26},
  {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
-             c:{bois:3000}, g:1.07},
+             maxCount:20, c:{bois:660}, g:1.28},
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
-             c:{acier:1560,lcuivre:400}, g:1.055},
+             maxCount:20, c:{acier:343,lcuivre:88}, g:1.26},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
- {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.096, maxCount:6, c:{petrole:21000,module:16000}, g:1.15},
- {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   step:.096, maxCount:6, c:{petrole:27000,module:20000}, g:1.15},
- {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  c:{acier:9000},              g:1.18},
- {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', c:{module:1200},             g:1.15},
+ {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.025, maxCount:25, c:{module:75,acier:3750}, g:1.12},
+ {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:580,acier:29000}, g:1.16},
+ {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  maxCount:20, c:{acier:9000},  g:1.18},
+ {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', maxCount:20, c:{module:1200}, g:1.15},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
- {id:'raff_cad',s:4,n:'Cadence — Raffinerie', cadenceUp:'raff', step:.08, maxCount:6, c:{plastique:3200}, g:1.15},
- {id:'raff_for',s:4,n:'Force — Raffinerie',   forceUp:'raff',   step:.08, maxCount:6, c:{plastique:4000}, g:1.15},
+ {id:'raff_cad',s:4,n:'Cadence — Raffinerie', cadenceUp:'raff', step:.025, maxCount:25, c:{module:135,circuit:38}, g:1.12},
+ {id:'raff_for',s:4,n:'Force — Raffinerie',   forceUp:'raff',   c:{module:1044,circuit:290}, g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
- {id:'moteurs_cad',s:4,n:'Cadence — Usine de moteurs', cadenceUp:'moteurs', step:.06, maxCount:6, c:{moteur:90}, g:1.15},
- {id:'moteurs_for',s:4,n:'Force — Usine de moteurs',   forceUp:'moteurs',   step:.06, maxCount:6, c:{moteur:115}, g:1.15},
+ {id:'moteurs_cad',s:4,n:'Cadence — Usine de moteurs', cadenceUp:'moteurs', step:.025, maxCount:25, c:{module:375,circuit:180}, g:1.12},
+ {id:'moteurs_for',s:4,n:'Force — Usine de moteurs',   forceUp:'moteurs',   c:{module:2925,circuit:1404}, g:1.17},
  {id:'train', s:4,n:'Cadence — Usine (étape précédente)',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
  {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
-             c:{module:9000,circuit:3000}, g:4.7},
+             c:{module:2880,circuit:960}, g:3.2},
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
-             c:{circuit:2500}, g:1.055},
+             maxCount:6, c:{circuit:550}, g:1.26},
  {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
-             c:{module:4000}, g:1.07},
+             maxCount:20, c:{module:880}, g:1.28},
  {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
-             c:{module:5200,circuit:1500}, g:1.055},
+             maxCount:20, c:{module:1144,circuit:330}, g:1.26},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
- {id:'chantier_cad',s:5,n:'Cadence — Chantier de fusées', cadenceUp:'chantier', step:.161, maxCount:6, c:{fusee:450}, g:1.15},
- {id:'chantier_for',s:5,n:'Force — Chantier de fusées',   forceUp:'chantier',   step:.161, maxCount:6, c:{fusee:600}, g:1.15},
+ {id:'chantier_cad',s:5,n:'Cadence — Chantier de fusées', cadenceUp:'chantier', step:.025, maxCount:25, c:{moteur:38,module:3000}, g:1.12},
+ {id:'chantier_for',s:5,n:'Force — Chantier de fusées',   forceUp:'chantier',   c:{moteur:282,module:22600}, g:1.13},
  {id:'avion', s:5,n:'Cadence — Logistique nationale (étape précédente)', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
  {id:'fleet_s5', s:5, n:'Avion supplémentaire', fleet:5, maxCount:4,
-             c:{moteur:25000,plastique:40000}, g:4.7},
+             c:{moteur:8000,plastique:12800}, g:3.2},
  {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
-             c:{moteur:12000}, g:1.055},
+             maxCount:6, c:{moteur:2640}, g:1.26},
  {id:'cap_s5',   s:5, n:'Capacité — avion', capUp:5,
-             c:{plastique:12000}, g:1.07},
+             maxCount:20, c:{plastique:2640}, g:1.28},
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
-             c:{moteur:15600,plastique:6000}, g:1.055},
+             maxCount:20, c:{moteur:3432,plastique:1320}, g:1.26},
  // --- 6 spatiale
  {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
              c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
- {id:'lab_cad',s:6,n:'Cadence — Laboratoire', cadenceUp:'lab', step:.096, maxCount:6, c:{science:15000}, g:1.15},
- {id:'lab_for',s:6,n:'Force — Laboratoire',   forceUp:'lab',   step:.096, maxCount:6, c:{science:19000}, g:1.15},
+ {id:'lab_cad',s:6,n:'Cadence — Laboratoire', cadenceUp:'lab', step:.025, maxCount:25, c:{fusee:90}, g:1.12},
+ {id:'lab_for',s:6,n:'Force — Laboratoire',   forceUp:'lab',   c:{fusee:930}, g:1.55},
  {id:'labLvl',s:6,n:'Niveau de laboratoire', labLvl:true,
              c:{fusee:14},  g:1.25},                    // 14×1,25^(L-1), plafonné par l'énergie
  {id:'navette',s:6,n:'Cadence — Logistique internationale (étape précédente)', boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
  // --- 7 colonisation
  {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{fusee:15},r:.4,c:{science:50000,fusee:600},g:1.15},
- {id:'terra_cad',s:7,n:'Cadence — Complexe de terraformation', cadenceUp:'terra', step:.08, maxCount:6, c:{science:18000,fusee:220}, g:1.15},
- {id:'terra_for',s:7,n:'Force — Complexe de terraformation',   forceUp:'terra',   step:.08, maxCount:6, c:{science:23000,fusee:280}, g:1.15},
+ {id:'terra_cad',s:7,n:'Cadence — Complexe de terraformation', cadenceUp:'terra', step:.025, maxCount:25, c:{science:7500,fusee:90}, g:1.12},
+ {id:'terra_for',s:7,n:'Force — Complexe de terraformation',   forceUp:'terra',   c:{science:57500,fusee:690}, g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
  {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
-             c:{science:120000}, g:4.8},
+             c:{science:38400}, g:3.2},
  {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
-             c:{science:45000}, g:1.055},
+             maxCount:6, c:{science:9900}, g:1.26},
  {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
-             c:{science:20000}, g:1.07},
+             maxCount:20, c:{science:4400}, g:1.28},
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
-             c:{science:58000}, g:1.055},
+             maxCount:20, c:{science:12760}, g:1.26},
  // --- 8 expansion
  /* SUPPRIMÉ en 0.4.0 — fleet_s8 / spd_s8 / cap_s8 / xfer_s8 étaient des achats morts.
     Aucune machine d'étape 8 n'a d'entrée (forge et vaisseau produisent des systèmes sans
@@ -656,12 +656,22 @@ const FLEET_MAX=30;
    de la consommation du plus GROS consommateur de la ressource dans l'étape (jamais la
    somme), × BUF_K secondes. Recalculé à chaque tick, donc il suit tout seul l'achat d'une
    machine supplémentaire. destBuffer reste l'unique stock, aucune réserve parallèle. */
-const BUF_K=5;            // §2 — autonomie visée du tampon, en secondes de consommation
+const BUF_LOADS=3;        // tampon = 3 chargements de véhicule (voir tickPaths). Remplace l'ancien
+                          // dimensionnement sur la demande : depuis que la capacité est absolue,
+                          // un tampon adossé à la demande gonflerait pour une demande que les
+                          // véhicules ne peuvent de toute façon pas servir.
 /* §4 — calibration transport. R = débit transport / débit production.
    Un tour de boucle dure 1/spd (trajet) + 2×cap/xfer (chargement + déchargement), donc
    R = N×cap / ((1/spd + 2×cap/xfer) × dem). Les trois leviers agissent sur des termes
    différents, c'est ce qui les rend complémentaires plutôt que redondants. */
-const CAP_SEC=1.5;        // capacité initiale = 1,5 s de production de base (haut de la fourchette 1–1,5)
+/* §5 — LA CAPACITÉ D'UN VÉHICULE NE DÉPEND QUE DE SON AMÉLIORATION DE CAPACITÉ.
+   capStatic est calculé UNE FOIS par chemin à partir de la seule recette (r × in), donc
+   indépendamment de la production réelle : ni le nombre de machines, ni la Cadence, ni la Force,
+   ni les multiplicateurs d'étape/globaux n'entrent dedans. La production croît sans limite (Force
+   illimitée + palier ×2/25), le transport non — il finit donc nécessairement par être dépassé,
+   c'est l'effet recherché. La soupape est la progression : chaque machine boost d'une étape
+   supérieure relève d'un cran les plafonds de transport ET de machines des étapes inférieures. */
+const CAP_SEC=1.5;        // capacité initiale = 1,5 s de la consommation de recette d'une unité
 const FLEET_BASE=1;       // 1 véhicule gratuit au départ (comme le reste du jeu) : R initial n'est
                           // plus contraint à [0.6, 0.7] — le joueur part en retard et rattrape via
                           // les upgrades transport, puis équilibre au fil des achats de production.
@@ -678,9 +688,26 @@ const PIPE_RES='petrole';   // le pétrole voyage par oléoduc, jamais par véhi
 for(let s=2;s<=8;s++){ const seen={};
   MACH.filter(m=>m.s===s&&m.in).forEach(m=>{ for(const k in m.in){
     if(PRODSTAGE[k]===s||seen[k])continue; seen[k]=1;
-    PATHS.push({id:'p'+s+'_'+k, res:k, dest:s, src:PRODSTAGE[k],
+    // capStatic : consommation de RECETTE d'une unité de production (r × in), sommée sur les
+    // machines de l'étape qui consomment cette ressource. Constante, calculée une seule fois.
+    let recette=0;
+    MACH.forEach(x=>{ if(x.s===s&&x.in&&x.in[k]) recette+=(x.r||0)*x.in[k]; });
+    PATHS.push({id:'p'+s+'_'+k, res:k, dest:s, src:PRODSTAGE[k], capStatic:Math.max(1,recette*CAP_SEC),
                 load:0, unload:.5, base:0, minGap:.035, baseSpeed:.18});
   }});
+}
+/* Machines "boost" (cadence de l'étape précédente) : elles relèvent en plus, d'un cran par
+   exemplaire acheté, le plafond de machines ET les plafonds de transport de TOUTES les étapes
+   inférieures. C'est la seule façon d'élargir un étage saturé — en avançant dans la chaîne,
+   pas en farmant sur place. */
+const BOOSTERS=MACH.filter(m=>m.boost);
+const capBonus=s=>BOOSTERS.reduce((a,b)=>a+(b.s>s?(state.cnt[b.id]||0):0),0);
+/* Plafond effectif d'une entrée MACH : maxCount déclaré (transport) ou 1 (machine de production),
+   relevé par capBonus. Les machines sans plafond (boost, global, colon, labLvl, lab) : Infinity. */
+function capOf(m){
+  if(m.maxCount!==undefined) return m.maxCount+capBonus(m.s);
+  if(m.r&&m.out&&!m.lab) return 1+capBonus(m.s);   // machine de production : 1 seule, sauf boosts
+  return Infinity;
 }
 const PATHOF={}; PATHS.forEach(p=>PATHOF[p.dest+'|'+p.res]=p);
 const PATHBYID={}; PATHS.forEach(p=>PATHBYID[p.id]=p);
@@ -737,33 +764,29 @@ function tickPaths(dt){
     p.jamIn=p.jamOut=false;
     // demande totale de l'étape (ce qu'il faut acheminer) ET plus gros consommateur unique
     // (§2 : le tampon se dimensionne sur le max, jamais sur la somme).
-    let dem=0, demMax=0, demRef=0;
+    let dem=0, demMax=0;
     for(const m of MACH){ if(m.s!==p.dest||!m.in||!m.in[p.res])continue;
       if(state.off[m.id])continue;   // ligne coupée : elle ne consomme rien, elle ne doit donc
-                                     // ni gonfler le tampon ni tirer la capacité des véhicules.
-                                     // Sans ça, le seul outil de diagnostic du joueur (le ON/OFF)
-                                     // n'avait aucun effet sur le goulot qu'il cherche à isoler.
-      const per=(m.r||0)*m.in[p.res]*mMult(m);           // conso/s d'UNE machine de ce type
+                                     // pas gonfler le tampon. Sans ça, le seul outil de diagnostic
+                                     // du joueur (le ON/OFF) n'avait aucun effet sur le goulot
+                                     // qu'il cherche à isoler.
+      // conso/s réelle : Cadence et Force incluses. Elles étaient absentes avant (elles vivent
+      // hors de mMult), si bien qu'une machine Cadence/Force au maximum consommait le double sans
+      // que le transport ne s'en aperçoive — et s'affamait.
+      const per=(m.r||0)*(cache.cadence[m.id]||1)*m.in[p.res]*(cache.force[m.id]||1)*mMult(m);
       const tot=(state.cnt[m.id]||0)*per;
       dem+=tot; if(tot>demMax)demMax=tot;
-      // référence §4 : conso d'UNE machine de chaque type, TOUS multiplicateurs inclus —
-      // y compris le palier de duplication ×2/25. Elle ne suit toujours PAS le NOMBRE de
-      // machines : acheter de la production fait donc bien chuter R, acheter du transport le
-      // fait remonter. En revanche le palier ×2 doit être inclus, sinon la demande double
-      // tous les 25 achats sans que l'offre ne bouge : la chute devient une falaise (×1600
-      // entre 1 et 100 machines) au lieu d'une pente, et aucun niveau de capacité ne rattrape.
-      demRef+=per;
     }
-    dem*=state.speed; demMax*=state.speed; demRef*=state.speed;
-    const spd=Math.min(.6,p.baseSpeed*Math.pow(SPD_STEP,state.cnt['spd_s'+p.dest]||0));  // vitesse — dédiée, indépendante de la flotte
-    // §4 — capacité initiale = CAP_SEC secondes de la production de base de l'étape,
-    // temps d'arrêt visé cap/xfer = DWELL_SEC. Les deux sont adossés à demRef (fixe vis-à-vis
-    // des achats de production), pas à dem : c'est ce qui crée la dent de scie voulue.
-    const capBase=Math.max(1,demRef*CAP_SEC);
-    const cap=capBase*Math.pow(CAP_STEP,state.cnt['cap_s'+p.dest]||0);   // capacité/véhicule — dédiée
-    const xfer=Math.max(.25,capBase/DWELL_SEC)*Math.pow(XFER_STEP,state.cnt['xfer_s'+p.dest]||0); // débit charge+décharge — dédié
-    // §2 — tampon dérivé : BUF_K secondes du plus gros consommateur. Plus aucun achat.
-    const bufMax=Math.max(1,demMax*BUF_K);
+    dem*=state.speed; demMax*=state.speed;
+    // niveau effectif : borné par le plafond de l'amélioration (relevé par les boosts)
+    const lvl=k=>{ const e=M[k+'_s'+p.dest]; if(!e)return 0;
+      return Math.min(state.cnt[e.id]||0, capOf(e)); };
+    const spd=Math.min(.6,p.baseSpeed*Math.pow(SPD_STEP,lvl('spd')));  // vitesse — dédiée, indépendante de la flotte
+    // §5 — capacité ABSOLUE : p.capStatic (recette seule, constante) × l'amélioration achetée.
+    // Aucune dépendance à la production : c'est ce qui garantit que le transport finit dépassé.
+    const cap=p.capStatic*Math.pow(CAP_STEP,lvl('cap'));
+    const xfer=Math.max(.25,p.capStatic/DWELL_SEC)*Math.pow(XFER_STEP,lvl('xfer'));
+    const bufMax=Math.max(1,cap*BUF_LOADS);   // le tampon suit le véhicule, plus la demande
     p.dem=dem; p.demMax=demMax; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
     // boucle mise en pause par le joueur : rien ne bouge, rien ne se transfère
@@ -985,25 +1008,24 @@ function rBuy(id){
    d'animation du flux = débit réel, coloration du tube quand l'aval sature.
    ========================================================================== */
 const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
+const PIPE_DIA0=6, PIPE_PUMP0=5;   // débits absolus au niveau 0 (voir pipeStats)
 const PRIME_TIME=0.5;   // amorçage fixe : délai de démarrage unique, indépendant du débit/de la source
 function pipeStats(){
   let dem=0, demMax=0;
   for(const m of MACH){ if(m.s!==PIPE.dest||!m.in||!m.in[PIPE.res])continue;
     if(state.off[m.id])continue;   // idem oléoduc : une raffinerie coupée ne dimensionne rien
-    const tot=(state.cnt[m.id]||0)*(m.r||0)*m.in[PIPE.res]*mMult(m);
+    const tot=(state.cnt[m.id]||0)*(m.r||0)*(cache.cadence[m.id]||1)*m.in[PIPE.res]*(cache.force[m.id]||1)*mMult(m);
     dem+=tot; if(tot>demMax)demMax=tot; }
   dem*=state.speed; demMax*=state.speed;   // cohérent avec les chemins véhicules
-  // débit dimensionné sur la demande réelle (comme capBase pour les chemins véhicules), pas
-  // une constante figée : sinon, dès que les multiplicateurs globaux (recherche, étape,
-  // prestige...) grossissent, la demande explose mais le débit du pipeline reste au niveau
-  // d'achat initial — la raffinerie finit toujours par manquer de pétrole, même avec un stock
-  // abondant. Marge ×1,3 (comme capBase des chemins véhicules) pour que le débit dépasse
-  // confortablement la demande théorique plutôt que de la suivre au plus juste.
-  const scale=dem>0?Math.max(1,dem*1.3/4):1;
-  const dia =6*scale*Math.pow(1.18,state.cnt.pipe_dia||0);      // débit max
-  const pump=5*scale*Math.pow(1.15,state.cnt.pipe_pump||0);     // puissance de pompage
-  const bufMax=Math.max(1,demMax*BUF_K);
-  return {dia,pump,bufMax,demMax,rate:Math.min(dia,pump)};
+  /* §5 — débit ABSOLU, comme la capacité des véhicules : il ne dépend plus que des améliorations
+     achetées, plus du tout de la demande. L'ancien facteur d'échelle adossé à la demande faisait
+     suivre le débit automatiquement, donc l'oléoduc n'était jamais un goulot — le contraire de
+     l'effet recherché. Plafonds relevés par les boosts, comme le reste du transport. */
+  const dia =PIPE_DIA0 *Math.pow(1.18,Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
+  const pump=PIPE_PUMP0*Math.pow(1.15,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
+  const rate=Math.min(dia,pump);
+  const bufMax=Math.max(1,rate*BUF_LOADS);
+  return {dia,pump,bufMax,demMax,rate};
 }
 function tickPipe(dt){
   // même logique que les chemins véhicules : l'oléoduc n'existe qu'une fois l'étape 4 atteinte
@@ -1093,7 +1115,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.6.0';
+const GAME_VERSION='0.7.0';
 
 let cache={global:1,astro:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1125,8 +1147,13 @@ function recompute(){
     else if(m.global)c.global*=Math.pow(1+m.global,n);
     else if(m.fleet||m.spdUp||m.capUp||m.xferUp){/* véhicule : lu directement dans tickPaths */}
     else if(m.cadenceUp)c.cadence[m.cadenceUp]*=Math.pow(1+m.step,n);   // fréquence des impulsions — voir tick()
-    else if(m.forceUp)c.force[m.forceUp]*=Math.pow(1+m.step,n);        // taille des impulsions — voir tick()
-    else c.mach[m.id]*=Math.pow(2,Math.floor(n/MILESTONE));       // palier : ×2 tous les 25
+    /* Force ADDITIVE, porteuse du palier ×2/25 : u = 1 + niveaux achetés est le nombre d'UNITÉS de
+       production de la machine. C'est exactement l'ancienne courbe « nombre de machines », reprise
+       telle quelle (u × 2^floor(u/25)) — d'où la conservation de toute la calibration des coûts.
+       Une Force multiplicative donnerait 3,6× trop peu au niveau 25 et 22× trop au niveau 100. */
+    else if(m.forceUp){ const u=1+n; c.force[m.forceUp]=u*Math.pow(2,Math.floor(u/MILESTONE)); }
+    /* le palier ×2/25 ne porte plus sur le NOMBRE de machines : elles sont désormais plafonnées
+       (voir capOf), c'est la Force qui a repris ce rôle. */
   });
   // prestige + astro
   const planets=Object.keys(state.planets).filter(k=>state.planets[k]).length;
@@ -1153,7 +1180,8 @@ function pay(c){ for(const k in c) state.res[k]-=c[k]; }
 function bulkCost(m,q){ const n=state.cnt[m.id]||0,o={};
   for(const k in m.c){ const b=m.c[k]*Math.pow(m.g,n); o[k]= m.g===1? b*q : b*(Math.pow(m.g,q)-1)/(m.g-1); } return o; }
 function remainingCap(m){
-  return m.maxCount===undefined?Infinity:Math.max(0,m.maxCount-(state.cnt[m.id]||0));
+  const c=capOf(m);
+  return c===Infinity?Infinity:Math.max(0,c-(state.cnt[m.id]||0));
 }
 function maxBuy(m){
   const room=remainingCap(m); if(room<=0)return 0;
@@ -1527,7 +1555,8 @@ function blackBox(s){
 function machRow(m){
   const n=m.lab?labCount():(m.labLvl?labLvlOwned():(state.cnt[m.id]||0));
   let io='';
-  if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n));
+  if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n))+
+    '<br><em>Élargit aussi la logistique amont</em> : +1 machine et +1 niveau de transport autorisés par unité, sur toutes les étapes inférieures — c\'est le seul moyen de dépasser un étage saturé';
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n*60)+' système/min au total · '+(m.colon*60).toPrecision(2)+' par unité';
   else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' construit'+(labCount()>1?'s':'')+
@@ -1549,13 +1578,16 @@ function machRow(m){
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
   else if(m.xferUp)io='<em>Débit charge/décharge</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n));
   else if(m.cadenceUp)io='<em>Cadence</em> : ×'+(1+m.step)+' par unité (plafond '+m.maxCount+') — actuellement ×'+fmt(Math.pow(1+m.step,n))+' sur la fréquence des impulsions de '+M[m.cadenceUp].n;
-  else if(m.forceUp)io='<em>Force</em> : ×'+(1+m.step)+' par unité (plafond '+m.maxCount+') — actuellement ×'+fmt(Math.pow(1+m.step,n))+' sur la quantité par impulsion de '+M[m.forceUp].n;
+  else if(m.forceUp){ const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
+    io='<em>Force</em> : +1 unité de production par niveau — actuellement '+fmt(u)+' unité'+(u>1?'s':'')+
+       ' sur la quantité par impulsion de '+M[m.forceUp].n+
+       (pal>1?' · palier ×'+fmt(pal):'')+' (prochain palier à '+((Math.floor(u/MILESTONE)+1)*MILESTONE)+')'; }
   else{
     const f=o=>Object.keys(o).map(k=>RES[k].i+' '+o[k]).join(' + ');
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+fmt(m.r*60)+' impulsions/min'+
        (n?' · palier ×'+fmt(Math.pow(2,Math.floor(n/MILESTONE)))+' (prochain à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')':'');
   }
-  const capped=m.maxCount!==undefined, room=remainingCap(m), maxed=capped&&room<=0;
+  const capped=capOf(m)!==Infinity, room=remainingCap(m), maxed=capped&&room<=0;
   const q=maxed?0:(state.buyMode==='max'?Math.max(1,maxBuy(m)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
@@ -1564,7 +1596,7 @@ function machRow(m){
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
   const buyBtn=maxed?'<div class="maxed" style="color:#c5533f;border-color:#5a2c22;background:#1a0f0c">'+
-      (m.fleet?'■ flotte au maximum ('+n+'/'+(1+m.maxCount)+')':'■ plafond atteint ('+n+'/'+m.maxCount+')')+'</div>':
+      (m.fleet?'■ flotte au maximum ('+n+'/'+(1+capOf(m))+')':'■ plafond atteint ('+n+'/'+capOf(m)+')')+'</div>':
     '<button class="buy" data-buy="'+m.id+'" '+(can?'':'disabled')+'>'+
       '<span>Acheter ×'+q+'</span><span class="px">'+px+'</span></button>';
   return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
@@ -2594,6 +2626,15 @@ function restore(raw){
   if(state.labLvlTarget===undefined)state.labLvlTarget=null;   // 0.4.0 — anciennes sauvegardes
   state.pipe=state.pipe||{prime:0,flow:0,jam:false,starved:false};
   state.prodAcc=state.prodAcc||{};
+  /* Migration 0.7.0 — les machines sont désormais plafonnées (1 + boosts) et c'est la Force qui
+     porte le scaling. Chaque exemplaire au-delà du premier devient un niveau de Force : comme la
+     Force est additive (u = 1 + niveaux), la production est conservée à l'identique. */
+  MACH.forEach(m=>{ if(!m.r||!m.out||m.lab)return;
+    const n=state.cnt[m.id]||0; if(n<=1)return;
+    const cap=capOf(m); if(n<=cap)return;
+    state.cnt[m.id+'_for']=(state.cnt[m.id+'_for']||0)+(n-cap);
+    state.cnt[m.id]=cap;
+  });
   if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
   flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={}; rateReset();   // même raison qu'au prestige : on repart d'une mesure vierge
