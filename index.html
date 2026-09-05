@@ -798,11 +798,20 @@ function tickPaths(dt){
       const s=arr[i].state;
       if(s==='traveling_loaded'||s==='traveling_empty') step[i]=spd*dt;
     }
-    // car-following, arrière → avant : un véhicule à l'arrêt (palier) bloque celui qui suit
+    /* Car-following, arrière → avant : un véhicule à l'arrêt (palier) bloque celui qui suit.
+       Le pas est borné par l'espace RÉELLEMENT libre devant (distance au leader moins minGap,
+       plus ce que le leader libère dans le même pas). L'ancienne version ne faisait que détecter
+       la proximité : dès que le pas dépassait minGap — soit à partir du 3e niveau de vitesse
+       (0,0352 > 0,035) — un véhicule sautait par-dessus celui de tête et se retrouvait sur le
+       même quai. À vitesse maximale, les 5 véhicules chargeaient en parallèle position 0 et la
+       file d'attente ne se formait plus du tout. */
     for(let i=N-1;i>=0&&N>1;i--){
       const nx=(i+1)%N;
-      if(circDist(arr[i].p,arr[nx].p)<=p.minGap) step[i]=Math.min(step[i],step[nx]);
+      const libre=Math.max(0,circDist(arr[i].p,arr[nx].p)-p.minGap);
+      step[i]=Math.min(step[i],libre+step[nx]);
     }
+    // un quai = un véhicule : les suivants attendent, c'est ce qui crée le bouchon visible
+    let quaiCharge=arr.some(v=>v.state==='loading'), quaiDecharge=arr.some(v=>v.state==='unloading');
     let bf=state.buf[p.id]||0;
     for(let i=0;i<N;i++){
       const v=arr[i];
@@ -825,11 +834,12 @@ function tickPaths(dt){
         if(v.c<=1e-6){ v.c=0; v.state='traveling_empty'; }  // départ uniquement VIDE
       } else if(v.state==='traveling_loaded'){
         v.blocked = step[i]<=0;
-        if(circDist(v.p,p.unload)<=step[i]){ v.p=p.unload; v.state='unloading'; }
+        // le quai de déchargement n'accueille qu'un véhicule : sinon on attend juste derrière
+        if(!quaiDecharge && circDist(v.p,p.unload)<=step[i]){ v.p=p.unload; v.state='unloading'; quaiDecharge=true; }
         else v.p=(v.p+step[i])%1;
       } else { // traveling_empty
         v.blocked = step[i]<=0;
-        if(circDist(v.p,p.load)<=step[i]){ v.p=p.load; v.state='loading'; v.loadTimer=0; }
+        if(!quaiCharge && circDist(v.p,p.load)<=step[i]){ v.p=p.load; v.state='loading'; v.loadTimer=0; quaiCharge=true; }
         else v.p=(v.p+step[i])%1;
       }
     }
