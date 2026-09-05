@@ -184,10 +184,17 @@ nav::-webkit-scrollbar{display:none}
    deux statistiques forment une seule entité, les afficher en cartes voisines obligeait à relire
    les libellés pour les rapprocher (15 cartes à l'étape 1 pour 5 machines). Une ligne chacune,
    bouton réduit au coût pour ne pas empiler trois boutons pleine largeur par carte. */
-.mach .stats{border-top:1px solid #1c2f45;margin-top:7px;padding-top:6px;display:flex;flex-direction:column;gap:4px}
-.mach .stat{display:flex;align-items:center;gap:6px;font-size:10px;color:#7f97ad;line-height:1.3}
-.mach .stat .sn{color:#b9cbdd;flex:0 0 auto}
-.mach .stat .sv{font-variant-numeric:tabular-nums;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mach .stats{border-top:1px solid #1c2f45;margin-top:7px;padding-top:6px;display:flex;flex-direction:column;gap:7px}
+/* deux lignes par statistique : la première dit ce qu'elle fait (l'explication portée jadis par les
+   cartes séparées), la seconde donne l'état courant et l'achat */
+.mach .stat{font-size:10px;color:#7f97ad;line-height:1.35}
+.mach .stat .sh{display:block;margin-bottom:2px}
+.mach .stat .sn{color:#b9cbdd}
+.mach .stat .sd{color:#63788c}
+.mach .stat .sb{display:flex;align-items:center;gap:6px}
+/* la ligne d'état se replie plutôt que d'être tronquée : les cartes de la grille sont plus
+   étroites en écran large qu'en mobile pleine largeur, et l'information vaut mieux qu'une ellipse */
+.mach .stat .sv{font-variant-numeric:tabular-nums;color:#9fb4c8;flex:1 1 auto;min-width:0}
 .mach .stat .buy{width:auto;flex:0 0 auto;padding:3px 7px;font-size:10px;justify-content:flex-end}
 /* width:auto indispensable : la règle globale .maxed impose width:100%, qui écrasait la cellule
    de valeur à 0 px de large sur une ligne au plafond */
@@ -1700,21 +1707,28 @@ function machRow(m){
 function statRow(e){
   if(!e) return '';
   const n=state.cnt[e.id]||0, cap=capOf(e), room=remainingCap(e);
-  let etat;
-  // au plafond, le compteur « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne,
-  // et c'est justement ce qui la faisait déborder dans une carte étroite
-  if(e.cadenceUp) etat='×'+fmt(Math.pow(1+e.step,n))+(room<=0?'':' · '+n+'/'+cap);
-  else { const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
-    // libellé volontairement court : la colonne est étroite dans une carte de grille, la version
-    // longue (« 9 unités · palier ×32 · prochain à 50 ») se faisait tronquer par l'ellipsis
-    etat=fmt(u)+' u'+(pal>1?' · ×'+fmt(pal):'')+' · →'+((Math.floor(u/MILESTONE)+1)*MILESTONE); }
+  let titre, desc, etat;
+  if(e.cadenceUp){
+    titre='⟳ Cadence';
+    // fmt() arrondirait 1,035 à « 1 » : on garde les décimales pour un pas aussi fin
+    desc='×'+(1+e.step).toFixed(3)+'/niveau · fréquence';
+    // au plafond, « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne
+    etat='×'+fmt(Math.pow(1+e.step,n))+(room<=0?'':' · niveau '+n+'/'+cap);
+  } else {
+    const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
+    titre='⬆ Force';
+    desc='+1 unité/niveau · quantité';
+    etat=fmt(u)+' unité'+(u>1?'s':'')+(pal>1?' · palier ×'+fmt(pal):'')+
+         ' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
+  }
   const q=room<=0?0:(state.buyMode==='max'?Math.max(1,maxBuy(e)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(e,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
   const act=room<=0 ? '<span class="maxed">■ max</span>'
     : '<button class="buy" data-buy="'+e.id+'" '+(can?'':'disabled')+'><span class="px">'+px+'</span></button>';
-  return '<div class="stat"><span class="sn">'+(e.cadenceUp?'⟳ Cadence':'⬆ Force')+'</span>'+
-         '<span class="sv">'+etat+'</span>'+act+'</div>';
+  return '<div class="stat">'+
+         '<span class="sh"><span class="sn">'+titre+'</span> <span class="sd">'+desc+'</span></span>'+
+         '<span class="sb"><span class="sv">'+etat+'</span>'+act+'</span></div>';
 }
 function statRows(m){
   if(!m.r||!m.out||m.colon) return '';
