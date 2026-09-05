@@ -493,9 +493,9 @@ const MACH=[
  {id:'spd_s2',   s:2, n:'Vitesse — camion', spdUp:2,
              maxCount:6, c:{fer:88}, g:1.26},
  {id:'cap_s2',   s:2, n:'Capacité — camion', capUp:2,
-             maxCount:20, c:{pierre:88}, g:1.28},
+             maxCount:34, c:{pierre:88}, g:1.31},
  {id:'xfer_s2',  s:2, n:'Débit — camion', xferUp:2,
-             maxCount:20, c:{fer:114,pierre:44}, g:1.26},
+             maxCount:34, c:{fer:114,pierre:44}, g:1.29},
  // --- 3 usine
  {id:'assem', s:3,n:'Assembleur',       in:{acier:2,bois:1},   out:{module:1}, r:.5, c:{acier:400,pierre:3000}, g:1.11},
  {id:'assem_cad',s:3,n:'Cadence — Assembleur', cadenceUp:'assem', step:.025, maxCount:25, c:{acier:60,pierre:450}, g:1.12},
@@ -509,9 +509,9 @@ const MACH=[
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
              maxCount:6, c:{acier:264}, g:1.26},
  {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
-             maxCount:20, c:{bois:660}, g:1.28},
+             maxCount:34, c:{bois:660}, g:1.31},
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
-             maxCount:20, c:{acier:343,lcuivre:88}, g:1.26},
+             maxCount:34, c:{acier:343,lcuivre:88}, g:1.29},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.025, maxCount:25, c:{module:75,acier:3750}, g:1.12},
@@ -530,9 +530,9 @@ const MACH=[
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
              maxCount:6, c:{circuit:550}, g:1.26},
  {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
-             maxCount:20, c:{module:880}, g:1.28},
+             maxCount:34, c:{module:880}, g:1.31},
  {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
-             maxCount:20, c:{module:1144,circuit:330}, g:1.26},
+             maxCount:34, c:{module:1144,circuit:330}, g:1.29},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'chantier_cad',s:5,n:'Cadence — Chantier de fusées', cadenceUp:'chantier', step:.025, maxCount:25, c:{moteur:38,module:3000}, g:1.12},
@@ -543,9 +543,9 @@ const MACH=[
  {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
              maxCount:6, c:{moteur:2640}, g:1.26},
  {id:'cap_s5',   s:5, n:'Capacité — avion', capUp:5,
-             maxCount:20, c:{plastique:2640}, g:1.28},
+             maxCount:34, c:{plastique:2640}, g:1.31},
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
-             maxCount:20, c:{moteur:3432,plastique:1320}, g:1.26},
+             maxCount:34, c:{moteur:3432,plastique:1320}, g:1.29},
  // --- 6 spatiale
  {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
              c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
@@ -564,9 +564,9 @@ const MACH=[
  {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
              maxCount:6, c:{science:9900}, g:1.26},
  {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
-             maxCount:20, c:{science:4400}, g:1.28},
+             maxCount:34, c:{science:4400}, g:1.31},
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
-             maxCount:20, c:{science:12760}, g:1.26},
+             maxCount:34, c:{science:12760}, g:1.29},
  // --- 8 expansion
  /* SUPPRIMÉ en 0.4.0 — fleet_s8 / spd_s8 / cap_s8 / xfer_s8 étaient des achats morts.
     Aucune machine d'étape 8 n'a d'entrée (forge et vaisseau produisent des systèmes sans
