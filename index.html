@@ -1382,19 +1382,22 @@ function tick(dt){
         m.eff=1; m.flowc=gain/step; continue;
       }
       if(m.in){
-        // tout ou rien : il faut TOUS les inputs en pleine quantité, sinon aucun n'est consommé
-        let ok=true, miss=null;
+        /* Tout-ou-rien : jamais de cycle partiellement consommé. Mais la règle s'applique au
+           CYCLE, pas au lot : si le tampon alimente 60 machines sur 100, 60 tournent. Annuler
+           le lot entier produisait un zéro absorbant (plus rien ne rentre, donc plus rien ne
+           finance le transport, donc plus rien ne rentre) dont on ne pouvait plus sortir.
+           `miss` désigne l'entrée qui DÉTERMINE la fraction réalisable, c'est-à-dire celle dont
+           le ratio disponible/nécessaire est le plus faible — et non la première en défaut dans
+           l'ordre de la recette, comme avant. L'ancien choix était trompeur : un chantier de
+           fusées annonçait « manque de Moteur » alors que les moteurs s'accumulaient par
+           milliards et que le vrai coupable était le plastique, à zéro. Le seul outil de
+           diagnostic du joueur pointait la mauvaise ressource, donc la mauvaise machine. */
+        let f=1, miss=null;
         for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
-          if(poolGet(m.s,k)<need-1e-9){ ok=false; miss=miss||k; } }
-        // Tout-ou-rien : jamais de cycle partiellement consommé. Mais la règle s'applique au
-        // CYCLE, pas au lot : si le tampon alimente 60 machines sur 100, 60 tournent. Annuler
-        // le lot entier produisait un zéro absorbant (plus rien ne rentre, donc plus rien ne
-        // finance le transport, donc plus rien ne rentre) dont on ne pouvait plus sortir.
-        if(!ok){ let f=1;
-          for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
-            f=Math.min(f,poolGet(m.s,k)/need); }
-          f=Math.max(0,Math.min(1,f)); cyc*=f; m.eff=f; m.miss=f<1?miss:null;
-        } else { m.eff=1; m.miss=null; }
+          const r=poolGet(m.s,k)/need;
+          if(r<f){ f=r; miss=k; } }
+        f=Math.max(0,Math.min(1,f));
+        if(f<1){ cyc*=f; m.eff=f; m.miss=miss; } else { m.eff=1; m.miss=null; }
         m.effDisp=(m.effDisp===undefined?m.eff:m.effDisp)*0.85+m.eff*0.15;   // lissage visuel seulement
       } else { m.eff=1; m.miss=null; m.effDisp=1; }
       if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
