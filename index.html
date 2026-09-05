@@ -516,8 +516,8 @@ const MACH=[
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:75,acier:3750}, g:1.12},
  {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:580,acier:29000}, g:1.16},
- {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  maxCount:20, c:{acier:9000},  g:1.18},
- {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', maxCount:20, c:{module:1200}, g:1.15},
+ {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  maxCount:34, c:{acier:9000},  g:1.18},
+ {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', maxCount:34, c:{module:1200}, g:1.15},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
  {id:'raff_cad',s:4,n:'Cadence — Raffinerie', cadenceUp:'raff', step:.035, maxCount:25, c:{module:135,circuit:38}, g:1.12},
  {id:'raff_for',s:4,n:'Force — Raffinerie',   forceUp:'raff',   c:{module:1044,circuit:290}, g:1.16},
@@ -786,10 +786,17 @@ function tickPaths(dt){
     const lvl=k=>{ const e=M[k+'_s'+p.dest]; if(!e)return 0;
       return Math.min(state.cnt[e.id]||0, capOf(e)); };
     const spd=Math.min(.6,p.baseSpeed*Math.pow(SPD_STEP,lvl('spd')));  // vitesse — dédiée, indépendante de la flotte
-    // §5 — capacité ABSOLUE : p.capStatic (recette seule, constante) × l'amélioration achetée.
-    // Aucune dépendance à la production : c'est ce qui garantit que le transport finit dépassé.
-    const cap=p.capStatic*Math.pow(CAP_STEP,lvl('cap'));
-    const xfer=Math.max(.25,p.capStatic/DWELL_SEC)*Math.pow(XFER_STEP,lvl('xfer'));
+    /* §5 — capacité ABSOLUE vis-à-vis de la PRODUCTION : ni le nombre de machines, ni la Force,
+       ni la Cadence n'y entrent. Seule l'amélioration achetée la fait varier — c'est ce qui
+       garantit que le transport finit dépassé.
+       En revanche elle suit l'ÉPOQUE (multiplicateurs globaux et d'étape : recherche, prestige,
+       planètes, améliorations transversales). Sans ça le transport ne bénéficiait d'aucun de ces
+       multiplicateurs alors que la production les cumulait tous : mesuré en fin de partie, il
+       manquait un facteur 3700 au transport, la fonderie tombait à 0 % et la chaîne mourait.
+       L'écart n'était plus un dépassement calibré mais la pile entière des multiplicateurs. */
+    const ere=cache.global*cache.stage[p.dest];
+    const cap=p.capStatic*ere*Math.pow(CAP_STEP,lvl('cap'));
+    const xfer=Math.max(.25,p.capStatic*ere/DWELL_SEC)*Math.pow(XFER_STEP,lvl('xfer'));
     const bufMax=Math.max(1,cap*BUF_LOADS);   // le tampon suit le véhicule, plus la demande
     p.dem=dem; p.demMax=demMax; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
@@ -1035,8 +1042,9 @@ function pipeStats(){
      achetées, plus du tout de la demande. L'ancien facteur d'échelle adossé à la demande faisait
      suivre le débit automatiquement, donc l'oléoduc n'était jamais un goulot — le contraire de
      l'effet recherché. Plafonds relevés par les boosts, comme le reste du transport. */
-  const dia =PIPE_DIA0 *Math.pow(1.18,Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
-  const pump=PIPE_PUMP0*Math.pow(1.15,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
+  const ere=cache.global*cache.stage[PIPE.dest];   // même règle d'époque que les chemins véhicules
+  const dia =PIPE_DIA0 *ere*Math.pow(1.18,Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
+  const pump=PIPE_PUMP0*ere*Math.pow(1.15,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
   const rate=Math.min(dia,pump);
   const bufMax=Math.max(1,rate*BUF_LOADS);
   return {dia,pump,bufMax,demMax,rate};
@@ -1187,11 +1195,29 @@ function recompute(){
 
 const mMult=m=>(m.lab?cache.global/cache.astro:cache.global)*cache.stage[m.s]*cache.mach[m.id];
 
+/* COÛT DE LA FORCE — une courbe par palier de 25, de plus en plus raide.
+   La Force est le seul levier illimité du jeu : avec une croissance unique elle restait
+   indéfiniment l'achat le moins cher, la demande dépassait le transport d'un facteur 1000 et
+   toute la chaîne tombait à 0 % d'efficacité (mesuré sur une partie simulée complète). En
+   augmentant la croissance de FORCE_BAND à chaque palier franchi, l'empilement se paie de plus
+   en plus cher et le joueur rebascule naturellement vers le transport et l'étape suivante.
+   Mesuré à +8 % par palier : fonderie 92 % et usine 99 % d'efficacité moyenne, contre 30 % et
+   7 % sans escalade, sans écraser le rythme des jalons. */
+const FORCE_BAND=1.08;
+function forceFactor(m,l){                       // facteur de coût du niveau l
+  const b=Math.floor(l/MILESTONE); let f=1;
+  for(let i=0;i<b;i++) f*=Math.pow(m.g*Math.pow(FORCE_BAND,i),MILESTONE);
+  return f*Math.pow(m.g*Math.pow(FORCE_BAND,b), l-MILESTONE*b);
+}
 /* coût d'une machine au rang n */
-function cost(m,n){ const o={}; for(const k in m.c)o[k]=m.c[k]*Math.pow(m.g,n); return o; }
+function cost(m,n){ const o={};
+  for(const k in m.c)o[k]=m.c[k]*(m.forceUp?forceFactor(m,n):Math.pow(m.g,n)); return o; }
 function afford(c){ for(const k in c) if((state.res[k]||0)<c[k]) return false; return true; }
 function pay(c){ for(const k in c) state.res[k]-=c[k]; }
 function bulkCost(m,q){ const n=state.cnt[m.id]||0,o={};
+  if(m.forceUp){   // pas de forme close avec une croissance qui change de palier en palier
+    for(const k in m.c){ let s=0; for(let i=0;i<q;i++) s+=m.c[k]*forceFactor(m,n+i); o[k]=s; }
+    return o; }
   for(const k in m.c){ const b=m.c[k]*Math.pow(m.g,n); o[k]= m.g===1? b*q : b*(Math.pow(m.g,q)-1)/(m.g-1); } return o; }
 function remainingCap(m){
   const c=capOf(m);
