@@ -1,0 +1,34 @@
+(() => {
+  const val=c=>Object.keys(c).reduce((a,k)=>a+c[k]*(RES[k].v||1),0);
+  const dep={};
+  const acheter=()=>{ for(let g=0;g<40;g++){ let best=null;
+      MACH.forEach(m=>{ if(remainingCap(m)<=0)return; if(m.need&&state.stage<m.need)return; if(m.s>state.stage)return;
+        const c=bulkCost(m,1); if(!afford(c))return; const v=val(c); if(!best||v<best.v)best={t:'m',m,c,v}; });
+      UP.forEach(u=>{ if(state.ups[u.id]||u.s>state.stage)return; if(!afford(u.c))return;
+        const v=val(u.c); if(!best||v<best.v)best={t:'u',m:u,c:u.c,v}; });
+      if(!best)return;
+      const cat=best.t==='u'?'upgrades':(best.m.opti?'optimisations':(best.m.forceUp?'force':(best.m.cadenceUp?'cadence':
+        ((best.m.capUp||best.m.xferUp||best.m.spdUp||best.m.fleet||best.m.pipeUp)?'transport':'machines'))));
+      dep[cat]=(dep[cat]||0)+best.v;
+      pay(best.c);
+      if(best.t==='m') state.cnt[best.m.id]=(state.cnt[best.m.id]||0)+1; else state.ups[best.m.id]=true;
+      recompute(); } };
+  const jalons={}; let t=0; const DT=0.5; let last=1; const eS={},eN={};
+  const suivi=['hf','conv','assem','circ','puits','raff','moteurs','chantier','lab'];
+  for(let i=0;i<40000;i++){
+    const veines=CLICKABLE.filter(cl=>clickUnlocked(cl));
+    const gain=state.click*cache.click*cache.global*cache.stage[1];
+    for(let c=0;c<3;c++){ const cl=veines[c%veines.length]; if(cl){ state.res[cl.r]+=gain; state.valeur+=gain*RES[cl.r].v; } }
+    tick(DT); t+=DT; if(i%4===0) acheter();
+    if(state.stage!==last){ jalons['e'+state.stage]=Math.round(t/60); last=state.stage; }
+    if(i%100===0) suivi.forEach(id=>{ if(M[id]&&(state.cnt[id]||0)>0){ eS[id]=(eS[id]||0)+(M[id].eff||0); eN[id]=(eN[id]||0)+1; } });
+    if(state.stage>=8) break;
+  }
+  const moy={}; suivi.forEach(id=>{ if(eN[id]) moy[id]=+(eS[id]/eN[id]).toFixed(2); });
+  const forces={}; MACH.forEach(m=>{ if(m.forceUp) forces[m.forceUp]=(state.cnt[m.id]||0); });
+  const av=state.res.fusee; for(let i=0;i<120;i++) tick(DT);
+  const tot=Object.values(dep).reduce((a,b)=>a+b,0);
+  const part={}; for(const k in dep) part[k]=+(100*dep[k]/tot).toFixed(0)+'%';
+  return {jalons, effMoyenne:moy, forces, fuseeParMin:+((state.res.fusee-av)).toExponential(2),
+    partDepense:part, valeur:+state.valeur.toExponential(2)};
+})()

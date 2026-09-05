@@ -507,7 +507,7 @@ const MACH=[
  {id:'conv',  s:2,n:'Convertisseur',    in:{cuivre:2,charbon:1},out:{lcuivre:1},r:.5,c:{fer:900,cuivre:250},   g:1.1},
  {id:'conv_cad',s:2,n:'Cadence — Convertisseur', cadenceUp:'conv', step:.035, maxCount:25, c:{fer:135,cuivre:38}, g:1.12},
  {id:'conv_for',s:2,n:'Force — Convertisseur',   forceUp:'conv',   c:{fer:990,cuivre:275}, g:1.1},
- {id:'wagon', s:2,n:'Cadence — Minage (étape précédente)',  boost:{s:1,p:.15},                  c:{acier:60,pierre:1500},        g:1.45},
+ {id:'wagon',  s:2,n:'Optimisation — Minage (étape précédente)', opti:true, maxCount:1,                  c:{acier:60,pierre:1500},        g:1.45},
  {id:'fleet_s2', s:2, n:'Camion supplémentaire', fleet:2, maxCount:4,
              c:{fer:256,pierre:410}, g:3.2},
  {id:'spd_s2',   s:2, n:'Vitesse — camion', spdUp:2,
@@ -523,7 +523,7 @@ const MACH=[
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
  {id:'circ_cad',s:3,n:'Cadence — Atelier de circuits', cadenceUp:'circ', step:.035, maxCount:25, c:{acier:135,lcuivre:45}, g:1.12},
  {id:'circ_for',s:3,n:'Force — Atelier de circuits',   forceUp:'circ',   c:{acier:999,lcuivre:333}, g:1.11},
- {id:'camion',s:3,n:'Cadence — Fonderie (étape précédente)', boost:{s:2,p:.15},                c:{module:40,acier:2000},        g:1.48},
+ {id:'camion', s:3,n:'Optimisation — Fonderie (étape précédente)', opti:true, maxCount:1,                c:{module:40,acier:2000},        g:1.48},
  {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
              c:{acier:800,lcuivre:256}, g:3.2},
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
@@ -540,9 +540,20 @@ const MACH=[
     mesuré, le plastique ne couvrait que 11,7 % de la demande et l'étape 5 ne produisait aucune
     fusée. Les sorties sont donc portées à 12 (×6) et les coûts relevés ×3 — moins que la
     production gagnée, volontairement, puisque ces deux machines sont le goulot de la fin de chaîne. */
- {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:12},      r:.5, c:{module:1500,acier:75000},               g:1.16},
- {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:225,acier:11250}, g:1.12},
- {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:1740,acier:87000}, g:1.16},
+ /* Le puits est la SOURCE de la chaîne 4 : il doit rester la machine la moins chère de son étage,
+    comme la mine de fer à l'étape 1 ou le haut-fourneau à l'étape 2. Il coûtait 637 500 en valeur
+    contre 93 750 pour la raffinerie qu'il alimente — 6,8× son propre consommateur. Avec une Force
+    multiplicative, un tel écart de coût se fige en écart de niveaux (1,16^13) : mesuré, la
+    raffinerie tournait 23 niveaux devant le puits et son efficacité tombait à 0,02, plastique nul,
+    zéro fusée. Le coût passe donc sous celui de la raffinerie (0,4×) et la sortie porte la marge
+    1,5× de CAP_SEC sur la recette de la raffinerie (12), pour que la source garde de l'avance.
+    Le coût est libellé surtout en modules, la monnaie de son étage : facturé en acier, le puits
+    paraissait bon marché au regard des valeurs RES (acier v=8) mais restait impayable en pratique,
+    l'acier étant la ressource la plus disputée de la chaîne. Il accusait encore 11 niveaux de
+    retard sur la raffinerie, qui plafonnait à 0,43. */
+ {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:18},      r:.5, c:{module:900,acier:400},                  g:1.16},
+ {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:135,acier:60}, g:1.12},
+ {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:1044,acier:464}, g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  maxCount:34, c:{acier:9000},  g:1.18},
  {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', maxCount:34, c:{module:1200}, g:1.15},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:12},out:{plastique:12}, r:.5, c:{module:2700,circuit:750},  g:1.16},
@@ -551,7 +562,7 @@ const MACH=[
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
  {id:'moteurs_cad',s:4,n:'Cadence — Usine de moteurs', cadenceUp:'moteurs', step:.035, maxCount:25, c:{module:375,circuit:180}, g:1.12},
  {id:'moteurs_for',s:4,n:'Force — Usine de moteurs',   forceUp:'moteurs',   c:{module:2925,circuit:1404}, g:1.17},
- {id:'train', s:4,n:'Cadence — Usine (étape précédente)',    boost:{s:3,p:.15},                 c:{moteur:40,module:9000},       g:1.55},
+ {id:'train',  s:4,n:'Optimisation — Usine (étape précédente)', opti:true, maxCount:1,                 c:{moteur:40,module:9000},       g:1.55},
  {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
              c:{module:2880,circuit:960}, g:3.2},
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
@@ -564,7 +575,7 @@ const MACH=[
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'chantier_cad',s:5,n:'Cadence — Chantier de fusées', cadenceUp:'chantier', step:.035, maxCount:25, c:{moteur:38,module:3000}, g:1.12},
  {id:'chantier_for',s:5,n:'Force — Chantier de fusées',   forceUp:'chantier',   c:{moteur:282,module:22600}, g:1.13},
- {id:'avion', s:5,n:'Cadence — Logistique nationale (étape précédente)', boost:{s:4,p:.15},               c:{moteur:120,plastique:5000},   g:1.52},
+ {id:'avion',  s:5,n:'Optimisation — Logistique nationale (étape précédente)', opti:true, maxCount:1,               c:{moteur:120,plastique:5000},   g:1.52},
  {id:'fleet_s5', s:5, n:'Avion supplémentaire', fleet:5, maxCount:4,
              c:{moteur:8000,plastique:12800}, g:3.2},
  {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
@@ -580,7 +591,7 @@ const MACH=[
  {id:'lab_for',s:6,n:'Force — Laboratoire',   forceUp:'lab',   c:{fusee:930}, g:1.55},
  {id:'labLvl',s:6,n:'Niveau de laboratoire', labLvl:true,
              c:{fusee:14},  g:1.25},                    // 14×1,25^(L-1), plafonné par l'énergie
- {id:'navette',s:6,n:'Cadence — Logistique internationale (étape précédente)', boost:{s:5,p:.15},                 c:{fusee:21,science:105},        g:1.51},
+ {id:'navette',s:6,n:'Optimisation — Logistique internationale (étape précédente)', opti:true, maxCount:1,                 c:{fusee:21,science:105},        g:1.51},
  // --- 7 colonisation
  {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{fusee:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'terra_cad',s:7,n:'Cadence — Complexe de terraformation', cadenceUp:'terra', step:.035, maxCount:25, c:{science:7500,fusee:90}, g:1.12},
@@ -735,7 +746,7 @@ for(let s=2;s<=8;s++){ const seen={};
    Mesuré : usine de moteurs 0,10 -> 0,99, chantier 0,11 -> 0,63, fusées ×30, étape 6 à 38 min au
    lieu de 51. Appliquer la règle aux seules machines ne change RIEN (0,10) : les plafonds de
    transport redeviennent aussitôt le goulot, il faut les deux. */
-const BOOSTERS=MACH.filter(m=>m.boost);
+const BOOSTERS=MACH.filter(m=>m.opti);
 /* Seuls les boosts d'étage SUPÉRIEUR relèvent les plafonds d'une étape : c'est ce qui fait de la
    progression dans la chaîne la clé pour élargir l'amont. Les faire tous compter partout a été
    essayé et mesuré : ça sur-dimensionne massivement les premières étapes (ratio transport/demande
@@ -755,6 +766,8 @@ function capOf(m){
   // Sans cette exception elle héritait du bonus des boosts comme le transport, et un bot a
   // atteint 101 niveaux là où le maximum voulu est 25.
   if(m.cadenceUp) return m.maxCount;
+  // une seule Optimisation par étage : plafond dur, sinon elles se relèveraient entre elles
+  if(m.opti) return m.maxCount;
   const mul=Math.min(Math.pow(2,capBonus(m.s)),CAP_MUL_MAX);
   if(m.maxCount!==undefined) return Math.round(m.maxCount*mul);
   if(m.r&&m.out&&!m.lab) return Math.round(mul);   // machine de production : 1 seule, doublée par boost
@@ -1076,14 +1089,19 @@ function rBuy(id){
    d'animation du flux = débit réel, coloration du tube quand l'aval sature.
    ========================================================================== */
 const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
-/* Débits absolus de l'oléoduc au niveau 0, et leurs courbes.
-   Pas relevés et alignés entre eux (1,18 et 1,15 -> 1,22) :
-   l'oléoduc n'a aucun équivalent de la flotte, alors qu'un chemin routier finit avec une dizaine
-   de véhicules en parallèle. Mesuré avant correction, en fin de partie : 18 500/s de débit pour
-   150 000/s de demande (ratio 0,12) alors que le pétrole produit suffisait — le tuyau étranglait
-   le plastique, donc les moteurs, donc toute l'étape 5 qui n'avait plus de quoi payer son propre
-   transport. */
-const PIPE_DIA0=6, PIPE_PUMP0=5, PIPE_DIA_STEP=1.22, PIPE_PUMP_STEP=1.22;
+/* Débit de l'oléoduc au niveau 0 : DÉRIVÉ DE LA RECETTE, comme capStatic pour les véhicules, et
+   non plus une constante. L'ancienne valeur (6) datait d'une raffinerie qui consommait 2 pétrole
+   par cycle ; depuis le recalage de la chaîne elle en consomme 12, soit 6/s par unité — le tuyau
+   démarrait donc à exactement 1× la demande d'une seule unité, sans marge, là où un chemin routier
+   démarre à CAP_SEC = 1,5× sa recette. C'est ce qui faisait de la raffinerie la première affamée
+   de la chaîne (0,11 à 0,27 d'efficacité selon les essais). Dérivée, la base ne pourra plus se
+   périmer si une recette change.
+   Les pas sont alignés entre eux (1,18 et 1,15 -> 1,22) parce que l'oléoduc n'a aucun équivalent
+   de la flotte, alors qu'un chemin routier finit avec une dizaine de véhicules en parallèle. */
+const PIPE_DIA_STEP=1.22, PIPE_PUMP_STEP=1.22;
+const PIPE_BASE=(()=>{ let recette=0;
+  MACH.forEach(m=>{ if(m.s===PIPE.dest&&m.in&&m.in[PIPE.res]) recette+=(m.r||0)*m.in[PIPE.res]; });
+  return Math.max(1,recette*CAP_SEC); })();
 const PRIME_TIME=0.5;   // amorçage fixe : délai de démarrage unique, indépendant du débit/de la source
 function pipeStats(){
   let dem=0, demMax=0;
@@ -1097,8 +1115,8 @@ function pipeStats(){
      suivre le débit automatiquement, donc l'oléoduc n'était jamais un goulot — le contraire de
      l'effet recherché. Plafonds relevés par les boosts, comme le reste du transport. */
   const ere=cache.global*cache.stage[PIPE.dest];   // même règle d'époque que les chemins véhicules
-  const dia =PIPE_DIA0 *ere*Math.pow(PIPE_DIA_STEP, Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
-  const pump=PIPE_PUMP0*ere*Math.pow(PIPE_PUMP_STEP,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
+  const dia =PIPE_BASE            *ere*Math.pow(PIPE_DIA_STEP, Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
+  const pump=PIPE_BASE/DWELL_SEC*2*ere*Math.pow(PIPE_PUMP_STEP,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
   const rate=Math.min(dia,pump);
   const bufMax=Math.max(1,rate*BUF_LOADS);
   return {dia,pump,bufMax,demMax,rate};
@@ -1191,7 +1209,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.7.0';
+const GAME_VERSION='0.8.0';
 
 let cache={global:1,astro:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1219,7 +1237,6 @@ function recompute(){
   }
   // machines de type boost / global
   MACH.forEach(m=>{ const n=state.cnt[m.id]||0; if(!n)return;
-    if(m.boost)c.stage[m.boost.s]*=Math.pow(1+m.boost.p,n);      // duplication : multiplicative
     else if(m.global)c.global*=Math.pow(1+m.global,n);
     else if(m.fleet||m.spdUp||m.capUp||m.xferUp){/* véhicule : lu directement dans tickPaths */}
     else if(m.cadenceUp)c.cadence[m.cadenceUp]*=Math.pow(1+m.step,n);   // fréquence des impulsions — voir tick()
@@ -1227,7 +1244,7 @@ function recompute(){
        production de la machine. C'est exactement l'ancienne courbe « nombre de machines », reprise
        telle quelle (u × 2^floor(u/25)) — d'où la conservation de toute la calibration des coûts.
        Une Force multiplicative donnerait 3,6× trop peu au niveau 25 et 22× trop au niveau 100. */
-    else if(m.forceUp){ const u=1+n; c.force[m.forceUp]=u*Math.pow(2,Math.floor(u/MILESTONE)); }
+    else if(m.forceUp){ const u=1+n; c.force[m.forceUp]=Math.pow(FORCE_STEP,n)*Math.pow(2,Math.floor(u/MILESTONE)); }
     /* le palier ×2/25 ne porte plus sur le NOMBRE de machines : elles sont désormais plafonnées
        (voir capOf), c'est la Force qui a repris ce rôle. */
   });
@@ -1257,11 +1274,35 @@ const mMult=m=>(m.lab?cache.global/cache.astro:cache.global)*cache.stage[m.s]*ca
    en plus cher et le joueur rebascule naturellement vers le transport et l'étape suivante.
    Mesuré à +8 % par palier : fonderie 92 % et usine 99 % d'efficacité moyenne, contre 30 % et
    7 % sans escalade, sans écraser le rythme des jalons. */
-const FORCE_BAND=1.08;
+/* La Force est MULTIPLICATIVE : elle a repris le rôle de croissance que portaient les anciennes
+   machines « Cadence — étape précédente », dont le ×1,15 par exemplaire cumulait jusqu'à ×3 400.
+   C'est aussi ce qui rend atteignable le gradient de débit que réclame la chaîne de recettes —
+   224 entre les mines et le chantier de fusées — par un simple écart de niveaux (~70 à ×1,12),
+   là où l'additif l'aurait fait payer en 224 fois plus d'exemplaires (gradient mesuré : 7). */
+/* La croissance du coût de la Force est UNIFORME, adossée à FORCE_STEP, et non plus héritée du
+   m.g de chaque machine. Avec un gain uniforme de ×1,12 face à des g allant de 1,09 à 1,17, le
+   nombre de niveaux atteints ne dépendait plus de la demande mais du hasard de ce g : le bûcheron
+   (g=1,09 < 1,12) s'emballait jusqu'au niveau 127, le chantier de fusées (g=1,13) et l'usine de
+   moteurs (g=1,17) calaient vers 78 — soit exactement l'inverse de ce dont la fin de chaîne a
+   besoin. Mesuré : 37× moins de fusées qu'en 0.7.0. Le coût part désormais juste au-dessus du gain
+   (FORCE_EDGE) et s'en écarte à chaque palier (FORCE_BAND), pour tout le monde de la même façon ;
+   ce qui différencie les machines redevient leur coût de base m.c, qui est une valeur de design. */
+/* FORCE_EDGE et FORCE_BAND ont été recalibrés par balayage mesuré : les valeurs précédentes
+   (marge implicite via m.g, bande 1,08) datent de la Force additive, où le gain par niveau était
+   négligeable devant le coût. En multiplicatif, le gain par niveau vaut ln(1,12)+ln2/25 = 0,141 ;
+   avec une bande à 1,08 le coût le dépassait dès le premier palier et la production devenait très
+   sous-linéaire en dépense — partie mesurée à 11/34/43/67/92 et 1,3e8 fusées/min. À 1,005/1,03 la
+   Force reste le meilleur achat sur les 25 premiers niveaux (l'amorce du jeu, les machines étant
+   plafonnées à 1 tant qu'aucune Optimisation n'est achetée) puis se renchérit palier par palier :
+   3,2e11 fusées/min et aucune machine sous 0,79 d'efficacité moyenne. */
+const FORCE_STEP=1.12;
+const FORCE_EDGE=1.005;  // marge du coût sur le gain au premier palier
+const FORCE_BAND=1.03;
+const forceG=b=>FORCE_STEP*FORCE_EDGE*Math.pow(FORCE_BAND,b);
 function forceFactor(m,l){                       // facteur de coût du niveau l
   const b=Math.floor(l/MILESTONE); let f=1;
-  for(let i=0;i<b;i++) f*=Math.pow(m.g*Math.pow(FORCE_BAND,i),MILESTONE);
-  return f*Math.pow(m.g*Math.pow(FORCE_BAND,b), l-MILESTONE*b);
+  for(let i=0;i<b;i++) f*=Math.pow(forceG(i),MILESTONE);
+  return f*Math.pow(forceG(b), l-MILESTONE*b);
 }
 /* coût d'une machine au rang n */
 function cost(m,n){ const o={};
@@ -1367,7 +1408,7 @@ function tick(dt){
 
     for(const m of MACH){
       let n=state.cnt[m.id]||0;
-      if(m.labLvl||m.boost||m.global||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp||m.cadenceUp||m.forceUp){m.eff=1;continue;}
+      if(m.labLvl||m.opti||m.global||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp||m.cadenceUp||m.forceUp){m.eff=1;continue;}
       if(m.lab) n=labActive();                            // seuls les labos ACTIFS produisent
       if(!n){m.eff=1;continue;}
       if(m.out&&state.off[m.id]){ m.eff=0; m.miss='__off__';
@@ -1652,8 +1693,8 @@ function blackBox(s){
 function machRow(m){
   const n=m.lab?labCount():(m.labLvl?labLvlOwned():(state.cnt[m.id]||0));
   let io='';
-  if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n))+
-    '<br><em>Élargit aussi la logistique amont</em> : chaque unité DOUBLE le plafond de machines et de transport de toutes les étapes inférieures — c\'est le seul moyen de dépasser un étage saturé';
+  if(m.opti)io='<em>Optimisation</em> : une seule par étage. Double le plafond de machines et de transport '+
+    'de toutes les étapes inférieures — le seul levier pour élargir un étage saturé.';
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n*60)+' système/min au total · '+(m.colon*60).toPrecision(2)+' par unité';
   else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' construit'+(labCount()>1?'s':'')+
@@ -1689,7 +1730,7 @@ function machRow(m){
   const c=q>0?bulkCost(m,q):{}, can=q>0&&afford(c);
   const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
   const eff=Math.round((m.effDisp===undefined?1:m.effDisp)*100);
-  const bar=(!m.boost&&!m.global&&!m.colon&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.labLvl&&!m.pipeUp&&!m.cadenceUp&&!m.forceUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
+  const bar=(!m.opti&&!m.global&&!m.colon&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.labLvl&&!m.pipeUp&&!m.cadenceUp&&!m.forceUp)?'<div class="bar"><span data-eff="'+m.id+'" style="width:'+eff+'%"></span></div>':'';
   const off=!!state.off[m.id];
   const pwr=m.out?'<button class="pwr'+(off?' off':'')+'" data-toggle="'+m.id+'" title="Couper/relancer cette production">'+(off?'⏸':'⏵')+'</button>':'';
   const buyBtn=maxed?'<div class="maxed" style="color:#c5533f;border-color:#5a2c22;background:#1a0f0c">'+
@@ -1715,7 +1756,8 @@ function statState(e){
     // au plafond, « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne
     { const v=Math.pow(1+e.step,n); return '×'+(v<10?String(+v.toFixed(3)):fmt(v))+(room<=0?'':' · niveau '+n+'/'+cap); }
   const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
-  return fmt(u)+' unité'+(u>1?'s':'')+(pal>1?' · palier ×'+fmt(pal):'')+
+  const v=Math.pow(FORCE_STEP,n)*pal;
+  return '×'+(v<10?String(+v.toFixed(2)):fmt(v))+(pal>1?' · palier ×'+fmt(pal):'')+
          ' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
 }
 function statRow(e){
@@ -1728,7 +1770,7 @@ function statRow(e){
     desc='×'+(1+e.step).toFixed(3)+'/niveau · fréquence';
   } else {
     titre='⬆ Force';
-    desc='+1 unité/niveau · quantité';
+    desc='×'+FORCE_STEP+'/niveau · quantité';
   }
   const q=room<=0?0:(state.buyMode==='max'?Math.max(1,maxBuy(e)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(e,q):{}, can=q>0&&afford(c);
@@ -2520,7 +2562,7 @@ function multStack(m){
   return inner?'<div class="stack" data-stack="'+m.id+'">'+inner+'</div>':'';
 }
 function stackInner(m){
-  if(!m.out||m.boost||m.global||m.colon)return '';
+  if(!m.out||m.opti||m.global||m.colon)return '';
   const n=state.cnt[m.id]||0; if(!n)return '';
   const base=(m.r||0)*Object.values(m.out)[0];
   // cache.mach[m.id] porte déjà le palier ×2/25 (voir recompute) : ne pas le remultiplier ici par
@@ -2663,7 +2705,7 @@ function bind(){
         - plafond atteint : le bouton d'achat cède la place à l'indicateur « plafond atteint ».
        Le second passait à la trappe pour les machines de production, dont le plafond vient de
        capOf et non d'un maxCount déclaré. */
-    if(cross||m.boost||m.global||m.maxCount!==undefined||before===0||remainingCap(m)<=0)structuralDirty=true; else paint();
+    if(cross||m.opti||m.global||m.maxCount!==undefined||before===0||remainingCap(m)<=0)structuralDirty=true; else paint();
   });
   $('panel').querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{
     const u=U[b.dataset.up]; if(state.ups[u.id]||!afford(u.c))return;
