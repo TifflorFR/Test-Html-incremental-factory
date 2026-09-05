@@ -513,14 +513,21 @@ const MACH=[
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
              maxCount:40, c:{acier:343,lcuivre:88}, g:1.17},
  // --- 4 logistique nationale
- {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
- {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:75,acier:3750}, g:1.12},
- {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:580,acier:29000}, g:1.16},
+ /* Débits de base du pétrole et du plastique calés sur la chaîne aval : alimenter UN chantier de
+    fusées demande 16 plastique par fusée une fois les moteurs comptés, soit 6,4 unités de puits et
+    de raffinerie pour une unité de chantier. Les machines étant désormais plafonnées au MÊME
+    nombre, ce déséquilibre de recette ne pouvait plus être compensé en achetant plus de puits :
+    mesuré, le plastique ne couvrait que 11,7 % de la demande et l'étape 5 ne produisait aucune
+    fusée. Les sorties sont donc portées à 12 (×6) et les coûts relevés ×3 — moins que la
+    production gagnée, volontairement, puisque ces deux machines sont le goulot de la fin de chaîne. */
+ {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:12},      r:.5, c:{module:1500,acier:75000},               g:1.16},
+ {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:225,acier:11250}, g:1.12},
+ {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:1740,acier:87000}, g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  maxCount:34, c:{acier:9000},  g:1.18},
  {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', maxCount:34, c:{module:1200}, g:1.15},
- {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:2},out:{plastique:2}, r:.5, c:{module:900,circuit:250},     g:1.16},
- {id:'raff_cad',s:4,n:'Cadence — Raffinerie', cadenceUp:'raff', step:.035, maxCount:25, c:{module:135,circuit:38}, g:1.12},
- {id:'raff_for',s:4,n:'Force — Raffinerie',   forceUp:'raff',   c:{module:1044,circuit:290}, g:1.16},
+ {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:12},out:{plastique:12}, r:.5, c:{module:2700,circuit:750},  g:1.16},
+ {id:'raff_cad',s:4,n:'Cadence — Raffinerie', cadenceUp:'raff', step:.035, maxCount:25, c:{module:405,circuit:113}, g:1.12},
+ {id:'raff_for',s:4,n:'Force — Raffinerie',   forceUp:'raff',   c:{module:3132,circuit:870}, g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
  {id:'moteurs_cad',s:4,n:'Cadence — Usine de moteurs', cadenceUp:'moteurs', step:.035, maxCount:25, c:{module:375,circuit:180}, g:1.12},
  {id:'moteurs_for',s:4,n:'Force — Usine de moteurs',   forceUp:'moteurs',   c:{module:2925,circuit:1404}, g:1.17},
