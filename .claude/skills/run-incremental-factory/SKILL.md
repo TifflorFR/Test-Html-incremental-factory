@@ -56,6 +56,36 @@ non-empty.
 | `--port=N` | Static server port (default 8099). |
 | `--headed` | Show the browser window instead of headless (only useful with a display attached). |
 
+## Mesurer l'équilibrage (bot glouton)
+
+`bot.txt` contient une expression JS à passer à `page.evaluate()` : elle joue
+une partie complète en accéléré (3 clics/s, achat systématique du moins cher
+par valeur `RES.v`, `tick(0.5)` en boucle jusqu'à l'étape 8 ou 40 000 pas) et
+renvoie les jalons en minutes, l'efficacité moyenne par machine, les niveaux de
+Force atteints, les fusées/min, la répartition de la dépense par catégorie et la
+valeur produite. Une partie prend ~40 s.
+
+C'est l'outil de référence pour tout changement d'équilibrage : mesurer avant,
+mesurer après, comparer. Pour comparer deux versions, extraire l'ancienne avec
+`git show <ref>:index.html` dans un dossier servi par le même serveur statique —
+sinon les deux mesures ne sont pas comparables (le bot lit `MACH`/`UP` de la page).
+
+```js
+import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
+const bot = readFileSync('bot.txt', 'utf8');
+const page = await (await chromium.launch({ headless: true })).newPage();
+await page.goto('http://localhost:8099/index.html');
+await page.click('#introNew');
+const ok = await page.$('#popOk'); if (ok) await ok.click();
+console.log(JSON.stringify(await page.evaluate(bot), null, 1));
+```
+
+Le bot lit les catégories via les champs de `MACH` (`opti`, `forceUp`,
+`cadenceUp`, `capUp`/`xferUp`/`spdUp`/`fleet`/`pipeUp`) : si un champ est
+renommé, mettre `bot.txt` à jour, sinon la répartition de la dépense devient
+silencieusement fausse.
+
 ## Run (human path)
 
 Open `index.html` directly in a browser (`file://` also mostly works for
