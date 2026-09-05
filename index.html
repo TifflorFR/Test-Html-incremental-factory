@@ -404,7 +404,7 @@ function fmt(n){
   const v=n/Math.pow(1000,t);
   return (v<10?v.toFixed(2):v<100?v.toFixed(1):Math.floor(v))+SUF[t];
 }
-function rate(n){ return (n>=0?'+':'')+fmt(n)+'/s'; }
+function rateMin(n){ return (n>=0?'+':'')+fmt(n)+'/min'; }
 const $=id=>document.getElementById(id);
 function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;
   document.body.appendChild(d);setTimeout(()=>d.remove(),2700);}
@@ -1174,6 +1174,28 @@ function maxBuy(m){
 let flow={}, prodAvg={};
 /* production cumulée depuis le dernier paint(), par machine — voir flushProdFloats() */
 let prodFloat={};
+/* Débit affiché dans la barre de ressources : moyenne NETTE sur une fenêtre glissante de 2 min,
+   exprimée par minute, recalculée toutes les 5 s. Un tableau circulaire de 24 tranches de 5 s par
+   ressource ; on n'affiche donc pas une valeur instantanée (illisible avec les impulsions
+   discrètes) mais ce que la ligne a réellement produit sur les deux dernières minutes de jeu.
+   Le temps compté est du temps de JEU (dt déjà multiplié par state.speed, gelé en pause). */
+const RATE_WIN=120, RATE_BUCKET=5, RATE_SLOTS=RATE_WIN/RATE_BUCKET;
+let rateBuf={}, rateIdx=0, rateAcc=0, rateClosed=0, rateShown={};
+const rateBufFor=k=>rateBuf[k]||(rateBuf[k]=new Array(RATE_SLOTS).fill(0));
+function rateRoll(){
+  // la tranche courante vient de se fermer : on recalcule la moyenne sur toute la fenêtre.
+  // Diviseur = temps couvert par les tranches FERMÉES (rateClosed), pas le temps écoulé total :
+  // la fraction de tranche en cours n'est pas encore dans la somme, la compter au dénominateur
+  // sous-estimerait le débit (60/min affiché 59,8 tant que la fenêtre n'est pas pleine).
+  rateClosed=Math.min(RATE_WIN,rateClosed+RATE_BUCKET);
+  const span=rateClosed;
+  for(const k in RES){ const b=rateBufFor(k);
+    let tot=0; for(let i=0;i<RATE_SLOTS;i++)tot+=b[i];
+    rateShown[k]= span>0 ? tot/span*60 : 0; }
+  rateIdx=(rateIdx+1)%RATE_SLOTS;
+  for(const k in RES) rateBufFor(k)[rateIdx]=0;   // la tranche réutilisée date de 2 min, on la vide
+}
+function rateReset(){ rateBuf={}; rateIdx=0; rateAcc=0; rateClosed=0; rateShown={}; }
 // borne haute d'un pas de simulation ÉCONOMIQUE (oléoduc + machines). Nécessaire car la
 // règle "tout ou rien" exige que TOUT l'input d'un cycle soit déjà dans le tampon, et ce
 // tampon est dimensionné en secondes de conso réelle (BUF_K) — indépendant
@@ -1292,7 +1314,11 @@ function tick(dt){
     const gross=(prod[k]||0)/dt;
     flow['+'+k]=(flow['+'+k]||0)*(1-fw)+gross*fw;
     prodAvg[k]=(prodAvg[k]||0)*(1-aw)+gross*aw;
+    // quantité NETTE de ce pas, versée dans la tranche de 5 s en cours (fenêtre glissante 2 min)
+    rateBufFor(k)[rateIdx]+=(prod[k]||0)-(cons[k]||0);
   }
+  rateAcc+=dt;
+  while(rateAcc>=RATE_BUCKET){ rateAcc-=RATE_BUCKET; rateRoll(); }
   tickHold(dt);
   tickDyson(dt);
   checkUnlocks();
@@ -1404,7 +1430,7 @@ function doPrestige(){
   // explicite elles gardent les débits du run précédent pendant toute la fenêtre de moyenne
   // (AVG_WINDOW = 10 s), et rateMet() les lit directement — tous les jalons des étapes 2 à 6
   // se retrouvaient donc satisfaits dès la première seconde du nouveau run.
-  flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={};
+  flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={}; rateReset();
   for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
   structuralDirty=true; recompute(); toast('+'+g+' brevets');
 }
@@ -1425,7 +1451,7 @@ let structuralDirty=true, refs={};
 
 function chip(k){
   return '<div class="chip" data-res="'+k+'"><div class="n">'+RES[k].i+' '+RES[k].n+'</div>'+
-         '<div class="v" data-v="'+k+'">0</div><div class="r zero" data-r="'+k+'">+0/s</div></div>';
+         '<div class="v" data-v="'+k+'">0</div><div class="r zero" data-r="'+k+'">+0/min</div></div>';
 }
 /* §3 : révélation progressive — une ressource n'apparaît qu'au déblocage de
    la machine qui la consomme (charbon->Fonderie, cuivre->Usine, pétrole->National) */
@@ -2484,7 +2510,7 @@ function paint(){
   flushProdFloats();
   for(const k in refs.res){ const o=refs.res[k]; if(!o.v)continue;
     o.v.textContent=fmt(state.res[k]);
-    const f=flow[k]||0; o.r.textContent=rate(f);
+    const f=rateShown[k]||0; o.r.textContent=rateMin(f);
     o.r.className='r '+(f>1e-6?'pos':f<-1e-6?'neg':'zero'); }
   $('hGlobal').textContent=fmt(cache.global);
   $('hValeur').textContent=fmt(state.valeur+state.valeurTot);
@@ -2564,7 +2590,7 @@ function restore(raw){
   state.prodAcc=state.prodAcc||{};
   if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
-  flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={};   // même raison qu'au prestige : on repart d'une mesure vierge
+  flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={}; rateReset();   // même raison qu'au prestige : on repart d'une mesure vierge
   recompute();
   return d.ts?(Date.now()-d.ts)/1000:0;
 }
