@@ -509,9 +509,9 @@ const MACH=[
  {id:'spd_s3',   s:3, n:'Vitesse — convoi', spdUp:3,
              maxCount:6, c:{acier:264}, g:1.17},
  {id:'cap_s3',   s:3, n:'Capacité — convoi', capUp:3,
-             maxCount:34, c:{bois:660}, g:1.17},
+             maxCount:40, c:{bois:660}, g:1.17},
  {id:'xfer_s3',  s:3, n:'Débit — convoi', xferUp:3,
-             maxCount:34, c:{acier:343,lcuivre:88}, g:1.17},
+             maxCount:40, c:{acier:343,lcuivre:88}, g:1.17},
  // --- 4 logistique nationale
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:2},       r:.5, c:{module:500,acier:25000},                g:1.16},
  {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:75,acier:3750}, g:1.12},
@@ -530,9 +530,9 @@ const MACH=[
  {id:'spd_s4',   s:4, n:'Vitesse — train', spdUp:4,
              maxCount:6, c:{circuit:550}, g:1.17},
  {id:'cap_s4',   s:4, n:'Capacité — train', capUp:4,
-             maxCount:34, c:{module:880}, g:1.17},
+             maxCount:46, c:{module:880}, g:1.17},
  {id:'xfer_s4',  s:4, n:'Débit — train', xferUp:4,
-             maxCount:34, c:{module:1144,circuit:330}, g:1.17},
+             maxCount:46, c:{module:1144,circuit:330}, g:1.17},
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'chantier_cad',s:5,n:'Cadence — Chantier de fusées', cadenceUp:'chantier', step:.035, maxCount:25, c:{moteur:38,module:3000}, g:1.12},
@@ -543,9 +543,9 @@ const MACH=[
  {id:'spd_s5',   s:5, n:'Vitesse — avion', spdUp:5,
              maxCount:6, c:{moteur:2640}, g:1.17},
  {id:'cap_s5',   s:5, n:'Capacité — avion', capUp:5,
-             maxCount:34, c:{plastique:2640}, g:1.17},
+             maxCount:52, c:{plastique:2640}, g:1.17},
  {id:'xfer_s5',  s:5, n:'Débit — avion', xferUp:5,
-             maxCount:34, c:{moteur:3432,plastique:1320}, g:1.17},
+             maxCount:52, c:{moteur:3432,plastique:1320}, g:1.17},
  // --- 6 spatiale
  {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
              c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
@@ -564,9 +564,9 @@ const MACH=[
  {id:'spd_s7',   s:7, n:'Vitesse — vaisseau colonial', spdUp:7,
              maxCount:6, c:{science:9900}, g:1.17},
  {id:'cap_s7',   s:7, n:'Capacité — vaisseau colonial', capUp:7,
-             maxCount:34, c:{science:4400}, g:1.17},
+             maxCount:58, c:{science:4400}, g:1.17},
  {id:'xfer_s7',  s:7, n:'Débit — vaisseau colonial', xferUp:7,
-             maxCount:34, c:{science:12760}, g:1.17},
+             maxCount:58, c:{science:12760}, g:1.17},
  // --- 8 expansion
  /* SUPPRIMÉ en 0.4.0 — fleet_s8 / spd_s8 / cap_s8 / xfer_s8 étaient des achats morts.
     Aucune machine d'étape 8 n'a d'entrée (forge et vaisseau produisent des systèmes sans
@@ -701,6 +701,12 @@ for(let s=2;s<=8;s++){ const seen={};
    inférieures. C'est la seule façon d'élargir un étage saturé — en avançant dans la chaîne,
    pas en farmant sur place. */
 const BOOSTERS=MACH.filter(m=>m.boost);
+/* Seuls les boosts d'étage SUPÉRIEUR relèvent les plafonds d'une étape : c'est ce qui fait de la
+   progression dans la chaîne la clé pour élargir l'amont. Les faire tous compter partout a été
+   essayé et mesuré : ça sur-dimensionne massivement les premières étapes (ratio transport/demande
+   de 3367 sur le fer) sans rien régler en aval, et le bot n'atteignait plus l'étape 6.
+   L'asymétrie qui en découle — l'étape 2 a quatre sources de bonus, l'étape 5 une seule, l'étape 7
+   aucune — est compensée par une base de plafond plus haute pour les étages avancés (voir MACH). */
 const capBonus=s=>BOOSTERS.reduce((a,b)=>a+(b.s>s?(state.cnt[b.id]||0):0),0);
 /* Plafond effectif d'une entrée MACH : maxCount déclaré (transport) ou 1 (machine de production),
    relevé par capBonus. Les machines sans plafond (boost, global, colon, labLvl, lab) : Infinity. */
@@ -1029,7 +1035,14 @@ function rBuy(id){
    d'animation du flux = débit réel, coloration du tube quand l'aval sature.
    ========================================================================== */
 const PIPE={id:'pipe_petrole',res:'petrole',dest:4};
-const PIPE_DIA0=6, PIPE_PUMP0=5;   // débits absolus au niveau 0 (voir pipeStats)
+/* Débits absolus de l'oléoduc au niveau 0, et leurs courbes.
+   Pas relevés et alignés entre eux (1,18 et 1,15 -> 1,22) :
+   l'oléoduc n'a aucun équivalent de la flotte, alors qu'un chemin routier finit avec une dizaine
+   de véhicules en parallèle. Mesuré avant correction, en fin de partie : 18 500/s de débit pour
+   150 000/s de demande (ratio 0,12) alors que le pétrole produit suffisait — le tuyau étranglait
+   le plastique, donc les moteurs, donc toute l'étape 5 qui n'avait plus de quoi payer son propre
+   transport. */
+const PIPE_DIA0=6, PIPE_PUMP0=5, PIPE_DIA_STEP=1.22, PIPE_PUMP_STEP=1.22;
 const PRIME_TIME=0.5;   // amorçage fixe : délai de démarrage unique, indépendant du débit/de la source
 function pipeStats(){
   let dem=0, demMax=0;
@@ -1043,8 +1056,8 @@ function pipeStats(){
      suivre le débit automatiquement, donc l'oléoduc n'était jamais un goulot — le contraire de
      l'effet recherché. Plafonds relevés par les boosts, comme le reste du transport. */
   const ere=cache.global*cache.stage[PIPE.dest];   // même règle d'époque que les chemins véhicules
-  const dia =PIPE_DIA0 *ere*Math.pow(1.18,Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
-  const pump=PIPE_PUMP0*ere*Math.pow(1.15,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
+  const dia =PIPE_DIA0 *ere*Math.pow(PIPE_DIA_STEP, Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
+  const pump=PIPE_PUMP0*ere*Math.pow(PIPE_PUMP_STEP,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
   const rate=Math.min(dia,pump);
   const bufMax=Math.max(1,rate*BUF_LOADS);
   return {dia,pump,bufMax,demMax,rate};
@@ -1611,8 +1624,8 @@ function machRow(m){
        (maxA<labCount()?'<br><span style="color:#d8a13c">⚠ à ce niveau, l\'énergie ne suit que pour '+maxA+' / '+labCount()+' labos — désactive les autres ou attends un segment Dyson.</span>':'')+
        '<br>Niveau '+(L+1)+' coûterait : conso '+fmt(labConso(L+1))+' MW/labo'; }
   else if(m.pipeUp){ const st=pipeStats();
-    io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia*60)+'/min',
-       pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump*60)+'/min'}[m.pipeUp]; }
+    io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×'+PIPE_DIA_STEP+'/niv (plafond '+capOf(m)+'), actuellement '+fmt(st.dia*60)+'/min',
+       pump:'puissance de pompage ×'+PIPE_PUMP_STEP+'/niv (plafond '+capOf(m)+'), actuellement '+fmt(st.pump*60)+'/min'}[m.pipeUp]; }
   else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(FLEET_BASE+m.maxCount)+' au total, '+FLEET_BASE+' gratuites + '+m.maxCount+' achats)';
   else if(m.spdUp)io='<em>Vitesse</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+' sur le trajet de la boucle';
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
