@@ -1813,23 +1813,24 @@ function drawLoops(){
     const L=pt(p.load), Uo=pt(p.unload);
     x.fillStyle='#c9963f'; x.beginPath(); x.arc(L[0],L[1],4.5,0,7); x.fill();
     x.fillStyle='#e8703a'; x.beginPath(); x.arc(Uo[0],Uo[1],4.5,0,7); x.fill();
-    // véhicules — silhouette du palier ; rouge terne si bloqué en file.
-    // En file d'attente (minGap), l'écart entre véhicules ne représente que quelques
-    // pixels à cette échelle — bien moins que la taille d'une icône — donc un véhicule
-    // fraîchement acheté peut se retrouver visuellement entièrement caché derrière un
-    // autre. On les décale légèrement en rayon (empilage en éventail) dès qu'ils sont
-    // trop proches à l'écran, pour qu'aucun véhicule ne disparaisse visuellement.
-    const arcPxPerUnit=2*Math.PI*R, STACK_PX=9, STACK_STEP=Math.max(4,R*0.16);
+    /* Véhicules — silhouette du palier ; rouge terne si bloqué en file.
+       En file d'attente, l'écart réel entre deux véhicules vaut minGap, soit 5 à 9 px seulement
+       sur un petit cercle : sans correction, un véhicule en cacherait un autre. L'ancienne
+       version les décalait en RAYON (empilage en éventail), ce qui projetait toute la file en
+       diagonale HORS de la voie — sur mobile la boucle donnait l'impression d'être cassée.
+       On les écarte désormais LE LONG de la voie : une file reste une file, sur les rails.
+       L'écart d'affichage est borné pour qu'une flotte entière tienne toujours sur le tour. */
+    const arcPx=2*Math.PI*R;
     const sortedV=[...(state.veh[p.id]||[])].sort((a,b)=>a.p-b.p);
-    let lastP=null, stackN=0;
+    const gapAff=Math.min(12/arcPx, 0.9/Math.max(1,sortedV.length));
+    let curseur=null;
     sortedV.forEach(v=>{
-      const d = lastP===null ? Infinity : circDist(lastP,v.p)*arcPxPerUnit;
-      stackN = d<STACK_PX ? stackN+1 : 0; lastP=v.p;
-      const Rv = stackN===0 ? R : R + Math.ceil(stackN/2)*STACK_STEP*(stackN%2?1:-1);
-      const q=pt(v.p,Rv);
+      const dp = curseur===null ? v.p : Math.max(v.p, curseur+gapAff);
+      curseur=dp;
+      const q=pt(dp%1);
       const loaded=v.state==='traveling_loaded'||v.state==='unloading';
       const col2=v.blocked?'#b8564a':(loaded?'#dfe9f2':'#5a7186');
-      drawVehicleIcon(x,q[0],q[1],angAt(v.p),col2,p.dest);
+      drawVehicleIcon(x,q[0],q[1],angAt(dp%1),col2,p.dest);
       if(v.state==='loading'||v.state==='unloading'){
         x.strokeStyle=v.state==='loading'?'#c9963f':'#e8703a'; x.lineWidth=1.5;
         x.beginPath(); x.arc(q[0],q[1],7.5,0,Math.PI*2); x.stroke();
