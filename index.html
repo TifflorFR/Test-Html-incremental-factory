@@ -285,6 +285,10 @@ footer{
 .float{position:fixed;pointer-events:none;font-size:15px;color:var(--brass);z-index:60;
        animation:up .9s ease-out forwards;font-variant-numeric:tabular-nums;text-shadow:0 0 12px #000}
 @keyframes up{to{transform:translateY(-46px);opacity:0}}
+/* impulsion de production : part SOUS la puce et descend — au-dessus elle recouvrirait
+   l'entête, et dedans elle masquerait le stock ou le débit/s, les deux seules lectures utiles */
+.float.prod{font-size:12px;color:var(--ok);animation:down .9s ease-out forwards}
+@keyframes down{to{transform:translateY(22px);opacity:0}}
 .overlay{position:fixed;inset:0;background:rgba(5,9,15,.93);z-index:100;display:flex;
   align-items:center;justify-content:center;padding:24px;text-align:center}
 .overlay .box{max-width:520px;border:1px solid var(--brass-dim);background:#0b1522;padding:26px}
@@ -1168,6 +1172,8 @@ function maxBuy(m){
    4. MOTEUR
    ========================================================================== */
 let flow={}, prodAvg={};
+/* production cumulée depuis le dernier paint(), par machine — voir flushProdFloats() */
+let prodFloat={};
 // borne haute d'un pas de simulation ÉCONOMIQUE (oléoduc + machines). Nécessaire car la
 // règle "tout ou rien" exige que TOUT l'input d'un cycle soit déjà dans le tampon, et ce
 // tampon est dimensionné en secondes de conso réelle (BUF_K) — indépendant
@@ -1177,6 +1183,7 @@ let flow={}, prodAvg={};
 // en permanence, quelle que soit la production réelle. Découper en sous-pas fixes élimine
 // l'artefact sans toucher aux boucles de véhicules (déjà cadencées en temps réel via PATH_TICK).
 const ECO_TICK=0.5;
+const FLOW_TAU=1.5;   // constante de temps du lissage des débits affichés, en secondes
 function tick(dt){
   dt*=state.speed;
   const prod={},cons={};
@@ -1264,16 +1271,26 @@ function tick(dt){
         m.effDisp=(m.effDisp===undefined?m.eff:m.effDisp)*0.85+m.eff*0.15;   // lissage visuel seulement
       } else { m.eff=1; m.miss=null; m.effDisp=1; }
       if(m.in)for(const k in m.in){ const q=m.in[k]*cyc; poolTake(m.s,k,q); if(!pathFor(m.s,k))add(cons,k,q); }
-      if(m.out)for(const k in m.out){ const q=m.out[k]*cyc; state.res[k]+=q; add(prod,k,q); state.valeur+=q*RES[k].v; }
+      if(m.out)for(const k in m.out){ const q=m.out[k]*cyc; state.res[k]+=q; add(prod,k,q); state.valeur+=q*RES[k].v;
+        // cumul pour le flottant de production : vidé une fois par paint() (~100 ms), donc au plus
+        // un flottant par machine et par 100 ms quel que soit le nombre d'impulsions entre-temps.
+        if(q>0){ const f=prodFloat[m.id]||(prodFloat[m.id]={k:k,q:0}); f.k=k; f.q+=q; } }
     }
   }
   // débits lissés + moyenne glissante 10 s utilisée par les jalons
   const aw=Math.min(1,dt/AVG_WINDOW);
+  /* Lissage à CONSTANTE DE TEMPS (et non à poids fixe par frame) depuis le passage aux impulsions
+     discrètes : une impulsion qui tombe dans une frame courte donne un débit instantané énorme
+     (1 unité produite en 0,06 s = 16/s) que l'ancien poids fixe 0,72/0,28 recopiait tel quel dans
+     l'affichage — le /s sautait de 0 à 16 sans rapport avec le débit réel (~0,8/s). Pondérer par dt
+     rend le lissage indépendant de la durée de frame : la valeur converge vers la vraie moyenne
+     temporelle sur ~FLOW_TAU secondes, que la production soit continue ou par à-coups. */
+  const fw=Math.min(1,dt/FLOW_TAU);
   for(const k in RES){
     const net=((prod[k]||0)-(cons[k]||0))/dt;
-    flow[k]=(flow[k]||0)*0.72+net*0.28;
+    flow[k]=(flow[k]||0)*(1-fw)+net*fw;
     const gross=(prod[k]||0)/dt;
-    flow['+'+k]=(flow['+'+k]||0)*0.72+gross*0.28;
+    flow['+'+k]=(flow['+'+k]||0)*(1-fw)+gross*fw;
     prodAvg[k]=(prodAvg[k]||0)*(1-aw)+gross*aw;
   }
   tickHold(dt);
@@ -1387,7 +1404,7 @@ function doPrestige(){
   // explicite elles gardent les débits du run précédent pendant toute la fenêtre de moyenne
   // (AVG_WINDOW = 10 s), et rateMet() les lit directement — tous les jalons des étapes 2 à 6
   // se retrouvaient donc satisfaits dès la première seconde du nouveau run.
-  flow={}; prodAvg={}; pathTaken={}; pathAcc=0;
+  flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={};
   for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
   structuralDirty=true; recompute(); toast('+'+g+' brevets');
 }
@@ -2440,9 +2457,31 @@ function floatNum(e,txt){
 
 /* mise à jour légère (10 fps) */
 let resSig='';
+/* Flottant vert de production, sous la puce de la ressource concernée.
+   Appelé une fois par paint() (~100 ms) : chaque machine cumule sa production entre deux appels
+   et n'émet qu'un seul flottant, sinon à effectif élevé chaque impulsion créerait un noeud DOM
+   et la barre deviendrait illisible. Rien n'est affiché si la puce n'est pas encore révélée ou
+   si le cumul est trop petit pour s'afficher autrement que "0". */
+function flushProdFloats(){
+  for(const id in prodFloat){
+    const f=prodFloat[id]; delete prodFloat[id];
+    if(!f||!(f.q>0))continue;
+    const txt=fmt(f.q); if(txt==='0')continue;
+    const ref=refs.res[f.k]; if(!ref||!ref.v)continue;
+    const chip=ref.v.closest('.chip'); if(!chip)continue;
+    const r=chip.getBoundingClientRect();
+    if(r.width<=0||r.bottom<0)continue;                 // puce hors écran (barre défilée)
+    const d=document.createElement('div');
+    d.className='float prod'; d.textContent='+'+txt;
+    d.style.left=(r.left+6)+'px'; d.style.top=(r.bottom+2)+'px';
+    document.body.appendChild(d); setTimeout(()=>d.remove(),900);
+  }
+}
+
 function paint(){
   const sig=Object.keys(RES).filter(resVisible).join(',');
   if(sig!==resSig){resSig=sig;buildResbar();}
+  flushProdFloats();
   for(const k in refs.res){ const o=refs.res[k]; if(!o.v)continue;
     o.v.textContent=fmt(state.res[k]);
     const f=flow[k]||0; o.r.textContent=rate(f);
@@ -2525,7 +2564,7 @@ function restore(raw){
   state.prodAcc=state.prodAcc||{};
   if(state.numFmt)numFmt=state.numFmt;
   Object.assign(unlockedClicks,d.unlockedClicks||{});
-  flow={}; prodAvg={}; pathTaken={}; pathAcc=0;   // même raison qu'au prestige : on repart d'une mesure vierge
+  flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={};   // même raison qu'au prestige : on repart d'une mesure vierge
   recompute();
   return d.ts?(Date.now()-d.ts)/1000:0;
 }
