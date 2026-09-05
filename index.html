@@ -1704,22 +1704,31 @@ function machRow(m){
 /* Sous-lignes Cadence / Force d'une machine de production. Rendues à l'intérieur de sa carte
    plutôt qu'en cartes voisines : le mécanisme d'achat passe par l'attribut data-buy, que bind()
    câble n'importe où dans le panneau, donc l'imbrication ne change rien à la logique. */
+/* Texte d'état d'une statistique. Extrait de statRow parce que paint() doit pouvoir le
+   recalculer seul : le niveau de Force restait sinon figé à l'écran jusqu'au prochain rendu
+   complet, lequel n'est déclenché à l'achat que pour les entrées plafonnées. Acheter de la
+   Force n'affichait donc rien, et le compteur ne se mettait à jour qu'en achetant de la
+   Cadence — qui, elle, est plafonnée. */
+function statState(e){
+  const n=state.cnt[e.id]||0, cap=capOf(e), room=remainingCap(e);
+  if(e.cadenceUp)
+    // au plafond, « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne
+    { const v=Math.pow(1+e.step,n); return '×'+(v<10?String(+v.toFixed(3)):fmt(v))+(room<=0?'':' · niveau '+n+'/'+cap); }
+  const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
+  return fmt(u)+' unité'+(u>1?'s':'')+(pal>1?' · palier ×'+fmt(pal):'')+
+         ' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
+}
 function statRow(e){
   if(!e) return '';
-  const n=state.cnt[e.id]||0, cap=capOf(e), room=remainingCap(e);
-  let titre, desc, etat;
+  const room=remainingCap(e);
+  let titre, desc;
   if(e.cadenceUp){
     titre='⟳ Cadence';
     // fmt() arrondirait 1,035 à « 1 » : on garde les décimales pour un pas aussi fin
     desc='×'+(1+e.step).toFixed(3)+'/niveau · fréquence';
-    // au plafond, « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne
-    etat='×'+fmt(Math.pow(1+e.step,n))+(room<=0?'':' · niveau '+n+'/'+cap);
   } else {
-    const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
     titre='⬆ Force';
     desc='+1 unité/niveau · quantité';
-    etat=fmt(u)+' unité'+(u>1?'s':'')+(pal>1?' · palier ×'+fmt(pal):'')+
-         ' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
   }
   const q=room<=0?0:(state.buyMode==='max'?Math.max(1,maxBuy(e)):Math.min(state.buyMode,room));
   const c=q>0?bulkCost(e,q):{}, can=q>0&&afford(c);
@@ -1728,7 +1737,7 @@ function statRow(e){
     : '<button class="buy" data-buy="'+e.id+'" '+(can?'':'disabled')+'><span class="px">'+px+'</span></button>';
   return '<div class="stat">'+
          '<span class="sh"><span class="sn">'+titre+'</span> <span class="sd">'+desc+'</span></span>'+
-         '<span class="sb"><span class="sv">'+etat+'</span>'+act+'</span></div>';
+         '<span class="sb"><span class="sv" data-sv="'+e.id+'">'+statState(e)+'</span>'+act+'</span></div>';
 }
 function statRows(m){
   if(!m.r||!m.out||m.colon) return '';
@@ -2501,20 +2510,29 @@ function dysonPanel(stage){
   return h+'</div>';
 }
 /* pile de multiplicateurs, affichée sous chaque machine de production */
+/* Même raison que statState : paint() doit pouvoir recalculer ce détail sans rendu complet,
+   sinon le total affiché reste celui d'avant l'achat de Force. */
 function multStack(m){
+  const inner=stackInner(m);
+  return inner?'<div class="stack" data-stack="'+m.id+'">'+inner+'</div>':'';
+}
+function stackInner(m){
   if(!m.out||m.boost||m.global||m.colon)return '';
   const n=state.cnt[m.id]||0; if(!n)return '';
   const base=(m.r||0)*Object.values(m.out)[0];
   // cache.mach[m.id] porte déjà le palier ×2/25 (voir recompute) : ne pas le remultiplier ici par
   // un second calcul local, sinon le palier est compté deux fois dans le total affiché.
   const cad=cache.cadence[m.id]||1, force=cache.force[m.id]||1, eff=cache.mach[m.id];
+  /* fmt() arrondit tout ce qui est sous 10 au dixième : un multiplicateur de 1,035 s'affichait
+     « ×1 », ce qui donnait une ligne « × cadence ×1 » absurde. On garde les décimales sous 10. */
+  const fmtM=v=>v<10?String(+v.toFixed(3)):fmt(v);
   const parts=['Base '+fmt(base*60)+'/min','× machines ×'+fmt(n)];
-  if(cad>1.0001)parts.push('× cadence ×'+fmt(cad));
-  if(force>1.0001)parts.push('× force ×'+fmt(force));
-  if(eff>1.0001)parts.push('× améliorations ×'+fmt(eff));
-  if(cache.stage[m.s]>1.0001)parts.push('× étape ×'+fmt(cache.stage[m.s]));
-  if(cache.global>1.0001)parts.push('× global ×'+fmt(cache.global));
-  return '<div class="stack">'+parts.join(' | ')+' = <b>'+fmt(base*60*n*cad*force*eff*cache.stage[m.s]*cache.global)+'/min</b></div>';
+  if(cad>1.0001)parts.push('× cadence ×'+fmtM(cad));
+  if(force>1.0001)parts.push('× force ×'+fmtM(force));
+  if(eff>1.0001)parts.push('× améliorations ×'+fmtM(eff));
+  if(cache.stage[m.s]>1.0001)parts.push('× étape ×'+fmtM(cache.stage[m.s]));
+  if(cache.global>1.0001)parts.push('× global ×'+fmtM(cache.global));
+  return parts.join(' | ')+' = <b>'+fmt(base*60*n*cad*force*eff*cache.stage[m.s]*cache.global)+'/min</b>';
 }
 
 function render(){
@@ -2698,6 +2716,10 @@ function paint(){
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(rateShown['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.global*cache.stage[1]); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
+  // état des statistiques et détail du calcul : sans ça ils ne bougeaient qu'au rendu complet,
+  // que l'achat ne déclenche que pour les entrées plafonnées — la Force restait donc figée
+  document.querySelectorAll('[data-sv]').forEach(el=>{ const e=M[el.dataset.sv]; if(e)el.textContent=statState(e); });
+  document.querySelectorAll('[data-stack]').forEach(el=>{ const m=M[el.dataset.stack]; if(m)el.innerHTML=stackInner(m); });
   document.querySelectorAll('[data-eff]').forEach(el=>{ const m=M[el.dataset.eff]; const e=(m.effDisp===undefined?1:m.effDisp);
     el.style.width=(e*100).toFixed(0)+'%'; el.style.background=e>0.98?'#5fb87a':e>0.4?'#d8a13c':'#c5533f'; });
   document.querySelectorAll('[data-w]').forEach(el=>{ const m=M[el.dataset.w];
