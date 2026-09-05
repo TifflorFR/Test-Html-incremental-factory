@@ -1187,13 +1187,16 @@ function rateRoll(){
   // Diviseur = temps couvert par les tranches FERMÉES (rateClosed), pas le temps écoulé total :
   // la fraction de tranche en cours n'est pas encore dans la somme, la compter au dénominateur
   // sous-estimerait le débit (60/min affiché 59,8 tant que la fenêtre n'est pas pleine).
+  // Deux séries par ressource : "k" = débit NET (barre de ressources), "+k" = débit BRUT
+  // (entrées/sorties du bloc d'étape) — même fenêtre pour les deux, sinon deux vues du même
+  // flux affichent deux chiffres différents au même instant.
   rateClosed=Math.min(RATE_WIN,rateClosed+RATE_BUCKET);
   const span=rateClosed;
-  for(const k in RES){ const b=rateBufFor(k);
+  for(const key in rateBuf){ const b=rateBuf[key];
     let tot=0; for(let i=0;i<RATE_SLOTS;i++)tot+=b[i];
-    rateShown[k]= span>0 ? tot/span*60 : 0; }
+    rateShown[key]= span>0 ? tot/span*60 : 0; }
   rateIdx=(rateIdx+1)%RATE_SLOTS;
-  for(const k in RES) rateBufFor(k)[rateIdx]=0;   // la tranche réutilisée date de 2 min, on la vide
+  for(const key in rateBuf) rateBuf[key][rateIdx]=0;   // la tranche réutilisée date de 2 min, on la vide
 }
 function rateReset(){ rateBuf={}; rateIdx=0; rateAcc=0; rateClosed=0; rateShown={}; }
 // borne haute d'un pas de simulation ÉCONOMIQUE (oléoduc + machines). Nécessaire car la
@@ -1314,8 +1317,10 @@ function tick(dt){
     const gross=(prod[k]||0)/dt;
     flow['+'+k]=(flow['+'+k]||0)*(1-fw)+gross*fw;
     prodAvg[k]=(prodAvg[k]||0)*(1-aw)+gross*aw;
-    // quantité NETTE de ce pas, versée dans la tranche de 5 s en cours (fenêtre glissante 2 min)
+    // quantités de ce pas versées dans la tranche de 5 s en cours (fenêtre glissante 2 min) :
+    // nette pour la barre de ressources, brute pour les flux du bloc d'étape
     rateBufFor(k)[rateIdx]+=(prod[k]||0)-(cons[k]||0);
+    rateBufFor('+'+k)[rateIdx]+=(prod[k]||0);
   }
   rateAcc+=dt;
   while(rateAcc>=RATE_BUCKET){ rateAcc-=RATE_BUCKET; rateRoll(); }
@@ -1512,7 +1517,7 @@ function blackBox(s){
     if(m.out)for(const k in m.out)outs[k]=1;
   });
   const side=(o,cl)=>'<div class="side '+cl+'">'+(Object.keys(o).length?Object.keys(o).map(k=>
-    '<span class="flow">'+RES[k].i+' <b data-bb="'+k+'">0</b>/s</span>').join(''):'<span class="flow" style="opacity:.5">— aucun —</span>')+'</div>';
+    '<span class="flow">'+RES[k].i+' <b data-bb="'+k+'">0</b>/min</span>').join(''):'<span class="flow" style="opacity:.5">— aucun —</span>')+'</div>';
   const st=STAGES[s-1];
   return '<div class="bb">'+side(ins,'in')+
     '<div class="core">'+st.code+'<small>bloc · étape '+s+'</small></div>'+
@@ -1524,7 +1529,7 @@ function machRow(m){
   let io='';
   if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n));
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
-  else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n)+' système/s au total · '+m.colon+' par unité';
+  else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n*60)+' système/min au total · '+(m.colon*60).toPrecision(2)+' par unité';
   else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' construit'+(labCount()>1?'s':'')+
      ' · '+labActive()+' actif'+(labActive()>1?'s':'')+' (réglage ci-dessous). '+
      'Chaque labo actif produit '+fmt(labSci())+'× la science de base au niveau '+labLevel()+
@@ -1537,8 +1542,8 @@ function machRow(m){
        (maxA<labCount()?'<br><span style="color:#d8a13c">⚠ à ce niveau, l\'énergie ne suit que pour '+maxA+' / '+labCount()+' labos — désactive les autres ou attends un segment Dyson.</span>':'')+
        '<br>Niveau '+(L+1)+' coûterait : conso '+fmt(labConso(L+1))+' MW/labo'; }
   else if(m.pipeUp){ const st=pipeStats();
-    io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia)+'/s',
-       pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump)+'/s'}[m.pipeUp]; }
+    io='<em>Oléoduc</em> : '+{dia:'diamètre — débit maximum ×1,18/niv, actuellement '+fmt(st.dia*60)+'/min',
+       pump:'puissance de pompage ×1,15/niv, actuellement '+fmt(st.pump*60)+'/min'}[m.pipeUp]; }
   else if(m.fleet)io='<em>Véhicule</em> : ajoute une unité à la flotte de cette boucle (max '+(FLEET_BASE+m.maxCount)+' au total, '+FLEET_BASE+' gratuites + '+m.maxCount+' achats)';
   else if(m.spdUp)io='<em>Vitesse</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n))+' sur le trajet de la boucle';
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
@@ -1547,7 +1552,7 @@ function machRow(m){
   else if(m.forceUp)io='<em>Force</em> : ×'+(1+m.step)+' par unité (plafond '+m.maxCount+') — actuellement ×'+fmt(Math.pow(1+m.step,n))+' sur la quantité par impulsion de '+M[m.forceUp].n;
   else{
     const f=o=>Object.keys(o).map(k=>RES[k].i+' '+o[k]).join(' + ');
-    io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+m.r+' cycle/s'+
+    io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+fmt(m.r*60)+' impulsions/min'+
        (n?' · palier ×'+fmt(Math.pow(2,Math.floor(n/MILESTONE)))+' (prochain à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')':'');
   }
   const capped=m.maxCount!==undefined, room=remainingCap(m), maxed=capped&&room<=0;
@@ -2288,7 +2293,7 @@ function powerPanel(){
         '</div></div>'+
       (O>L?'<div class="labctl-bank">🎚 Niveau bridé volontairement : '+O+' acheté, '+L+' exploité. '+
         'Chaque cran en moins divise la conso par '+fmt(LAB_CONSO_STEP)+' et permet donc plus de labos actifs.</div>':'')+
-      '<div class="labctl-sci">Science produite : <b>'+fmt(sciTot)+'/s</b>'+
+      '<div class="labctl-sci">Science produite : <b>'+fmt(sciTot*60)+'/min</b>'+
         (A>0?' ('+A+' × '+fmt(labSci())+' × multiplicateurs)':'')+'</div>'+
       (wantsMore?'<div class="labctl-warn">⚡ Seuls '+maxA+' / '+target+' labos visés peuvent tourner au niveau '+L+
         ' avec l\'énergie actuelle. Trois réponses possibles : <b>baisser le niveau exploité</b> pour rallumer tous les labos, '+
@@ -2325,7 +2330,7 @@ function dysonPanel(stage){
        '<span class="ct">'+(f*100).toFixed(0)+'%</span></div>'+
        '<div class="bar"><span style="width:'+(f*100).toFixed(0)+'%;background:#c9963f"></span></div>'+
        '<div class="io">'+fmt(st.paid)+' / '+fmt(total)+' '+RES[STAGE5_RES].n.toLowerCase()+
-       '<br>absorption plafonnée à '+fmt(total/d.floor)+'/s (plancher '+(d.floor/60)+' min) · <em>'+etaTxt+'</em>'+
+       '<br>absorption plafonnée à '+fmt(total/d.floor*60)+'/min (plancher '+(d.floor/60)+' min) · <em>'+etaTxt+'</em>'+
        (st.starved&&st.running?'<br><span style="color:#d8a13c">⚠ production entrante insuffisante</span>':'')+'</div></div>';
   }
   return h+'</div>';
@@ -2338,13 +2343,13 @@ function multStack(m){
   // cache.mach[m.id] porte déjà le palier ×2/25 (voir recompute) : ne pas le remultiplier ici par
   // un second calcul local, sinon le palier est compté deux fois dans le total affiché.
   const cad=cache.cadence[m.id]||1, force=cache.force[m.id]||1, eff=cache.mach[m.id];
-  const parts=['Base '+fmt(base)+'/s','× machines ×'+fmt(n)];
+  const parts=['Base '+fmt(base*60)+'/min','× machines ×'+fmt(n)];
   if(cad>1.0001)parts.push('× cadence ×'+fmt(cad));
   if(force>1.0001)parts.push('× force ×'+fmt(force));
   if(eff>1.0001)parts.push('× améliorations ×'+fmt(eff));
   if(cache.stage[m.s]>1.0001)parts.push('× étape ×'+fmt(cache.stage[m.s]));
   if(cache.global>1.0001)parts.push('× global ×'+fmt(cache.global));
-  return '<div class="stack">'+parts.join(' | ')+' = <b>'+fmt(base*n*cad*force*eff*cache.stage[m.s]*cache.global)+'/s</b></div>';
+  return '<div class="stack">'+parts.join(' | ')+' = <b>'+fmt(base*60*n*cad*force*eff*cache.stage[m.s]*cache.global)+'/min</b></div>';
 }
 
 function render(){
@@ -2522,7 +2527,8 @@ function paint(){
     pb.style.display=pOK?'':'none';
     if(pOK)pb.textContent='restructurer +'+brevetsGain();
   }
-  document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(flow['+'+el.dataset.bb]||0); });
+  // même fenêtre glissante que la barre de ressources (déjà en /min), version brute
+  document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(rateShown['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.global*cache.stage[1]); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
   document.querySelectorAll('[data-eff]').forEach(el=>{ const m=M[el.dataset.eff]; const e=(m.effDisp===undefined?1:m.effDisp);
