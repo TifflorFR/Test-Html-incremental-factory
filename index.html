@@ -1741,6 +1741,9 @@ function statRow(e){
 }
 function statRows(m){
   if(!m.r||!m.out||m.colon) return '';
+  // rien à améliorer tant que la machine n'existe pas : la carte reste à l'essentiel
+  // (ce qu'elle produit et son prix) au premier contact
+  const n=m.lab?labCount():(state.cnt[m.id]||0); if(!n) return '';
   const cad=M[m.id+'_cad'], forc=M[m.id+'_for'];
   if(!cad&&!forc) return '';
   return '<div class="stats">'+statRow(cad)+statRow(forc)+'</div>';
@@ -2654,7 +2657,13 @@ function bind(){
     const before=state.cnt[m.id]||0;
     pay(c); state.cnt[m.id]=before+q; recompute();
     const cross=Math.floor(before/MILESTONE)!==Math.floor((before+q)/MILESTONE);
-    if(cross||m.boost||m.global||m.maxCount!==undefined)structuralDirty=true; else paint();
+    /* Deux cas changent la STRUCTURE de la carte et pas seulement ses valeurs, donc exigent un
+       rendu complet — sans quoi paint() se contentait de griser le bouton :
+        - premier exemplaire acheté : les statistiques Cadence et Force apparaissent ;
+        - plafond atteint : le bouton d'achat cède la place à l'indicateur « plafond atteint ».
+       Le second passait à la trappe pour les machines de production, dont le plafond vient de
+       capOf et non d'un maxCount déclaré. */
+    if(cross||m.boost||m.global||m.maxCount!==undefined||before===0||remainingCap(m)<=0)structuralDirty=true; else paint();
   });
   $('panel').querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{
     const u=U[b.dataset.up]; if(state.ups[u.id]||!afford(u.c))return;
