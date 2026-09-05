@@ -703,10 +703,18 @@ for(let s=2;s<=8;s++){ const seen={};
                 load:0, unload:.5, base:0, minGap:.035, baseSpeed:.18});
   }});
 }
-/* Machines "boost" (cadence de l'étape précédente) : elles relèvent en plus, d'un cran par
-   exemplaire acheté, le plafond de machines ET les plafonds de transport de TOUTES les étapes
-   inférieures. C'est la seule façon d'élargir un étage saturé — en avançant dans la chaîne,
-   pas en farmant sur place. */
+/* Machines "boost" (cadence de l'étape précédente) : chaque exemplaire acheté DOUBLE le plafond
+   de machines ET les plafonds de transport de toutes les étapes inférieures. C'est la seule façon
+   d'élargir un étage saturé — en avançant dans la chaîne, pas en farmant sur place.
+   Pourquoi multiplicatif et non additif : la chaîne de recettes exige un gradient géométrique
+   (alimenter 1 chantier demande ×3 sur les moteurs, ×13 sur l'usine, ×45 sur la fonderie et ×224
+   sur les mines), que le +1 par boost ne pouvait pas produire — et que la Force ne pouvait pas
+   financer non plus (mesuré : elle plafonne à un gradient de 7 pour 224 nécessaires). Comme
+   capBonus ne compte que les boosts d'étage SUPÉRIEUR, doubler engendre exactement ce gradient :
+   2^5 sources pour les mines contre 2^1 pour le chantier.
+   Mesuré : usine de moteurs 0,10 -> 0,99, chantier 0,11 -> 0,63, fusées ×30, étape 6 à 38 min au
+   lieu de 51. Appliquer la règle aux seules machines ne change RIEN (0,10) : les plafonds de
+   transport redeviennent aussitôt le goulot, il faut les deux. */
 const BOOSTERS=MACH.filter(m=>m.boost);
 /* Seuls les boosts d'étage SUPÉRIEUR relèvent les plafonds d'une étape : c'est ce qui fait de la
    progression dans la chaîne la clé pour élargir l'amont. Les faire tous compter partout a été
@@ -715,15 +723,21 @@ const BOOSTERS=MACH.filter(m=>m.boost);
    L'asymétrie qui en découle — l'étape 2 a quatre sources de bonus, l'étape 5 une seule, l'étape 7
    aucune — est compensée par une base de plafond plus haute pour les étages avancés (voir MACH). */
 const capBonus=s=>BOOSTERS.reduce((a,b)=>a+(b.s>s?(state.cnt[b.id]||0):0),0);
+/* Borne du multiplicateur. Elle n'a aucun effet sur l'équilibrage — mesuré identique avec et sans,
+   parce que le nombre de machines réellement atteint (274 sur une partie complète) est limité par
+   le coût, pas par le plafond. Elle existe pour que l'interface n'affiche pas « plafond 4,2e65 ».
+   Le plafond devient donc de fait obsolète en avançant dans les étapes, ce qui est assumé. */
+const CAP_MUL_MAX=1000;
 /* Plafond effectif d'une entrée MACH : maxCount déclaré (transport) ou 1 (machine de production),
-   relevé par capBonus. Les machines sans plafond (boost, global, colon, labLvl, lab) : Infinity. */
+   doublé par chaque boost d'étage supérieur. Sans plafond (boost, global, colon, labLvl, lab) : Infinity. */
 function capOf(m){
   // La Cadence a un plafond DUR, que rien ne relève : c'est ce qui l'empêche de s'emballer.
   // Sans cette exception elle héritait du bonus des boosts comme le transport, et un bot a
   // atteint 101 niveaux là où le maximum voulu est 25.
   if(m.cadenceUp) return m.maxCount;
-  if(m.maxCount!==undefined) return m.maxCount+capBonus(m.s);
-  if(m.r&&m.out&&!m.lab) return 1+capBonus(m.s);   // machine de production : 1 seule, sauf boosts
+  const mul=Math.min(Math.pow(2,capBonus(m.s)),CAP_MUL_MAX);
+  if(m.maxCount!==undefined) return Math.round(m.maxCount*mul);
+  if(m.r&&m.out&&!m.lab) return Math.round(mul);   // machine de production : 1 seule, doublée par boost
   return Infinity;
 }
 const PATHOF={}; PATHS.forEach(p=>PATHOF[p.dest+'|'+p.res]=p);
@@ -1616,7 +1630,7 @@ function machRow(m){
   const n=m.lab?labCount():(m.labLvl?labLvlOwned():(state.cnt[m.id]||0));
   let io='';
   if(m.boost)io='<em>Cadence</em> : ×'+(1+m.boost.p)+' sur '+STAGES[m.boost.s-1].nom.toLowerCase()+' par unité — actuellement ×'+fmt(Math.pow(1+m.boost.p,n))+
-    '<br><em>Élargit aussi la logistique amont</em> : +1 machine et +1 niveau de transport autorisés par unité, sur toutes les étapes inférieures — c\'est le seul moyen de dépasser un étage saturé';
+    '<br><em>Élargit aussi la logistique amont</em> : chaque unité DOUBLE le plafond de machines et de transport de toutes les étapes inférieures — c\'est le seul moyen de dépasser un étage saturé';
   else if(m.global)io='<em>Multiplicateur</em> : ×'+(1+m.global)+' de production globale par unité — actuellement ×'+fmt(Math.pow(1+m.global,n));
   else if(m.colon)io='<em>Colonise</em> '+fmt(m.colon*cache.colon*n*60)+' système/min au total · '+(m.colon*60).toPrecision(2)+' par unité';
   else if(m.lab)io='<em>Laboratoire</em> : '+labCount()+' construit'+(labCount()>1?'s':'')+
