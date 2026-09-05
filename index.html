@@ -180,6 +180,19 @@ nav::-webkit-scrollbar{display:none}
 .mach .bar{height:3px;background:#16253a;margin-bottom:7px}
 .mach .bar span{display:block;height:100%;background:var(--ok);transition:width .25s}
 .mach .warnl{font-size:10px;color:var(--warn);margin-bottom:6px;min-height:0}
+/* Cadence et Force vivent DANS la carte de la machine qu'elles améliorent : une machine et ses
+   deux statistiques forment une seule entité, les afficher en cartes voisines obligeait à relire
+   les libellés pour les rapprocher (15 cartes à l'étape 1 pour 5 machines). Une ligne chacune,
+   bouton réduit au coût pour ne pas empiler trois boutons pleine largeur par carte. */
+.mach .stats{border-top:1px solid #1c2f45;margin-top:7px;padding-top:6px;display:flex;flex-direction:column;gap:4px}
+.mach .stat{display:flex;align-items:center;gap:6px;font-size:10px;color:#7f97ad;line-height:1.3}
+.mach .stat .sn{color:#b9cbdd;flex:0 0 auto}
+.mach .stat .sv{font-variant-numeric:tabular-nums;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mach .stat .buy{width:auto;flex:0 0 auto;padding:3px 7px;font-size:10px;justify-content:flex-end}
+/* width:auto indispensable : la règle globale .maxed impose width:100%, qui écrasait la cellule
+   de valeur à 0 px de large sur une ligne au plafond */
+.mach .stat .maxed{flex:0 0 auto;width:auto;padding:0;border:0;background:none;
+  font-size:9px;color:#5b7691;letter-spacing:.06em}
 .buy{
   width:100%;background:#152a41;border:1px solid #2f4d6e;color:var(--ink);
   padding:7px;font-size:11px;letter-spacing:.06em;border-radius:2px;text-align:left;
@@ -1679,7 +1692,35 @@ function machRow(m){
   return '<div class="mach'+(can?' buyable':'')+(off?' offed':'')+'" data-m="'+m.id+'">'+
     '<div class="top"><span class="nm">'+m.n+'</span>'+pwr+'<span class="ct" data-c="'+m.id+'">'+fmt(n)+'</span></div>'+
     '<div class="io">'+io+'</div>'+bar+
-    '<div class="warnl" data-w="'+m.id+'"></div>'+multStack(m)+buyBtn+'</div>';
+    '<div class="warnl" data-w="'+m.id+'"></div>'+multStack(m)+buyBtn+statRows(m)+'</div>';
+}
+/* Sous-lignes Cadence / Force d'une machine de production. Rendues à l'intérieur de sa carte
+   plutôt qu'en cartes voisines : le mécanisme d'achat passe par l'attribut data-buy, que bind()
+   câble n'importe où dans le panneau, donc l'imbrication ne change rien à la logique. */
+function statRow(e){
+  if(!e) return '';
+  const n=state.cnt[e.id]||0, cap=capOf(e), room=remainingCap(e);
+  let etat;
+  // au plafond, le compteur « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne,
+  // et c'est justement ce qui la faisait déborder dans une carte étroite
+  if(e.cadenceUp) etat='×'+fmt(Math.pow(1+e.step,n))+(room<=0?'':' · '+n+'/'+cap);
+  else { const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
+    // libellé volontairement court : la colonne est étroite dans une carte de grille, la version
+    // longue (« 9 unités · palier ×32 · prochain à 50 ») se faisait tronquer par l'ellipsis
+    etat=fmt(u)+' u'+(pal>1?' · ×'+fmt(pal):'')+' · →'+((Math.floor(u/MILESTONE)+1)*MILESTONE); }
+  const q=room<=0?0:(state.buyMode==='max'?Math.max(1,maxBuy(e)):Math.min(state.buyMode,room));
+  const c=q>0?bulkCost(e,q):{}, can=q>0&&afford(c);
+  const px=Object.keys(c).map(k=>RES[k].i+fmt(c[k])).join(' ');
+  const act=room<=0 ? '<span class="maxed">■ max</span>'
+    : '<button class="buy" data-buy="'+e.id+'" '+(can?'':'disabled')+'><span class="px">'+px+'</span></button>';
+  return '<div class="stat"><span class="sn">'+(e.cadenceUp?'⟳ Cadence':'⬆ Force')+'</span>'+
+         '<span class="sv">'+etat+'</span>'+act+'</div>';
+}
+function statRows(m){
+  if(!m.r||!m.out||m.colon) return '';
+  const cad=M[m.id+'_cad'], forc=M[m.id+'_for'];
+  if(!cad&&!forc) return '';
+  return '<div class="stats">'+statRow(cad)+statRow(forc)+'</div>';
 }
 function upRow(u){
   const done=!!state.ups[u.id];
@@ -2494,7 +2535,9 @@ function render(){
   // l'étape précédente : elles s'achètent ici, pas dans Véhicules)
   if(s>=6) h+=powerPanel();
   h+=dysonPanel(s);
-  const ms=MACH.filter(m=>m.s===s&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.pipeUp&&(!m.need||state.stage>=m.need));
+  // Cadence et Force sont rendues à l'intérieur de la carte de leur machine (voir statRows),
+  // elles ne doivent donc plus apparaître comme cartes autonomes dans la grille.
+  const ms=MACH.filter(m=>m.s===s&&!m.fleet&&!m.spdUp&&!m.capUp&&!m.xferUp&&!m.pipeUp&&!m.cadenceUp&&!m.forceUp&&(!m.need||state.stage>=m.need));
   if(ms.length){
     h+='<div class="sec">Machines<span class="hint">la barre verte indique le taux d\'alimentation</span></div><div class="grid">'+ms.map(machRow).join('')+'</div>';
   }
