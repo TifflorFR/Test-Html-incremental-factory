@@ -487,26 +487,26 @@ const MACH=[
  // --- 1 minage
  {id:'bucheron', s:1,n:'Bûcheron',      out:{bois:1},    r:.5, c:{bois:15},                 g:1.09},
  {id:'bucheron_cad',s:1,n:'Cadence — Bûcheron', cadenceUp:'bucheron', step:.035, maxCount:25, c:{bois:2}, g:1.12},
- {id:'bucheron_for',s:1,n:'Force — Bûcheron',   forceUp:'bucheron',   c:{bois:16}, g:1.09},
+ {id:'bucheron_for',s:1,n:'Production — Bûcheron',   forceUp:'bucheron',   c:{bois:16}, g:1.09},
  {id:'carriere', s:1,n:'Carrière',      out:{pierre:1},  r:.5, c:{bois:60,pierre:12},       g:1.09},
  {id:'carriere_cad',s:1,n:'Cadence — Carrière', cadenceUp:'carriere', step:.035, maxCount:25, c:{bois:9,pierre:2}, g:1.12},
- {id:'carriere_for',s:1,n:'Force — Carrière',   forceUp:'carriere',   c:{bois:65,pierre:13}, g:1.09},
+ {id:'carriere_for',s:1,n:'Production — Carrière',   forceUp:'carriere',   c:{bois:65,pierre:13}, g:1.09},
  {id:'minefer',  s:1,n:'Mine de fer',   out:{fer:1},     r:.4, c:{pierre:110,bois:80},      g:1.1},
  {id:'minefer_cad',s:1,n:'Cadence — Mine de fer', cadenceUp:'minefer', step:.035, maxCount:25, c:{pierre:16,bois:12}, g:1.12},
- {id:'minefer_for',s:1,n:'Force — Mine de fer',   forceUp:'minefer',   c:{pierre:121,bois:88}, g:1.1},
+ {id:'minefer_for',s:1,n:'Production — Mine de fer',   forceUp:'minefer',   c:{pierre:121,bois:88}, g:1.1},
  {id:'minecharb',s:1,n:'Mine de charbon',out:{charbon:1},r:.4, c:{pierre:200,fer:50},       g:1.1},
  {id:'minecharb_cad',s:1,n:'Cadence — Mine de charbon', cadenceUp:'minecharb', step:.035, maxCount:25, c:{pierre:30,fer:8}, g:1.12},
- {id:'minecharb_for',s:1,n:'Force — Mine de charbon',   forceUp:'minecharb',   c:{pierre:220,fer:55}, g:1.1},
+ {id:'minecharb_for',s:1,n:'Production — Mine de charbon',   forceUp:'minecharb',   c:{pierre:220,fer:55}, g:1.1},
  {id:'minecuiv', s:1,n:'Mine de cuivre',out:{cuivre:1},  r:.35,c:{pierre:600,fer:180},      g:1.1, need:2},
  {id:'minecuiv_cad',s:1,n:'Cadence — Mine de cuivre', cadenceUp:'minecuiv', step:.035, maxCount:25, c:{pierre:90,fer:27}, g:1.12, need:2},
- {id:'minecuiv_for',s:1,n:'Force — Mine de cuivre',   forceUp:'minecuiv',   c:{pierre:660,fer:198}, g:1.1, need:2},
+ {id:'minecuiv_for',s:1,n:'Production — Mine de cuivre',   forceUp:'minecuiv',   c:{pierre:660,fer:198}, g:1.1, need:2},
  // --- 2 fonderie
  {id:'hf',    s:2,n:'Haut-fourneau',    in:{fer:2,charbon:1}, out:{acier:1},   r:.5, c:{fer:400,pierre:500},   g:1.1},
  {id:'hf_cad',s:2,n:'Cadence — Haut-fourneau', cadenceUp:'hf', step:.035, maxCount:25, c:{fer:60,pierre:75}, g:1.12},
- {id:'hf_for',s:2,n:'Force — Haut-fourneau',   forceUp:'hf',   c:{fer:440,pierre:550}, g:1.1},
+ {id:'hf_for',s:2,n:'Production — Haut-fourneau',   forceUp:'hf',   c:{fer:440,pierre:550}, g:1.1},
  {id:'conv',  s:2,n:'Convertisseur',    in:{cuivre:2,charbon:1},out:{lcuivre:1},r:.5,c:{fer:900,cuivre:250},   g:1.1},
  {id:'conv_cad',s:2,n:'Cadence — Convertisseur', cadenceUp:'conv', step:.035, maxCount:25, c:{fer:135,cuivre:38}, g:1.12},
- {id:'conv_for',s:2,n:'Force — Convertisseur',   forceUp:'conv',   c:{fer:990,cuivre:275}, g:1.1},
+ {id:'conv_for',s:2,n:'Production — Convertisseur',   forceUp:'conv',   c:{fer:990,cuivre:275}, g:1.1},
  {id:'wagon',  s:2,n:'Optimisation — Minage (étape précédente)', opti:true, maxCount:1,                  c:{acier:60,pierre:1500},        g:1.45},
  {id:'fleet_s2', s:2, n:'Camion supplémentaire', fleet:2, maxCount:4,
              c:{fer:256,pierre:410}, g:3.2},
@@ -519,10 +519,10 @@ const MACH=[
  // --- 3 usine
  {id:'assem', s:3,n:'Assembleur',       in:{acier:2,bois:1},   out:{module:1}, r:.5, c:{acier:400,pierre:3000}, g:1.11},
  {id:'assem_cad',s:3,n:'Cadence — Assembleur', cadenceUp:'assem', step:.035, maxCount:25, c:{acier:60,pierre:450}, g:1.12},
- {id:'assem_for',s:3,n:'Force — Assembleur',   forceUp:'assem',   c:{acier:444,pierre:3330}, g:1.11},
+ {id:'assem_for',s:3,n:'Production — Assembleur',   forceUp:'assem',   c:{acier:444,pierre:3330}, g:1.11},
  {id:'circ',  s:3,n:'Atelier de circuits',in:{lcuivre:2,acier:1},out:{circuit:1},r:.5, c:{acier:900,lcuivre:300},g:1.11},
  {id:'circ_cad',s:3,n:'Cadence — Atelier de circuits', cadenceUp:'circ', step:.035, maxCount:25, c:{acier:135,lcuivre:45}, g:1.12},
- {id:'circ_for',s:3,n:'Force — Atelier de circuits',   forceUp:'circ',   c:{acier:999,lcuivre:333}, g:1.11},
+ {id:'circ_for',s:3,n:'Production — Atelier de circuits',   forceUp:'circ',   c:{acier:999,lcuivre:333}, g:1.11},
  {id:'camion', s:3,n:'Optimisation — Fonderie (étape précédente)', opti:true, maxCount:1,                c:{module:40,acier:2000},        g:1.48},
  {id:'fleet_s3', s:3, n:'Convoi supplémentaire', fleet:3, maxCount:4,
              c:{acier:800,lcuivre:256}, g:3.2},
@@ -553,15 +553,15 @@ const MACH=[
     retard sur la raffinerie, qui plafonnait à 0,43. */
  {id:'puits', s:4,n:'Puits de pétrole', out:{petrole:18},      r:.5, c:{module:900,acier:400},                  g:1.16},
  {id:'puits_cad',s:4,n:'Cadence — Puits de pétrole', cadenceUp:'puits', step:.035, maxCount:25, c:{module:135,acier:60}, g:1.12},
- {id:'puits_for',s:4,n:'Force — Puits de pétrole',   forceUp:'puits',   c:{module:1044,acier:464}, g:1.16},
+ {id:'puits_for',s:4,n:'Production — Puits de pétrole',   forceUp:'puits',   c:{module:1044,acier:464}, g:1.16},
  {id:'pipe_dia',  s:4,n:'Diamètre — oléoduc',  pipeUp:'dia',  maxCount:34, c:{acier:9000},  g:1.18},
  {id:'pipe_pump', s:4,n:'Pompage — oléoduc',   pipeUp:'pump', maxCount:34, c:{module:1200}, g:1.15},
  {id:'raff',  s:4,n:'Raffinerie',       in:{petrole:12},out:{plastique:12}, r:.5, c:{module:2700,circuit:750},  g:1.16},
  {id:'raff_cad',s:4,n:'Cadence — Raffinerie', cadenceUp:'raff', step:.035, maxCount:25, c:{module:405,circuit:113}, g:1.12},
- {id:'raff_for',s:4,n:'Force — Raffinerie',   forceUp:'raff',   c:{module:3132,circuit:870}, g:1.16},
+ {id:'raff_for',s:4,n:'Production — Raffinerie',   forceUp:'raff',   c:{module:3132,circuit:870}, g:1.16},
  {id:'moteurs',s:4,n:'Usine de moteurs',in:{module:4,circuit:2,plastique:2},out:{moteur:1},r:.5,c:{module:2500,circuit:1200},g:1.17},
  {id:'moteurs_cad',s:4,n:'Cadence — Usine de moteurs', cadenceUp:'moteurs', step:.035, maxCount:25, c:{module:375,circuit:180}, g:1.12},
- {id:'moteurs_for',s:4,n:'Force — Usine de moteurs',   forceUp:'moteurs',   c:{module:2925,circuit:1404}, g:1.17},
+ {id:'moteurs_for',s:4,n:'Production — Usine de moteurs',   forceUp:'moteurs',   c:{module:2925,circuit:1404}, g:1.17},
  {id:'train',  s:4,n:'Optimisation — Usine (étape précédente)', opti:true, maxCount:1,                 c:{moteur:40,module:9000},       g:1.55},
  {id:'fleet_s4', s:4, n:'Train supplémentaire', fleet:4, maxCount:4,
              c:{module:2880,circuit:960}, g:3.2},
@@ -574,7 +574,7 @@ const MACH=[
  // --- 5 logistique internationale
  {id:'chantier',s:5,n:'Chantier de fusées',in:{moteur:4,plastique:8,circuit:4},out:{fusee:1},r:.4,c:{moteur:250,module:20000},g:1.13},
  {id:'chantier_cad',s:5,n:'Cadence — Chantier de fusées', cadenceUp:'chantier', step:.035, maxCount:25, c:{moteur:38,module:3000}, g:1.12},
- {id:'chantier_for',s:5,n:'Force — Chantier de fusées',   forceUp:'chantier',   c:{moteur:282,module:22600}, g:1.13},
+ {id:'chantier_for',s:5,n:'Production — Chantier de fusées',   forceUp:'chantier',   c:{moteur:282,module:22600}, g:1.13},
  {id:'avion',  s:5,n:'Optimisation — Logistique nationale (étape précédente)', opti:true, maxCount:1,               c:{moteur:120,plastique:5000},   g:1.52},
  {id:'fleet_s5', s:5, n:'Avion supplémentaire', fleet:5, maxCount:4,
              c:{moteur:8000,plastique:12800}, g:3.2},
@@ -588,14 +588,14 @@ const MACH=[
  {id:'lab',   s:6,n:'Laboratoire',   out:{science:1},r:.5,
              c:{fusee:600}, g:1.55, lab:true},          // 1 offert à l'arrivée + 600×1,55^(n-2)
  {id:'lab_cad',s:6,n:'Cadence — Laboratoire', cadenceUp:'lab', step:.035, maxCount:25, c:{fusee:90}, g:1.12},
- {id:'lab_for',s:6,n:'Force — Laboratoire',   forceUp:'lab',   c:{fusee:930}, g:1.55},
+ {id:'lab_for',s:6,n:'Production — Laboratoire',   forceUp:'lab',   c:{fusee:930}, g:1.55},
  {id:'labLvl',s:6,n:'Niveau de laboratoire', labLvl:true,
              c:{fusee:14},  g:1.25},                    // 14×1,25^(L-1), plafonné par l'énergie
  {id:'navette',s:6,n:'Optimisation — Logistique internationale (étape précédente)', opti:true, maxCount:1,                 c:{fusee:21,science:105},        g:1.51},
  // --- 7 colonisation
  {id:'terra', s:7,n:'Complexe de terraformation',in:{module:12,plastique:10,circuit:6},out:{fusee:15},r:.4,c:{science:50000,fusee:600},g:1.15},
  {id:'terra_cad',s:7,n:'Cadence — Complexe de terraformation', cadenceUp:'terra', step:.035, maxCount:25, c:{science:7500,fusee:90}, g:1.12},
- {id:'terra_for',s:7,n:'Force — Complexe de terraformation',   forceUp:'terra',   c:{science:57500,fusee:690}, g:1.15},
+ {id:'terra_for',s:7,n:'Production — Complexe de terraformation',   forceUp:'terra',   c:{science:57500,fusee:690}, g:1.15},
  {id:'dome',  s:7,n:'Dôme de terraformation',global:.03,      c:{science:31500,fusee:525},                     g:1.32},
  {id:'fleet_s7', s:7, n:'Vaisseau colonial supplémentaire', fleet:7, maxCount:4,
              c:{science:38400}, g:3.2},
@@ -1240,10 +1240,11 @@ function recompute(){
     else if(m.global)c.global*=Math.pow(1+m.global,n);
     else if(m.fleet||m.spdUp||m.capUp||m.xferUp){/* véhicule : lu directement dans tickPaths */}
     else if(m.cadenceUp)c.cadence[m.cadenceUp]*=Math.pow(1+m.step,n);   // fréquence des impulsions — voir tick()
-    /* Force ADDITIVE, porteuse du palier ×2/25 : u = 1 + niveaux achetés est le nombre d'UNITÉS de
-       production de la machine. C'est exactement l'ancienne courbe « nombre de machines », reprise
-       telle quelle (u × 2^floor(u/25)) — d'où la conservation de toute la calibration des coûts.
-       Une Force multiplicative donnerait 3,6× trop peu au niveau 25 et 22× trop au niveau 100. */
+    /* MULTIPLICATIVE, porteuse du palier ×2/25 : ×FORCE_STEP par niveau sur la quantité produite
+       par impulsion. Le palier reste indexé sur u = 1 + niveaux achetés, pour que le premier
+       tombe au 24e achat et non au 25e. Nommée « Production » dans l'interface ; l'identifiant
+       reste `force` (`forceUp`, `cache.force`, compteurs `<machine>_for`) parce qu'il est écrit
+       dans les sauvegardes — le renommer les casserait toutes. */
     else if(m.forceUp){ const u=1+n; c.force[m.forceUp]=Math.pow(FORCE_STEP,n)*Math.pow(2,Math.floor(u/MILESTONE)); }
     /* le palier ×2/25 ne porte plus sur le NOMBRE de machines : elles sont désormais plafonnées
        (voir capOf), c'est la Force qui a repris ce rôle. */
@@ -1716,8 +1717,8 @@ function machRow(m){
   else if(m.capUp)io='<em>Capacité</em> : ×1,10 par unité — actuellement ×'+fmt(Math.pow(1.10,n))+'. Plus chère et plus lente que le débit : à ne pas monter seule, sinon le palier s\'allonge sans pénurie réelle';
   else if(m.xferUp)io='<em>Débit charge/décharge</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n));
   else if(m.cadenceUp)io='<em>Cadence</em> : ×'+(1+m.step)+' par unité (plafond '+m.maxCount+') — actuellement ×'+fmt(Math.pow(1+m.step,n))+' sur la fréquence des impulsions de '+M[m.cadenceUp].n;
-  else if(m.forceUp){ const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
-    io='<em>Force</em> : +1 unité de production par niveau — actuellement '+fmt(u)+' unité'+(u>1?'s':'')+
+  else if(m.forceUp){ const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE)), v=Math.pow(FORCE_STEP,n)*pal;
+    io='<em>Production</em> : ×'+FORCE_STEP+' par niveau — actuellement ×'+(v<10?String(+v.toFixed(2)):fmt(v))+
        ' sur la quantité par impulsion de '+M[m.forceUp].n+
        (pal>1?' · palier ×'+fmt(pal):'')+' (prochain palier à '+((Math.floor(u/MILESTONE)+1)*MILESTONE)+')'; }
   else{
@@ -1746,9 +1747,9 @@ function machRow(m){
    plutôt qu'en cartes voisines : le mécanisme d'achat passe par l'attribut data-buy, que bind()
    câble n'importe où dans le panneau, donc l'imbrication ne change rien à la logique. */
 /* Texte d'état d'une statistique. Extrait de statRow parce que paint() doit pouvoir le
-   recalculer seul : le niveau de Force restait sinon figé à l'écran jusqu'au prochain rendu
+   recalculer seul : le niveau de Production restait sinon figé à l'écran jusqu'au prochain rendu
    complet, lequel n'est déclenché à l'achat que pour les entrées plafonnées. Acheter de la
-   Force n'affichait donc rien, et le compteur ne se mettait à jour qu'en achetant de la
+   Production n'affichait donc rien, et le compteur ne se mettait à jour qu'en achetant de la
    Cadence — qui, elle, est plafonnée. */
 function statState(e){
   const n=state.cnt[e.id]||0, cap=capOf(e), room=remainingCap(e);
@@ -1757,8 +1758,10 @@ function statState(e){
     { const v=Math.pow(1+e.step,n); return '×'+(v<10?String(+v.toFixed(3)):fmt(v))+(room<=0?'':' · niveau '+n+'/'+cap); }
   const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
   const v=Math.pow(FORCE_STEP,n)*pal;
-  return '×'+(v<10?String(+v.toFixed(2)):fmt(v))+(pal>1?' · palier ×'+fmt(pal):'')+
-         ' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
+  // la Production n'a pas de plafond (capOf renvoie Infinity) : le niveau s'affiche donc toujours,
+  // là où la Cadence le masque une fois au max pour ne pas doublonner avec « ■ max »
+  return '×'+(v<10?String(+v.toFixed(2)):fmt(v))+' · niveau '+n+
+         (pal>1?' · palier ×'+fmt(pal):'')+' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
 }
 function statRow(e){
   if(!e) return '';
@@ -1769,7 +1772,7 @@ function statRow(e){
     // fmt() arrondirait 1,035 à « 1 » : on garde les décimales pour un pas aussi fin
     desc='×'+(1+e.step).toFixed(3)+'/niveau · fréquence';
   } else {
-    titre='⬆ Force';
+    titre='⬆ Production';
     desc='×'+FORCE_STEP+'/niveau · quantité';
   }
   const q=room<=0?0:(state.buyMode==='max'?Math.max(1,maxBuy(e)):Math.min(state.buyMode,room));
@@ -2573,7 +2576,7 @@ function stackInner(m){
   const fmtM=v=>v<10?String(+v.toFixed(3)):fmt(v);
   const parts=['Base '+fmt(base*60)+'/min','× machines ×'+fmt(n)];
   if(cad>1.0001)parts.push('× cadence ×'+fmtM(cad));
-  if(force>1.0001)parts.push('× force ×'+fmtM(force));
+  if(force>1.0001)parts.push('× production ×'+fmtM(force));
   if(eff>1.0001)parts.push('× améliorations ×'+fmtM(eff));
   if(cache.stage[m.s]>1.0001)parts.push('× étape ×'+fmtM(cache.stage[m.s]));
   if(cache.global>1.0001)parts.push('× global ×'+fmtM(cache.global));
