@@ -507,12 +507,19 @@ const MACH=[
  // encore utile en 2-3, marginal ensuite. Un facteur multiplicatif (1+step)^n, lui, restait
  // rentable indéfiniment pour un acheteur glouton (mesuré : étape 6 à 31 min au lieu de 43).
  // Pas de palier ×2/25 : il rétablirait la croissance géométrique qu'on cherche à éviter.
- // step / g / coût calés au bot de référence : à ce réglage les jalons restent à ±10 % du
- // rythme sans l'outil (étape 2 ~10 min, étape 6 ~39 au lieu de 43), la partie n'est jamais
- // trivialisée par le clic. NB le bot glouton sur-achète tout levier infini bon marché : sa
- // part de dépense « outils » (~15 %) sur-évalue le poids réel du clic, ce sont les jalons
- // qui font foi.
- {id:'outil_frappe',s:1,n:'Force de frappe', clickUp:true, step:.06, c:{bois:40}, g:1.14},
+ // Réglage voulu : en cliquant activement, la récolte manuelle DOIT dépasser la production
+ // automatique pendant toute l'étape 1, devenir minoritaire en étape 2, négligeable en étape 3.
+ // C'est un facteur additif (croissance linéaire) sur un gain qui ne porte que cache.prestige :
+ // les machines, elles, cumulent paliers ×2/25 + Cadence + Production + multiplicateurs d'étape
+ // et globaux, donc elles rattrapent puis distancent le clic d'elles-mêmes dès l'étape 2.
+ // Calé au bot de référence, mesuré en ratio récolte manuelle / production automatique
+ // d'étape 1 (clic continu ~6/s) : étape 1 ~10 puis ~3 (le clic domine), début étape 2 ~2
+ // puis <0,15 (il devient minoritaire), étape 3 ~0 (négligeable). Le clic n'a PAS de plafond,
+ // c'est la nature additive du facteur + l'absence de cache.global/cache.stage[1] dans le gain
+ // qui produit la bascule : les machines cumulent paliers ×2/25 + Cadence + Production +
+ // multiplicateurs, elles rattrapent d'elles-mêmes. NB le bot glouton sur-achète tout levier
+ // infini bon marché : sa part de dépense « outils » sur-évalue le poids réel du clic.
+ {id:'outil_frappe',s:1,n:'Force de frappe', clickUp:true, step:.2, c:{bois:12}, g:1.13},
  // --- 2 fonderie
  {id:'hf',    s:2,n:'Haut-fourneau',    in:{fer:2,charbon:1}, out:{acier:1},   r:.5, c:{fer:400,pierre:500},   g:1.1},
  {id:'hf_cad',s:2,n:'Cadence — Haut-fourneau', cadenceUp:'hf', step:.035, maxCount:25, c:{fer:60,pierre:75}, g:1.12},
@@ -1419,9 +1426,10 @@ function tick(dt){
     const step=Math.min(ECO_TICK,remaining);
     remaining-=step;
 
-    // clics automatiques — même formule que le clic manuel : cache.prestige, pas cache.global
+    // clics automatiques — même formule que le clic manuel : cache.prestige seul (ni cache.global
+    // ni cache.stage[1], sinon la récolte manuelle ne décroche jamais de l'automatisation)
     if(cache.auto>0){
-      const gain=cache.auto*step*state.click*cache.click*cache.prestige*cache.stage[1];
+      const gain=cache.auto*step*state.click*cache.click*cache.prestige;
       CLICKABLE.forEach(cl=>{ if(clickUnlocked(cl)){ state.res[cl.r]+=gain; add(prod,cl.r,gain); state.valeur+=gain*RES[cl.r].v; } });
     }
 
@@ -2717,9 +2725,10 @@ function bind(){
     const id=b.dataset.toggle; state.off[id]=!state.off[id]; structuralDirty=true;
   });
   $('panel').querySelectorAll('[data-click]').forEach(b=>b.onclick=e=>{
-    // gain manuel : cache.prestige (report de restructuration) et non cache.global — le clic
-    // reste calé sur l'ordre de grandeur de l'étape 1, l'automatisation exponentielle le distance
-    const r=b.dataset.click, g=state.click*cache.click*cache.prestige*cache.stage[1];
+    // gain manuel : cache.prestige seul (report de restructuration). Ni cache.global ni
+    // cache.stage[1] : le clic reste calé sur l'ordre de grandeur de l'étape 1, l'automatisation
+    // — géométrique — le rattrape puis le distance d'elle-même dès l'étape 2
+    const r=b.dataset.click, g=state.click*cache.click*cache.prestige;
     state.res[r]+=g; state.valeur+=g*RES[r].v; floatNum(e,'+'+fmt(g));
   });
   $('panel').querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
@@ -2795,7 +2804,7 @@ function paint(){
   }
   // même fenêtre glissante que la barre de ressources (déjà en /min), version brute
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(rateShown['+'+el.dataset.bb]||0); });
-  document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.prestige*cache.stage[1]); });
+  document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.prestige); });
   document.querySelectorAll('[data-c]').forEach(el=>el.textContent=fmt(state.cnt[el.dataset.c]||0));
   // état des statistiques et détail du calcul : sans ça ils ne bougeaient qu'au rendu complet,
   // que l'achat ne déclenche que pour les entrées plafonnées — la Force restait donc figée
