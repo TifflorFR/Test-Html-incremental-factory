@@ -912,8 +912,10 @@ function tickPaths(dt){
        manquait un facteur 3700 au transport, la fonderie tombait à 0 % et la chaîne mourait.
        L'écart n'était plus un dépassement calibré mais la pile entière des multiplicateurs. */
     const ere=cache.global*cache.stage[p.dest];
-    const cap=p.capStatic*ere*Math.pow(CAP_STEP,lvl('cap'));
-    const xfer=Math.max(.25,p.capStatic*ere/DWELL_SEC)*Math.pow(XFER_STEP,lvl('xfer'));
+    /* cache.cap / cache.xfer : licence Convois (§5). Multiplicateur PLAFONNÉ, appliqué après le
+       plancher de 0,25 pour qu'il compte aussi sur les tout premiers niveaux. */
+    const cap=p.capStatic*ere*(cache.cap[p.dest]||1)*Math.pow(CAP_STEP,lvl('cap'));
+    const xfer=Math.max(.25,p.capStatic*ere/DWELL_SEC)*(cache.xfer[p.dest]||1)*Math.pow(XFER_STEP,lvl('xfer'));
     const bufMax=Math.max(1,cap*BUF_LOADS);   // le tampon suit le véhicule, plus la demande
     p.dem=dem; p.demMax=demMax; p.speed=spd; p.cap=cap; p.xfer=xfer; p.bufMax=bufMax; p.n=N;
 
@@ -1172,8 +1174,11 @@ function pipeStats(){
      suivre le débit automatiquement, donc l'oléoduc n'était jamais un goulot — le contraire de
      l'effet recherché. Plafonds relevés par les boosts, comme le reste du transport. */
   const ere=cache.global*cache.stage[PIPE.dest];   // même règle d'époque que les chemins véhicules
-  const dia =PIPE_BASE            *ere*Math.pow(PIPE_DIA_STEP, Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
-  const pump=PIPE_BASE/DWELL_SEC*2*ere*Math.pow(PIPE_PUMP_STEP,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
+  /* cache.pipe : licence Oléoduc (§5). Appliquée aux DEUX termes — le débit réel est leur
+     minimum, ne relever qu'un côté ne changerait donc rien tant que l'autre est le goulot. */
+  const lp=cache.pipe||1;
+  const dia =PIPE_BASE            *ere*lp*Math.pow(PIPE_DIA_STEP, Math.min(state.cnt.pipe_dia||0, capOf(M.pipe_dia)));
+  const pump=PIPE_BASE/DWELL_SEC*2*ere*lp*Math.pow(PIPE_PUMP_STEP,Math.min(state.cnt.pipe_pump||0,capOf(M.pipe_pump)));
   const rate=Math.min(dia,pump);
   const bufMax=Math.max(1,rate*BUF_LOADS);
   return {dia,pump,bufMax,demMax,rate};
@@ -1272,11 +1277,11 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.10.0';
+const GAME_VERSION='0.11.0';
 
-let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
+let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
-  const c={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},cadence:{},force:{}};
+  const c={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1,cadence:{},force:{}};
   for(let s=1;s<=8;s++){c.stage[s]=1;c.cap[s]=1;c.xfer[s]=1;}
   MACH.forEach(m=>{c.mach[m.id]=1; c.cadence[m.id]=1; c.force[m.id]=1;});
   let click=1,auto=0;
@@ -1331,6 +1336,12 @@ function recompute(){
     if(e.global)c.global*=Math.pow(e.global,lv);
     if(e.stage)for(const st in e.stage)c.stage[st]*=Math.pow(e.stage[st],lv);
     if(e.mult)for(const mk in e.mult)c.mach[mk]*=Math.pow(e.mult[mk],lv);
+    /* c.cap et c.xfer existaient depuis l'origine sans que rien ne les écrive ni ne les lise ;
+       la licence Convois leur donne enfin un emploi. Écriture sur les huit étapes plutôt que sur
+       un scalaire unique : la structure par étape est déjà là et laisse la porte ouverte à un
+       effet ciblé plus tard, alors qu'un scalaire fermerait la question. */
+    if(e.transport){ const f=Math.pow(e.transport,lv); for(let st=1;st<=8;st++){c.cap[st]*=f;c.xfer[st]*=f;} }
+    if(e.pipe)c.pipe*=Math.pow(e.pipe,lv);
   }
   /* c.astro isole les multiplicateurs ACHETÉS AVEC DE LA SCIENCE (planètes, systèmes).
      Ils entrent bien dans c.global comme avant — mais le laboratoire en est exclu (voir mMult).
@@ -1680,11 +1691,16 @@ function dysonETA(d){
    La tension est unique, lisible, et se rejoue à chaque fois : ce run-ci plus vite, ou tous
    les runs plus forts.
 
-   Pas de licence « transport » : les plafonds de capacité et de débit sont délibérément conçus
-   pour être dépassés par la production (voir §5 de la couche transport), c'est le moteur de la
-   progression d'étape en étape. Un multiplicateur global dessus contredirait ce réglage. Le
-   transport est donc dans la colonne ACTIFS — on rachète des niveaux déjà payés, on ne relève
-   aucun plafond.
+   LICENCES DE TRANSPORT — les plafonds de capacité et de débit sont délibérément conçus pour
+   être dépassés par la production (voir §5 de la couche transport) : c'est ce dépassement qui
+   force à avancer dans la chaîne plutôt qu'à farmer sur place. Convois et Oléoduc relâchent donc
+   cette contrainte, et c'est assumé — mais ils sont PLAFONNÉS à ×3,2 et ×3,1 environ, quand
+   l'écart production/transport mesuré en fin de partie se compte en milliers. Ils décalent le
+   croisement de quelques minutes, ils ne le suppriment pas. Sans plafond, ou avec un pas
+   composé sur toute la partie, ils annuleraient le moteur de progression.
+   La vitesse des véhicules reste hors de portée des licences : elle est bornée en dur à 0,6 dans
+   tickPaths, un multiplicateur dessus n'aurait d'effet que sur les tout premiers niveaux et
+   deviendrait ensuite un achat sans effet.
    ========================================================================== */
 function brevetsGain(){
   const v=state.valeur+state.valeurTot;
@@ -1716,6 +1732,10 @@ const LICENCES=[
   d:'Fonderie et usine ×1,12 par niveau.'},
  {id:'reseau',     n:'Réseau',      s:4, max:20, e:{stage:{4:1.12,5:1.12}},
   d:'Logistique nationale et internationale ×1,12 par niveau.'},
+ {id:'convois',    n:'Convois',     s:4, max:15, e:{transport:1.08},
+  d:'Capacité et débit de transfert de tous les véhicules ×1,08 par niveau. Plafonné : le transport doit rester rattrapable par la production.'},
+ {id:'oleoduc',    n:'Oléoduc',     s:4, max:12, e:{pipe:1.10},
+  d:'Diamètre et pompage de l\'oléoduc ×1,10 par niveau. Agit sur les deux à la fois : n\'en relever qu\'un ne sert à rien, le débit est le minimum des deux.'},
  {id:'recherche',  n:'Recherche',   s:6, max:15, e:{mult:{lab:1.10}},
   d:'Laboratoires ×1,10 par niveau. Hors multiplicateur astro, comme tout ce qui touche au labo.'},
 ];
@@ -1724,6 +1744,7 @@ const LICBY={}; LICENCES.forEach(l=>LICBY[l.id]=l);
    pour l'affichage, sinon un réglage laisserait le panneau annoncer l'ancienne valeur. */
 function licRate(l){ const e=l.e;
   if(e.manuel)return e.manuel; if(e.global)return e.global;
+  if(e.transport)return e.transport; if(e.pipe)return e.pipe;
   if(e.stage)return e.stage[Object.keys(e.stage)[0]];
   return e.mult[Object.keys(e.mult)[0]];
 }
@@ -1745,11 +1766,18 @@ const ACTIFS=[
   keep:(ns,old,n)=>{ MACH.forEach(m=>{
     if(m.s!==n||m.clickUp||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)return;
     if(old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; }); }},
- {id:'logistique', n:'Réseau logistique', s:4, pct:.10,
-  d:'Flottes, vitesses, capacités et débits de toutes les étapes, véhicules et tampons compris. Rachète des niveaux déjà payés — ne relève aucun plafond.',
+ {id:'logistique', n:'Réseau de convois', s:4, pct:.08,
+  d:'Flottes, vitesses, capacités et débits de toutes les étapes, véhicules en circulation et tampons compris. Rachète des niveaux déjà payés — ne relève aucun plafond.',
   keep:(ns,old)=>{ MACH.forEach(m=>{
-    if((m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; });
-    ns.veh=old.veh; ns.buf=old.buf; ns.pipe=old.pipe; }},
+    if((m.fleet||m.spdUp||m.capUp||m.xferUp)&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; });
+    ns.veh=old.veh;
+    /* state.buf porte les tampons des chemins ET celui de l'oléoduc : ne reprendre ici que les
+       chemins, sinon cet actif rachèterait en douce une partie de l'oléoduc, qui se paie à part. */
+    for(const k in old.buf) if(k!==PIPE.id) ns.buf[k]=old.buf[k]; }},
+ {id:'oleoduc', n:'Oléoduc', s:4, pct:.06,
+  d:'Diamètre et pompage de l\'oléoduc sont conservés, amorçage et pétrole en transit compris.',
+  keep:(ns,old)=>{ MACH.forEach(m=>{ if(m.pipeUp&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; });
+    ns.pipe=old.pipe; ns.buf[PIPE.id]=old.buf[PIPE.id]||0; }},
  {id:'ameliorations', n:'Portefeuille d\'améliorations', s:4, pct:.18,
   d:'Toutes les améliorations achetées restent acquises.',
   keep:(ns,old)=>{ ns.ups=old.ups; }},
@@ -1867,7 +1895,7 @@ function presRender(){
     }
     return '<div class="presa'+(on?' on':'')+'">'+
       '<button class="buy" data-actif="'+a.id+'"'+((ed&&(on||libre>=c))?'':' disabled')+'>'+
-      '<span>'+(on?'■ ':'□ ')+a.n+'</span><span class="px">'+c+' brevets</span></button>'+
+      '<span>'+(on?'■ ':'□ ')+a.n+'</span><span class="px">'+c+' brevet'+(c>1?'s':'')+'</span></button>'+
       '<div class="presd">'+a.d+'</div>'+pk+'</div>';
   }).join('');
   if(!lics.length&&!acts.length) h+='<div class="presd">Rien à répartir pour l\'instant.</div>';

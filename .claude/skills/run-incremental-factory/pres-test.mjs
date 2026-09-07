@@ -115,7 +115,8 @@ try {
     spent: allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()),
   }));
   check('plafond extraction respecté (20)', alloc.lic.extraction === 20, alloc.lic);
-  check('coût actifs = 12% + 10% de 60 = 8 + 6', alloc.spent === 20 + 10 + 8 + 6, alloc);
+  // ligne 12 % -> 8, reseau de convois 8 % -> 5 (l'oleoduc se paie desormais a part)
+  check('cout actifs = 12% + 8% de 60 = 8 + 5', alloc.spent === 20 + 10 + 8 + 5, alloc);
 
   // ---------- 4. restructuration
   await page.click('#presBody [data-presgo]');
@@ -130,7 +131,7 @@ try {
   }));
   check('budget crédité (60)', after.brevets === 60, after.brevets);
   check('gain remis à zéro', after.gain === 0, after.gain);
-  check('libres = 60 - 30 - 14', after.libres === 16, after.libres);
+  check('libres = 60 - 30 - 13', after.libres === 17, after.libres);
   check('retour à l\'étape 1', after.stage === 1, after.stage);
   check('machines étape 3 conservées', after.cnt.assem === 1 && after.cnt.assem_for === 12 && after.cnt.circ_for === 8, after.cnt);
   check('machines étape 2 PERDUES (hors périmètre)', after.cnt.hf === undefined && after.cnt.hf_for === undefined, after.cnt);
@@ -158,7 +159,7 @@ try {
   }));
   check('allocation survit au rechargement', reloaded.lic.extraction === 20 && reloaded.lic.cadence === 10, reloaded.lic);
   check('actifs survivent au rechargement', !!reloaded.act.ligne && !!reloaded.act.logistique, reloaded.act);
-  check('brevets libres stables après rechargement', reloaded.libres === 16, reloaded.libres);
+  check('brevets libres stables apres rechargement', reloaded.libres === 17, reloaded.libres);
 
   // ---------- 6. migration d'une sauvegarde antérieure à 0.10.0
   // On quitte index.html AVANT de trafiquer la sauvegarde : son handler `pagehide` appelle
@@ -257,6 +258,96 @@ try {
         Object.keys(end.planets).length === 0 && end.astro === 1, [end.planets, end.astro]);
   check('libres = 70 - 64', end.libres === 6, end.libres);
   await page.screenshot({ path: shot('apres-reprise') });
+
+  // ---------- 8. licences et actifs de transport / oleoduc
+  await page.goto(`http://localhost:${PORT}/nope`);
+  await page.evaluate(() => localStorage.removeItem('if:save'));
+  await startFresh();
+  await page.click('#btnDev');
+  await page.click('#devAll');
+  await page.evaluate(() => {
+    state.stage = 5; state.tab = 5;
+    state.cnt = { cap_s4: 6, xfer_s4: 5, spd_s4: 2, fleet_s4: 1,
+                  pipe_dia: 11, pipe_pump: 9, hf: 1 };
+    state.buf = { p4_moteur: 40, pipe_petrole: 25 };
+    state.valeur = 1e12;
+    recompute(); structuralDirty = true; render();
+  });
+  await closePops();
+
+  // effet mesure des deux licences, licences posees puis retirees sur le meme etat
+  const eff = await page.evaluate(() => {
+    const lire = () => {
+      tick(0.1);
+      const p4 = PATHS.find(p => p.dest === 4 && p.res !== 'petrole');
+      const st = pipeStats();
+      return { cap: p4.cap, xfer: p4.xfer, dia: st.dia, pump: st.pump, rate: st.rate };
+    };
+    state.licences = {}; recompute(); const sans = lire();
+    state.licences = { convois: 15, oleoduc: 12 }; recompute(); const avec = lire();
+    state.licences = {}; recompute();
+    return { sans, avec, cCap: Math.pow(1.08, 15), cPipe: Math.pow(1.10, 12) };
+  });
+  const proche = (a, b) => Math.abs(a / b - 1) < 1e-9;
+  check('convois : capacite des vehicules x1,08^15', proche(eff.avec.cap / eff.sans.cap, eff.cCap), [eff.avec.cap, eff.sans.cap]);
+  check('convois : debit de transfert x1,08^15', proche(eff.avec.xfer / eff.sans.xfer, eff.cCap), [eff.avec.xfer, eff.sans.xfer]);
+  check('oleoduc : diametre x1,10^12', proche(eff.avec.dia / eff.sans.dia, eff.cPipe), [eff.avec.dia, eff.sans.dia]);
+  check('oleoduc : pompage x1,10^12', proche(eff.avec.pump / eff.sans.pump, eff.cPipe), [eff.avec.pump, eff.sans.pump]);
+  check('oleoduc : debit reel (min des deux) suit', proche(eff.avec.rate / eff.sans.rate, eff.cPipe), [eff.avec.rate, eff.sans.rate]);
+  check('convois : plafond a 15 niveaux', await page.evaluate(() => LICBY.convois.max) === 15, null);
+  check('oleoduc : plafond a 12 niveaux', await page.evaluate(() => LICBY.oleoduc.max) === 12, null);
+
+  // les deux actifs sont bien disjoints : convois ne rachete pas l'oleoduc, et vice versa
+  await page.click('#btnPrestige');
+  await page.waitForSelector('#presOverlay', { state: 'visible' });
+  await page.click('#presBody [data-actif="logistique"]');
+  await page.screenshot({ path: shot('actifs-transport') });
+  const coutT = await page.evaluate(() => ({
+    log: actifCost(ACTBY.logistique, presBudget()),
+    ole: actifCost(ACTBY.oleoduc, presBudget()),
+    budget: presBudget(),
+  }));
+  check('reseau de convois = 8 % de 60', coutT.log === 5, coutT);   // ceil(0.08*60) = 5
+  check('oleoduc = 6 % de 60', coutT.ole === 4, coutT);             // ceil(0.06*60) = 4
+  await page.click('#presBody [data-presgo]');
+  await page.waitForTimeout(300);
+  const seulConvois = await page.evaluate(() => ({
+    cap: state.cnt.cap_s4, fleet: state.cnt.fleet_s4,
+    dia: state.cnt.pipe_dia, pump: state.cnt.pipe_pump,
+    bufPath: state.buf.p4_moteur, bufPipe: state.buf.pipe_petrole,
+  }));
+  check('convois seul : vehicules conserves', seulConvois.cap === 6 && seulConvois.fleet === 1, seulConvois);
+  check('convois seul : oleoduc PERDU', seulConvois.dia === undefined && seulConvois.pump === undefined, seulConvois);
+  check('convois seul : tampon de chemin conserve', seulConvois.bufPath === 40, seulConvois);
+  check('convois seul : tampon d\'oleoduc NON repris', !seulConvois.bufPipe, seulConvois.bufPipe);
+
+  // meme scenario, actif oleoduc seul
+  await page.goto(`http://localhost:${PORT}/nope`);
+  await page.evaluate(() => localStorage.removeItem('if:save'));
+  await startFresh();
+  await page.click('#btnDev');
+  await page.click('#devAll');
+  await page.evaluate(() => {
+    state.stage = 5; state.tab = 5;
+    state.cnt = { cap_s4: 6, pipe_dia: 11, pipe_pump: 9 };
+    state.buf = { p4_moteur: 40, pipe_petrole: 25 };
+    state.valeur = 1e12;
+    recompute(); structuralDirty = true; render();
+  });
+  await closePops();
+  await page.click('#btnPrestige');
+  await page.waitForSelector('#presOverlay', { state: 'visible' });
+  await page.click('#presBody [data-actif="oleoduc"]');
+  await page.click('#presBody [data-presgo]');
+  await page.waitForTimeout(300);
+  const seulPipe = await page.evaluate(() => ({
+    cap: state.cnt.cap_s4, dia: state.cnt.pipe_dia, pump: state.cnt.pipe_pump,
+    bufPath: state.buf.p4_moteur, bufPipe: state.buf.pipe_petrole,
+  }));
+  check('oleoduc seul : diametre et pompage conserves', seulPipe.dia === 11 && seulPipe.pump === 9, seulPipe);
+  check('oleoduc seul : vehicules PERDUS', seulPipe.cap === undefined, seulPipe);
+  check('oleoduc seul : tampon de chemin NON repris', !seulPipe.bufPath, seulPipe.bufPath);
+  check('oleoduc seul : petrole en transit conserve', seulPipe.bufPipe === 25, seulPipe);
 
   await browser.close();
   const bad = results.filter(r => !r.ok);
