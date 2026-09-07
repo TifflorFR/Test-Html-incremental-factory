@@ -8,7 +8,7 @@
         const v=val(u.c); if(!best||v<best.v)best={t:'u',m:u,c:u.c,v}; });
       if(!best)return;
       const cat=best.t==='u'?'upgrades':(best.m.opti?'optimisations':(best.m.forceUp?'force':(best.m.cadenceUp?'cadence':
-        ((best.m.capUp||best.m.xferUp||best.m.spdUp||best.m.fleet||best.m.pipeUp)?'transport':'machines'))));
+        (best.m.clickUp?'outils':((best.m.capUp||best.m.xferUp||best.m.spdUp||best.m.fleet||best.m.pipeUp)?'transport':'machines')))));
       dep[cat]=(dep[cat]||0)+best.v;
       pay(best.c);
       if(best.t==='m') state.cnt[best.m.id]=(state.cnt[best.m.id]||0)+1; else state.ups[best.m.id]=true;
@@ -17,7 +17,7 @@
   const suivi=['hf','conv','assem','circ','puits','raff','moteurs','chantier','lab'];
   for(let i=0;i<40000;i++){
     const veines=CLICKABLE.filter(cl=>clickUnlocked(cl));
-    const gain=state.click*cache.click*cache.global*cache.stage[1];
+    const gain=state.click*cache.click*cache.prestige;
     for(let c=0;c<3;c++){ const cl=veines[c%veines.length]; if(cl){ state.res[cl.r]+=gain; state.valeur+=gain*RES[cl.r].v; } }
     tick(DT); t+=DT; if(i%4===0) acheter();
     if(state.stage!==last){ jalons['e'+state.stage]=Math.round(t/60); last=state.stage; }
