@@ -1262,11 +1262,13 @@ function recompute(){
     else if(m.cadenceUp)c.cadence[m.cadenceUp]*=Math.pow(1+m.step,n);   // fréquence des impulsions — voir tick()
     else if(m.clickUp)click*=(1+m.step*n);   // Force de frappe : +step par niveau, ADDITIF (croissance linéaire, voir MACH)
     /* MULTIPLICATIVE, porteuse du palier ×2/25 : ×FORCE_STEP par niveau sur la quantité produite
-       par impulsion. Le palier reste indexé sur u = 1 + niveaux achetés, pour que le premier
-       tombe au 24e achat et non au 25e. Nommée « Production » dans l'interface ; l'identifiant
-       reste `force` (`forceUp`, `cache.force`, compteurs `<machine>_for`) parce qu'il est écrit
-       dans les sauvegardes — le renommer les casserait toutes. */
-    else if(m.forceUp){ const u=1+n; c.force[m.forceUp]=Math.pow(FORCE_STEP,n)*Math.pow(2,Math.floor(u/MILESTONE)); }
+       par impulsion. Palier indexé sur n (0-indexé) comme le palier du NOMBRE de machines de
+       production : le premier ×2 tombe au 25e niveau. L'indexation historique sur u = 1 + n était
+       un reliquat de l'époque où la Force était additive et u tenait lieu de compteur de machines
+       1-indexé ; elle faisait tomber le palier un cran trop tôt (24e) et contredisait le seuil
+       affiché. Nommée « Production » dans l'interface ; l'identifiant reste `force` (`forceUp`,
+       `cache.force`, compteurs `<machine>_for`) car il est écrit dans les sauvegardes. */
+    else if(m.forceUp)c.force[m.forceUp]=Math.pow(FORCE_STEP,n)*Math.pow(2,Math.floor(n/MILESTONE));
     /* le palier ×2/25 ne porte plus sur le NOMBRE de machines : elles sont désormais plafonnées
        (voir capOf), c'est la Force qui a repris ce rôle. */
   });
@@ -1746,10 +1748,10 @@ function machRow(m){
   else if(m.xferUp)io='<em>Débit charge/décharge</em> : ×1,15 par unité — actuellement ×'+fmt(Math.pow(1.15,n));
   else if(m.cadenceUp)io='<em>Cadence</em> : ×'+(1+m.step)+' par unité (plafond '+m.maxCount+') — actuellement ×'+fmt(Math.pow(1+m.step,n))+' sur la fréquence des impulsions de '+M[m.cadenceUp].n;
   else if(m.clickUp)io='<em>Force de frappe</em> : +'+Math.round(m.step*100)+' % par niveau sur le gain de chaque clic — actuellement ×'+fmt(1+m.step*n)+', sans plafond. Son poids relatif décroît à mesure que la production automatique prend le dessus.';
-  else if(m.forceUp){ const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE)), v=Math.pow(FORCE_STEP,n)*pal;
+  else if(m.forceUp){ const pal=Math.pow(2,Math.floor(n/MILESTONE)), v=Math.pow(FORCE_STEP,n)*pal;
     io='<em>Production</em> : ×'+FORCE_STEP+' par niveau — actuellement ×'+(v<10?String(+v.toFixed(2)):fmt(v))+
        ' sur la quantité par impulsion de '+M[m.forceUp].n+
-       (pal>1?' · palier ×'+fmt(pal):'')+' (prochain palier à '+((Math.floor(u/MILESTONE)+1)*MILESTONE)+')'; }
+       (pal>1?' · palier ×'+fmt(pal):'')+' (prochain palier à '+((Math.floor(n/MILESTONE)+1)*MILESTONE)+')'; }
   else{
     const f=o=>Object.keys(o).map(k=>RES[k].i+' '+o[k]).join(' + ');
     io=(m.in?f(m.in)+' → ':'')+'<em>'+f(m.out)+'</em> · '+fmt(m.r*60)+' impulsions/min'+
@@ -1785,12 +1787,12 @@ function statState(e){
   if(e.cadenceUp)
     // au plafond, « 25/25 » ferait doublon avec l'indicateur « ■ max » de la même ligne
     { const v=Math.pow(1+e.step,n); return '×'+(v<10?String(+v.toFixed(3)):fmt(v))+(room<=0?'':' · niveau '+n+'/'+cap); }
-  const u=1+n, pal=Math.pow(2,Math.floor(u/MILESTONE));
+  const pal=Math.pow(2,Math.floor(n/MILESTONE));
   const v=Math.pow(FORCE_STEP,n)*pal;
   // la Production n'a pas de plafond (capOf renvoie Infinity) : le niveau s'affiche donc toujours,
   // là où la Cadence le masque une fois au max pour ne pas doublonner avec « ■ max »
   return '×'+(v<10?String(+v.toFixed(2)):fmt(v))+' · niveau '+n+
-         (pal>1?' · palier ×'+fmt(pal):'')+' · suivant '+((Math.floor(u/MILESTONE)+1)*MILESTONE);
+         (pal>1?' · palier ×'+fmt(pal):'')+' · suivant '+((Math.floor(n/MILESTONE)+1)*MILESTONE);
 }
 function statRow(e){
   if(!e) return '';
