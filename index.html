@@ -294,6 +294,36 @@ footer{
 .mini.on{color:var(--ember);border-color:var(--ember-dim)}
 .mini.prestige{color:var(--ember);border-color:var(--ember-dim)}
 .ropen{margin-top:8px}
+
+/* restructuration a budget (§5) */
+.overlay.pres{align-items:flex-start}
+.overlay.pres .box{max-width:660px;width:100%;text-align:left;max-height:88vh;overflow-y:auto;margin:auto}
+.overlay.pres h2{text-align:left;margin-bottom:12px}
+.presh{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;font-size:11px;color:#9fb4c8;
+  border-bottom:1px solid #1c2f45;padding-bottom:10px}
+.presh b{color:var(--brass);font-variant-numeric:tabular-nums}
+.presh .presf{margin-left:auto}
+.presh .presf.bad b{color:var(--bad)}
+.presi{font-size:11px;line-height:1.55;color:#8ba1b7;margin-top:10px}
+.presw{font-size:10px;line-height:1.5;color:#d8a13c;border-left:2px solid #d8a13c;
+  background:#1a1408;padding:6px 9px;margin-top:10px}
+.presr{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #14243a}
+.presn{flex:1 1 auto;min-width:0;font-size:12px;color:var(--brass)}
+.presn i{display:block;font-style:normal;font-size:10px;color:#7f97ad;line-height:1.4;margin-top:2px}
+.presv{flex:0 0 58px;text-align:right;font-size:12px;color:#9fb4c8;font-variant-numeric:tabular-nums}
+.presa{border:1px solid #22384f;background:#0c1826;padding:8px 9px;margin-bottom:6px}
+.presa.on{border-color:var(--ember);background:#141c26}
+.presd{font-size:10px;color:#7f97ad;line-height:1.45;margin-top:5px}
+/* selecteur d'etape : ne pas reutiliser .tg.off, dont le rouge signifie « coupe » partout
+   ailleurs dans le jeu (chemins et oleoduc a l'arret). Ici il ne s'agit que d'un choix non
+   retenu, ce qui n'est pas un etat d'alerte. */
+.pk{background:#0f1c2b;border:1px solid #22384f;color:#5b7691;border-radius:2px;
+    padding:5px 9px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
+.pk:hover:not(:disabled){color:var(--ink);border-color:var(--brass-dim)}
+.pk:disabled{opacity:.45}
+.pk.on{color:var(--brass);border-color:var(--brass-dim);background:#152a41}
+.presft{display:flex;gap:6px;margin-top:16px}
+.presft .prestige{margin-left:auto}
 .ropen .buy{width:100%;max-width:420px}
 .fw .sp{flex:1}
 #devpanel{display:none;border-top:1px dashed #2a445f}
@@ -371,6 +401,13 @@ footer{
 <div id="rechercheOverlay">
   <div class="rback"></div>
   <div class="rframe"><iframe id="rechercheFrame" src="about:blank" title="Arbre de recherche"></iframe></div>
+</div>
+
+<div class="overlay pres" id="presOverlay" style="display:none">
+  <div class="box">
+    <h2>RESTRUCTURATION</h2>
+    <div id="presBody"></div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -1175,15 +1212,15 @@ const POPS={
     o:"Atteindre et maintenir 30 secondes un débit cible sur Bois, Pierre et Métal simultanément pour ouvrir la Fonderie."},
  2:{t:'MISE EN FONTE',b:"Le Minage nourrit désormais la Fonderie. Deux minecarts transportent le Fer et le Charbon extraits — améliore leur vitesse et leur capacité pour éviter la pénurie. Clique sur le four pour fondre l'Acier manuellement ; l'automatisation se débloque après quelques lingots produits.<br><br><b>Nouveauté : Duplication</b> — l'Acier peut être réinvesti dans les upgrades de Minage pour les rendre plus puissantes.",
     o:"Maintenir 30 secondes un débit cible de Fer, Charbon et Acier pour ouvrir l'Usine. Franchir ce jalon booste aussi rétroactivement ta production de Minage."},
- 3:{t:"CHAÎNE D'ASSEMBLAGE",b:"Bienvenue à l'Usine — ta première ligne entièrement automatique dès le départ. Des camions apportent l'Acier et le Bois. L'Usine les combine (25% Bois, 75% Acier) pour produire des Modules. Améliore la vitesse et la capacité des camions pour suivre la cadence. Les Modules alimentent la Duplication : ils boostent en retour le Minage et la Fonderie.",
+ 3:{t:"CHAÎNE D'ASSEMBLAGE",b:"Bienvenue à l'Usine — ta première ligne entièrement automatique dès le départ. Des camions apportent l'Acier et le Bois. L'Usine les combine (25% Bois, 75% Acier) pour produire des Modules. Améliore la vitesse et la capacité des camions pour suivre la cadence. Les Modules alimentent la Duplication : ils boostent en retour le Minage et la Fonderie.<br><br><b>Restructuration</b> : la valeur que tu produis se convertit en brevets. Le bouton « brevets », en bas de l'écran, ouvre la répartition — tu y arbitres entre des <b>licences</b> permanentes, qui te suivent d'une partie à l'autre, et des <b>actifs</b> qui survivent au reset mais immobilisent leurs brevets le temps d'un run. Rien n'est jamais obligatoire.",
     o:"Maintenir 30 secondes un débit cible d'Acier, Bois et Modules pour ouvrir la Logistique nationale. Ce jalon booste rétroactivement Minage et Fonderie."},
- 4:{t:'RÉSEAU FERROVIAIRE',b:"Le jeu change d'échelle : place au train, plus rapide et plus capacitaire que le camion. Les trains acheminent tes Modules vers des sites d'Assemblage, qui les combinent pour fabriquer des Moteurs. Deux nouveautés arrivent avec cette étape : le Pétrole (ressource brute) et le Plastique (transformé, via les Assembleurs).<br><br><b>Duplication d'usine</b> : une fois les premiers Moteurs produits, tu peux dupliquer ta ligne d'Usine et répartir la production entre les copies via un système de ratio.<br><br>⚠️ Cette étape est un palier de coût plus exigeant — le Prestige y devient nettement plus rentable, sans jamais être obligatoire.",
+ 4:{t:'RÉSEAU FERROVIAIRE',b:"Le jeu change d'échelle : place au train, plus rapide et plus capacitaire que le camion. Les trains acheminent tes Modules vers des sites d'Assemblage, qui les combinent pour fabriquer des Moteurs. Deux nouveautés arrivent avec cette étape : le Pétrole (ressource brute) et le Plastique (transformé, via les Assembleurs).<br><br><b>Duplication d'usine</b> : une fois les premiers Moteurs produits, tu peux dupliquer ta ligne d'Usine et répartir la production entre les copies via un système de ratio.<br><br>⚠️ Cette étape est un palier de coût plus exigeant — c'est là qu'une restructuration commence à rapporter plus qu'elle ne coûte. Le budget de brevets devient assez large pour racheter des actifs sans sacrifier toutes tes licences.",
     o:"Maintenir 30 secondes un débit cible sur Moteurs, Plastique et Pétrole pour ouvrir la Logistique internationale. Ce jalon booste rétroactivement les trois étapes précédentes."},
  5:{t:'FRET AÉRIEN',b:"Ton réseau devient mondial : les avions cargo prennent le relais des trains pour les flux longue distance. Avec les Moteurs en stock, tu peux maintenant construire des Fusées — première étape vers l'espace. Duplique tes Assembleurs pour multiplier la production de Moteurs, et améliore la cadence de fabrication des Fusées.",
     o:"Maintenir 30 secondes un débit cible de Fusées (et des ressources qui les composent) pour lancer ta première Station spatiale et ouvrir la Production spatiale. Ce jalon booste rétroactivement toutes les étapes précédentes."},
  6:{t:'MISE EN ORBITE',b:"Ta première Station orbitale est opérationnelle. Elle ne produit plus de ressources classiques, mais de la Recherche — une monnaie transversale qui améliore toutes les étapes précédentes (Minage, Fonderie, Usine, Logistique) et débloque des technologies spatiales.<br><br><b>Changement de règles</b> : à partir d'ici, la progression n'est plus additive mais multiplicative. Chaque amélioration spatiale multiplie ta production globale plutôt que de l'augmenter d'une quantité fixe.<br><br><b>Changement des jalons</b> : les seuils de débit soutenu s'arrêtent ici. La suite de la progression passe par un arbre de recherche (Extraction / Industrie / Spatial) payé en Recherche.",
     o:"Débloquer le nœud de recherche « Colonisation » (épine dorsale de l'arbre) pour ouvrir la Colonisation du système solaire."},
- 7:{t:'NOUVEAU MONDE',b:"Le système solaire s'ouvre à la colonisation. 3 planètes sont à ta portée. Chaque planète colonisée double ta production totale — un effet cumulatif énorme comparé aux upgrades précédentes.<br><br>⚠️ Palier de coût renforcé : le Prestige devient ici un multiplicateur très rentable, toujours optionnel.",
+ 7:{t:'NOUVEAU MONDE',b:"Le système solaire s'ouvre à la colonisation. 3 planètes sont à ta portée. Chaque planète colonisée double ta production totale — un effet cumulatif énorme comparé aux upgrades précédentes.<br><br>⚠️ Palier de coût renforcé : une restructuration rapporte désormais des dizaines de brevets d'un coup. Le portefeuille scientifique et la reprise d'étape deviennent abordables — au prix des licences que tu n'achèteras pas ce run-là.",
     o:"Coloniser les 3 planètes, puis débloquer le nœud de recherche « Colonisation avancée » (fin de l'épine dorsale de l'arbre) pour ouvrir l'Expansion galactique."},
  8:{t:'CARTE GALACTIQUE',b:"Dernière étape : la galaxie entière s'étend devant toi, soit 100 000 systèmes à coloniser. Chaque système conquis ajoute +3 au multiplicateur de production de tes planètes. Améliore ta vitesse de colonisation pour accélérer la conquête.",
     o:"Prendre le contrôle de la galaxie. Fin de la partie — mais le compteur, lui, ne s'arrête jamais vraiment."},
@@ -1220,6 +1257,12 @@ function freshState(brevets=0,valeurTot=0){
     prodAcc:{},
     stage:1, tab:1, seen:{1:true},
     click:1, auto:0,
+    /* Répartition du budget de brevets (§5). `brevets` reste le TOTAL gagné — c'est lui que
+       brevetsGain() compare à la valeur produite, la formule est inchangée. Ce qui change, c'est
+       qu'il n'agit plus tout seul : `licences` porte l'allocation permanente, `actifs` ce qui a
+       été racheté pour le run en cours, `actifPick` l'étape choisie pour les actifs qui en
+       demandent une. `presV` marque les sauvegardes déjà migrées (voir restore). */
+    licences:{}, actifs:{}, actifPick:{}, presV:1,
     valeur:0, valeurTot, brevets,
     speed:1, buyMode:1, t:Date.now(), won:false
   };
@@ -1229,7 +1272,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.9.0';
+const GAME_VERSION='0.10.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{}};
 function recompute(){
@@ -1274,13 +1317,21 @@ function recompute(){
   });
   // prestige + astro
   const planets=Object.keys(state.planets).filter(k=>state.planets[k]).length;
-  /* Report de prestige, isolé dans son propre champ : c'est le SEUL multiplicateur exponentiel
-     que le gain manuel conserve (voir le gestionnaire data-click). Le clic est volontairement
-     découplé de c.global — sinon il ne décroche jamais de l'automatisation — mais garder le
-     report de prestige fait qu'après une restructuration, cliquer relance efficacement les
-     premières étapes, ce qui est l'intérêt du prestige. Entre toujours dans c.global par ailleurs. */
-  c.prestige=Math.pow(1.06,state.brevets);
-  c.global*=c.prestige;
+  /* LICENCES DE BREVETS (§5) — remplacent l'ancien c.prestige = 1,06^brevets appliqué d'office.
+     Le total de brevets ne multiplie plus rien par lui-même : seuls les niveaux effectivement
+     alloués comptent, et l'allocation est un choix du joueur, refait à chaque restructuration.
+     `manuel` est la seule clé d'effet qui n'entre PAS dans c.global : elle alimente c.prestige,
+     le seul multiplicateur que la récolte manuelle conserve (voir le gestionnaire data-click).
+     Le clic reste découplé de c.global — sinon il ne décroche jamais de l'automatisation — mais
+     garder un report de restructuration fait qu'après un reset, cliquer relance efficacement les
+     premières étapes. Ce report n'est plus offert d'office : c'est la licence Outillage, donc un
+     arbitrage contre la Cadence, ce qui est tout l'objet de la restructuration à budget. */
+  for(const l of LICENCES){ const lv=state.licences[l.id]||0; if(!lv)continue; const e=l.e;
+    if(e.manuel)c.prestige*=Math.pow(e.manuel,lv);
+    if(e.global)c.global*=Math.pow(e.global,lv);
+    if(e.stage)for(const st in e.stage)c.stage[st]*=Math.pow(e.stage[st],lv);
+    if(e.mult)for(const mk in e.mult)c.mach[mk]*=Math.pow(e.mult[mk],lv);
+  }
   /* c.astro isole les multiplicateurs ACHETÉS AVEC DE LA SCIENCE (planètes, systèmes).
      Ils entrent bien dans c.global comme avant — mais le laboratoire en est exclu (voir mMult).
      Raison : le labo est la seule machine du jeu sans entrée. Toutes les autres productions
@@ -1607,7 +1658,33 @@ function dysonETA(d){
 }
 
 /* ==========================================================================
-   5. PRESTIGE
+   5. PRESTIGE — restructuration à budget
+   --------------------------------------------------------------------------
+   Les brevets ne sont plus un bonus automatique (l'ancien 1,06^brevets s'appliquait d'office,
+   sans que le joueur ait la moindre décision à prendre) mais un BUDGET réparti à chaque
+   restructuration entre deux colonnes qui se disputent la même monnaie :
+
+     LICENCES — multiplicateurs permanents, conservés d'un run à l'autre. Réallouables
+       librement, mais SEULEMENT au moment de restructurer : le joueur choisit donc la forme
+       de tout le run à venir et ne peut pas corriger en cours de route. Toutes coûtent
+       1 brevet par niveau ; ce qui les différencie est la portée. Un multiplicateur étroit
+       est plus fort par brevet qu'un multiplicateur global, donc il gagne quand sa portée est
+       le goulot du moment — et le goulot change au fil du run, c'est ce qui rend l'arbitrage
+       dépendant de l'état du jeu plutôt que résoluble une fois pour toutes.
+
+     ACTIFS — ce qui survit au reset (ressources, machines, réseau, améliorations, science).
+       Les brevets dépensés sont IMMOBILISÉS pour le run puis rendus à la restructuration
+       suivante : une mauvaise répartition coûte un run, jamais la partie. Même principe que
+       les jalons (§2) — dégradation progressive, pas punition sèche.
+
+   La tension est unique, lisible, et se rejoue à chaque fois : ce run-ci plus vite, ou tous
+   les runs plus forts.
+
+   Pas de licence « transport » : les plafonds de capacité et de débit sont délibérément conçus
+   pour être dépassés par la production (voir §5 de la couche transport), c'est le moteur de la
+   progression d'étape en étape. Un multiplicateur global dessus contredirait ce réglage. Le
+   transport est donc dans la colonne ACTIFS — on rachète des niveaux déjà payés, on ne relève
+   aucun plafond.
    ========================================================================== */
 function brevetsGain(){
   const v=state.valeur+state.valeurTot;
@@ -1620,21 +1697,208 @@ function prestigeReady(){ return state.stage>=PRESTIGE_STAGE && brevetsGain()>=1
 /* window.confirm est bloqué dans certaines iframes et sur mobile : on considère
    l'absence de réponse comme un accord explicite déjà donné par le second clic */
 function ask(msg){ try{ const r=window.confirm(msg); return r===undefined?true:!!r; }catch(e){ return true; } }
+
+/* Toutes les licences coûtent 1 brevet le niveau : le prix n'est pas le levier d'équilibrage, la
+   PORTÉE l'est. Cadence (×1,06 global) est l'étalon — c'est exactement l'ancien bonus automatique,
+   ce qui rend la migration des sauvegardes exacte au chiffre près. Les autres sont plus fortes par
+   brevet sur un périmètre plus étroit : elles battent Cadence tant que ce périmètre est le goulot,
+   et perdent ensuite. Les plafonds empêchent une licence étroite d'absorber tout le budget une
+   fois qu'elle a cessé d'être le bon choix ; Cadence n'en a pas, c'est elle qui absorbe le surplus
+   de fin de partie. `s` = étape à partir de laquelle la licence est révélée. */
+const LICENCES=[
+ {id:'cadence',    n:'Cadence',     s:3, max:Infinity, e:{global:1.06},
+  d:'Production globale ×1,06 par niveau. Aucun plafond.'},
+ {id:'outillage',  n:'Outillage',   s:3, max:20, e:{manuel:1.15},
+  d:'Récolte manuelle ×1,15 par niveau — clic et clics automatiques. Le seul report qui atteigne le gain manuel.'},
+ {id:'extraction', n:'Extraction',  s:3, max:20, e:{stage:{1:1.20}},
+  d:'Extraction ×1,20 par niveau. Le meilleur rendement juste après un reset, le pire une fois la chaîne relancée.'},
+ {id:'metallurgie',n:'Métallurgie', s:3, max:20, e:{stage:{2:1.12,3:1.12}},
+  d:'Fonderie et usine ×1,12 par niveau.'},
+ {id:'reseau',     n:'Réseau',      s:4, max:20, e:{stage:{4:1.12,5:1.12}},
+  d:'Logistique nationale et internationale ×1,12 par niveau.'},
+ {id:'recherche',  n:'Recherche',   s:6, max:15, e:{mult:{lab:1.10}},
+  d:'Laboratoires ×1,10 par niveau. Hors multiplicateur astro, comme tout ce qui touche au labo.'},
+];
+const LICBY={}; LICENCES.forEach(l=>LICBY[l.id]=l);
+/* Chaque licence n'a qu'un seul taux : on l'extrait de e:{} plutôt que de redonner le chiffre
+   pour l'affichage, sinon un réglage laisserait le panneau annoncer l'ancienne valeur. */
+function licRate(l){ const e=l.e;
+  if(e.manuel)return e.manuel; if(e.global)return e.global;
+  if(e.stage)return e.stage[Object.keys(e.stage)[0]];
+  return e.mult[Object.keys(e.mult)[0]];
+}
+
+/* Chaque actif déclare lui-même ce qu'il fait survivre : le moteur ne connaît aucun identifiant
+   d'actif, il se contente d'appeler keep() (même principe que MACH/UP — données déclaratives,
+   moteur générique). Les périmètres ne se recouvrent jamais : « Ligne de production » ignore
+   volontairement les véhicules, qui appartiennent à « Réseau logistique », et la Force de frappe,
+   qui a son propre actif — sans quoi payer deux fois rachèterait deux fois la même chose. */
+const ACTIFS=[
+ {id:'stock', n:'Stock de report', s:3, pct:.04,
+  d:'10 % de chaque ressource survit à la restructuration.',
+  keep:(ns,old)=>{ for(const k in RES) ns.res[k]=Math.floor((old.res[k]||0)*.1); }},
+ {id:'outils', n:'Outillage de frappe', s:3, pct:.05,
+  d:'Les niveaux de Force de frappe sont conservés.',
+  keep:(ns,old)=>{ MACH.forEach(m=>{ if(m.clickUp&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; }); }},
+ {id:'ligne', n:'Ligne de production', s:3, pct:.12, pick:1,
+  d:'Les machines d\'une étape au choix sont conservées, Cadence et Production comprises.',
+  keep:(ns,old,n)=>{ MACH.forEach(m=>{
+    if(m.s!==n||m.clickUp||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)return;
+    if(old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; }); }},
+ {id:'logistique', n:'Réseau logistique', s:4, pct:.10,
+  d:'Flottes, vitesses, capacités et débits de toutes les étapes, véhicules et tampons compris. Rachète des niveaux déjà payés — ne relève aucun plafond.',
+  keep:(ns,old)=>{ MACH.forEach(m=>{
+    if((m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; });
+    ns.veh=old.veh; ns.buf=old.buf; ns.pipe=old.pipe; }},
+ {id:'ameliorations', n:'Portefeuille d\'améliorations', s:4, pct:.18,
+  d:'Toutes les améliorations achetées restent acquises.',
+  keep:(ns,old)=>{ ns.ups=old.ups; }},
+ {id:'reprise', n:'Reprise d\'étape', s:4, pctPer:.08, pick:2,
+  d:'La partie redémarre directement à l\'étape choisie, sans repasser les jalons. Le prix monte de 8 % du budget par étape sautée.',
+  keep:(ns,old,n)=>{ ns.stage=n; ns.tab=n; for(let i=1;i<=n;i++)ns.seen[i]=true;
+    CLICKABLE.forEach(c=>unlockedClicks[c.r]=true); }},
+ {id:'science', n:'Portefeuille scientifique', s:6, pct:.30,
+  d:'L\'arbre de recherche et les segments Dyson construits sont conservés.',
+  keep:(ns,old)=>{ ns.research=old.research; ns.dyson=old.dyson; }},
+];
+const ACTBY={}; ACTIFS.forEach(a=>ACTBY[a.id]=a);
+
+/* Le prix d'un actif est un POURCENTAGE du budget, jamais une valeur absolue. Le gain de brevets
+   croît de 10 par ordre de grandeur de valeur produite : un prix fixe calibré pour l'étape 4
+   serait négligeable à l'étape 7, et la colonne « actifs » cesserait d'être un arbitrage au moment
+   précis où elle devient intéressante. En pourcentage, le taux de change ne bouge jamais — tout
+   racheter coûte toujours 79 % du budget, reprise d'étape non comprise. Minimum 1 brevet : un
+   actif gratuit ne pèserait plus rien dans la décision. */
+function actifPct(a,n){ return a.pctPer ? a.pctPer*Math.max(0,(n||2)-2) : a.pct; }
+function actifCost(a,budget,n){ return Math.max(1,Math.ceil(actifPct(a,n)*budget)); }
+function pickClamp(a,v){ return a.pick===undefined?undefined:Math.max(a.pick,Math.min(8,v||a.pick)); }
+/* Total immobilisé par une répartition. Sert au panneau (brouillon en cours d'édition) comme à
+   l'entête (répartition réellement en vigueur), d'où les tables passées en paramètres. */
+function allocSpent(lic,act,pick,budget){
+  let n=0; for(const id in lic) n+=lic[id]||0;
+  ACTIFS.forEach(a=>{ if(act[a.id]) n+=actifCost(a,budget,pickClamp(a,pick[a.id])); });
+  return n;
+}
+function brevetsLibres(){ return state.brevets-allocSpent(state.licences,state.actifs,state.actifPick,state.brevets); }
+
 function doPrestige(){
   const g=brevetsGain();
   if(state.stage<PRESTIGE_STAGE){toast('Restructuration disponible à partir de l\'usine');return;}
   if(g<1){toast('Pas encore assez de valeur produite');return;}
-  if(!ask('Restructurer ?\n\nTu perds ressources, machines et améliorations.\nTu gardes '+(state.brevets+g)+' brevets (+6 % de production globale chacun).'))return;
-  const nb=state.brevets+g, vt=state.valeurTot+state.valeur;
-  const sp=state.speed;
-  state=freshState(nb,vt); state.speed=sp;
+  const budget=state.brevets+g;
+  if(!presDraft||allocSpent(presDraft.lic,presDraft.act,presDraft.pick,budget)>budget){
+    toast('Répartition au-dessus du budget');return; }
+  const old=state, ns=freshState(budget,old.valeurTot+old.valeur);
+  /* Réglages du joueur, pas de la partie : les perdre à chaque restructuration était une
+     régression silencieuse — le format des nombres revenait en « court » au rechargement suivant
+     et l'écran de victoire se rejouait. */
+  ns.speed=old.speed; ns.numFmt=old.numFmt; ns.buyMode=old.buyMode; ns.won=old.won;
+  ns.licences=Object.assign({},presDraft.lic);
+  ns.actifs=Object.assign({},presDraft.act);
+  ns.actifPick=Object.assign({},presDraft.pick);
+  // les veines se réapprennent depuis le bois — sauf reprise d'étape, qui les rouvre toutes
+  for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
+  state=ns;
+  ACTIFS.forEach(a=>{ if(ns.actifs[a.id]) a.keep(ns,old,pickClamp(a,ns.actifPick[a.id])); });
   // flow et prodAvg sont des variables de module, pas des champs de state : sans ce reset
   // explicite elles gardent les débits du run précédent pendant toute la fenêtre de moyenne
   // (AVG_WINDOW = 10 s), et rateMet() les lit directement — tous les jalons des étapes 2 à 6
   // se retrouvaient donc satisfaits dès la première seconde du nouveau run.
   flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={}; rateReset();
-  for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
-  structuralDirty=true; recompute(); toast('+'+g+' brevets');
+  closePrestige();
+  structuralDirty=true; recompute();
+  toast('Restructuration — budget '+budget+' brevets');
+}
+
+/* --- panneau de répartition ---------------------------------------------- */
+/* Le brouillon est séparé de l'état : tant que la restructuration n'est pas confirmée, rien n'est
+   appliqué. Il part de la répartition en vigueur — reconduire le même choix est le cas fréquent,
+   et hors restructuration le panneau sert alors de consultation en lecture seule. */
+let presDraft=null, presOn=false, presSig='';
+function presBudget(){ return state.brevets+brevetsGain(); }
+function openPrestige(){
+  presDraft={lic:Object.assign({},state.licences),
+             act:Object.assign({},state.actifs),
+             pick:Object.assign({},state.actifPick)};
+  presOn=true; presRender();
+  $('presOverlay').style.display='flex';
+}
+function closePrestige(){ presOn=false; presDraft=null; $('presOverlay').style.display='none'; }
+
+function presRender(){
+  if(!presDraft)return;
+  const ed=prestigeReady(), b=presBudget(), g=brevetsGain();
+  const spent=allocSpent(presDraft.lic,presDraft.act,presDraft.pick,b), libre=b-spent;
+  presSig=b+'|'+ed;
+  let h='<div class="presh"><span>budget <b>'+b+'</b> brevets'+
+        (g>0?' <i style="font-style:normal;color:#5fb87a">(+'+g+')</i>':'')+'</span>'+
+        '<span>immobilisés <b>'+spent+'</b></span>'+
+        '<span class="presf'+(libre<0?' bad':'')+'">libres <b>'+libre+'</b></span></div>';
+  if(ed)
+    h+='<div class="presi">Les <b>licences</b> te suivent d\'un run à l\'autre et ne se réajustent qu\'ici. Les <b>actifs</b> immobilisent leurs brevets le temps du run, puis te sont rendus à la prochaine restructuration : tu échanges de la puissance permanente contre de la vitesse immédiate.</div>';
+  else
+    h+='<div class="presw">Répartition modifiable uniquement au moment de restructurer.'+
+       (state.stage<PRESTIGE_STAGE?' La restructuration s\'ouvre à l\'étape '+PRESTIGE_STAGE+'.'
+                                  :' Il faut au moins 1 brevet à gagner — continue à produire de la valeur.')+'</div>';
+
+  h+='<div class="sec">Licences<span class="hint">permanentes · 1 brevet par niveau</span></div>';
+  const lics=LICENCES.filter(l=>state.stage>=l.s);
+  h+=lics.map(l=>{
+    const lv=presDraft.lic[l.id]||0, mx=l.max;
+    const step=(d,t)=>'<button data-lic="'+l.id+'" data-d="'+d+'"'+
+      ((!ed||(d<0?lv<=0:(lv>=mx||libre<1)))?' disabled':'')+'>'+t+'</button>';
+    return '<div class="presr"><div class="presn">'+l.n+'<i>'+l.d+'</i></div>'+
+      '<div class="stepper">'+step(-10,'«')+step(-1,'−')+
+      '<span class="stepval">'+lv+(mx<Infinity?'<i> / '+mx+'</i>':'')+'</span>'+
+      step(1,'+')+step(10,'»')+'</div>'+
+      '<div class="presv">×'+fmt(Math.pow(licRate(l),lv))+'</div></div>';
+  }).join('');
+
+  h+='<div class="sec">Actifs conservés<span class="hint">immobilisés pour le run à venir, rendus au suivant</span></div>';
+  const acts=ACTIFS.filter(a=>state.stage>=a.s);
+  h+=acts.map(a=>{
+    const on=!!presDraft.act[a.id], n=pickClamp(a,presDraft.pick[a.id]), c=actifCost(a,b,n);
+    let pk='';
+    if(a.pick!==undefined){
+      let bs='';
+      for(let i=a.pick;i<=state.stage;i++)
+        bs+='<button class="pk'+(i===n?' on':'')+'" data-apick="'+a.id+'" data-n="'+i+'"'+(ed?'':' disabled')+'>étape '+i+'</button>';
+      pk='<div class="toggles">'+bs+'</div>';
+    }
+    return '<div class="presa'+(on?' on':'')+'">'+
+      '<button class="buy" data-actif="'+a.id+'"'+((ed&&(on||libre>=c))?'':' disabled')+'>'+
+      '<span>'+(on?'■ ':'□ ')+a.n+'</span><span class="px">'+c+' brevets</span></button>'+
+      '<div class="presd">'+a.d+'</div>'+pk+'</div>';
+  }).join('');
+  if(!lics.length&&!acts.length) h+='<div class="presd">Rien à répartir pour l\'instant.</div>';
+
+  h+='<div class="presft"><button class="mini" data-presclose="1">fermer</button>'+
+     (ed?'<button class="mini prestige" data-presgo="1"'+(libre<0?' disabled':'')+'>restructurer</button>':'')+
+     '</div>';
+  $('presBody').innerHTML=h;
+  presBind();
+}
+function presBind(){
+  const body=$('presBody');
+  body.querySelectorAll('[data-lic]').forEach(el=>el.onclick=()=>{
+    const l=LICBY[el.dataset.lic], d=+el.dataset.d, cur=presDraft.lic[l.id]||0, b=presBudget();
+    /* Les pas de ±10 doivent être bornés par le plafond ET par ce qui reste : `reste` est le
+       budget moins tout ce qui est immobilisé AILLEURS que sur cette licence. */
+    const reste=b-(allocSpent(presDraft.lic,presDraft.act,presDraft.pick,b)-cur);
+    const nv=Math.max(0,Math.min(cur+d,l.max,reste));
+    if(nv)presDraft.lic[l.id]=nv; else delete presDraft.lic[l.id];
+    presRender();
+  });
+  body.querySelectorAll('[data-actif]').forEach(el=>el.onclick=()=>{
+    const id=el.dataset.actif;
+    if(presDraft.act[id])delete presDraft.act[id]; else presDraft.act[id]=true;
+    presRender();
+  });
+  body.querySelectorAll('[data-apick]').forEach(el=>el.onclick=()=>{
+    presDraft.pick[el.dataset.apick]=+el.dataset.n; presRender();
+  });
+  body.querySelectorAll('[data-presclose]').forEach(el=>el.onclick=closePrestige);
+  body.querySelectorAll('[data-presgo]').forEach(el=>el.onclick=doPrestige);
 }
 
 function victory(){
@@ -2796,14 +3060,20 @@ function paint(){
     o.r.className='r '+(f>1e-6?'pos':f<-1e-6?'neg':'zero'); }
   $('hGlobal').textContent=fmt(cache.global);
   $('hValeur').textContent=fmt(state.valeur+state.valeurTot);
-  $('hBrevets').textContent=state.brevets+(brevetsGain()>0?' (+'+brevetsGain()+')':'');
-  // le bouton n'apparaît que lorsqu'une restructuration est réellement possible
-  const pOK=prestigeReady();
+  // brevets LIBRES sur total : le total seul ne dit plus rien depuis qu'il faut l'allouer (§5)
+  $('hBrevets').textContent=brevetsLibres()+' / '+state.brevets+(brevetsGain()>0?' (+'+brevetsGain()+')':'');
+  /* Le bouton ouvre le panneau de répartition dès que la restructuration existe, même quand elle
+     n'est pas encore possible : la répartition se prépare, et c'est là que le joueur découvre ce
+     que ses brevets peuvent acheter. Il ne déclenche plus rien par lui-même. */
   const pb=$('btnPrestige');
   if(pb){
-    pb.style.display=pOK?'':'none';
-    if(pOK)pb.textContent='restructurer +'+brevetsGain();
+    const vis=state.stage>=PRESTIGE_STAGE;
+    pb.style.display=vis?'':'none';
+    if(vis)pb.textContent=prestigeReady()?'restructurer +'+brevetsGain():'brevets';
   }
+  /* Le budget grossit pendant que le panneau est ouvert : on le redessine quand il change, et
+     seulement alors — un rendu à chaque frame casserait le survol des boutons pour rien. */
+  if(presOn&&presSig!==presBudget()+'|'+prestigeReady())presRender();
   // même fenêtre glissante que la barre de ressources (déjà en /min), version brute
   document.querySelectorAll('[data-bb]').forEach(el=>{ el.textContent=fmt(rateShown['+'+el.dataset.bb]||0); });
   document.querySelectorAll('[data-cg]').forEach(el=>{ el.textContent=fmt(state.click*cache.click*cache.prestige); });
@@ -2875,6 +3145,22 @@ function restore(raw){
   if(state.labLvlTarget===undefined)state.labLvlTarget=null;   // 0.4.0 — anciennes sauvegardes
   state.pipe=state.pipe||{prime:0,flow:0,jam:false,starved:false};
   state.prodAcc=state.prodAcc||{};
+  /* Migration 0.10.0 — les brevets deviennent un budget à répartir (§5). Une sauvegarde d'avant
+     cette version n'a aucune allocation : on verse la totalité dans Cadence, dont le pas est
+     exactement l'ancien bonus appliqué d'office (1 brevet = 1 niveau = ×1,06 global), si bien que
+     la production globale au chargement est identique au chiffre près. Le report sur la récolte
+     manuelle, lui, n'est plus offert : c'est devenu la licence Outillage, que le joueur récupère
+     en réallouant à sa prochaine restructuration. `presV` sert de marqueur — sans lui, un joueur
+     ayant délibérément tout mis en actifs se verrait re-créditer Cadence à chaque chargement.
+     Le test porte sur d.state, PAS sur state : restore() fait un Object.assign sur l'état courant,
+     déjà issu de freshState(), donc toute clé absente de la sauvegarde y garde sa valeur par
+     défaut et paraît présente. Tester `state.presV` laissait la migration ne jamais se déclencher
+     et faisait perdre silencieusement tout son bonus de prestige à un joueur d'avant 0.10.0. */
+  if(d.state.presV===undefined){
+    state.presV=1; state.licences={}; state.actifs={}; state.actifPick={};
+    if(state.brevets>0)state.licences.cadence=state.brevets;
+  }
+  state.licences=state.licences||{}; state.actifs=state.actifs||{}; state.actifPick=state.actifPick||{};
   /* Migration 0.7.0 — les machines sont désormais plafonnées (1 + boosts) et c'est la Force qui
      porte le scaling. Chaque exemplaire au-delà du premier devient un niveau de Force : comme la
      Force est additive (u = 1 + niveaux), la production est conservée à l'identique. */
@@ -2927,7 +3213,8 @@ $('buyMode').onclick=()=>{ state.buyMode = state.buyMode===1?10:state.buyMode===
 $('btnFmt').onclick=()=>{ numFmt = numFmt==='court'?'sci':numFmt==='sci'?'ing':'court';
   $('btnFmt').textContent='nombres : '+(numFmt==='court'?'court':numFmt==='sci'?'scientifique':'ingénieur');
   state.numFmt=numFmt; structuralDirty=true; };
-$('btnPrestige').onclick=doPrestige;
+$('btnPrestige').onclick=openPrestige;
+document.querySelector('#presOverlay').onclick=e=>{ if(e.target.id==='presOverlay')closePrestige(); };
 $('btnDev').onclick=()=>{ $('devpanel').classList.toggle('open'); $('btnDev').classList.toggle('on'); };
 $('btnExport').onclick=()=>{
   const code=btoa(unescape(encodeURIComponent(snapshot())));
