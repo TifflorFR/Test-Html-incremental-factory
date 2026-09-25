@@ -229,8 +229,8 @@ try {
   const budget2 = await page.evaluate(() => presBudget());
   const spent2 = await page.evaluate(() => allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()));
   check('budget = 70 brevets pour 1e13 de valeur', budget2 === 70, budget2);
-  // 4% + 5% + 18% + 30% de 70 = 3 + 4 + 13 + 21 ; reprise etape 6 = 8%*4 = 32% -> 23
-  check('cout des cinq actifs = 64', spent2 === 3 + 4 + 13 + 21 + 23, spent2);
+  // 4% + 5% + 18% + 30% de 70 = 3 + 4 + 13 + 21 ; reprise etape 6 = 5 etapes sautees = 40% -> 28
+  check('cout des cinq actifs = 69', spent2 === 3 + 4 + 13 + 21 + 28, spent2);
   await page.click('#presBody [data-presgo]');
   await page.waitForTimeout(300);
   const end = await page.evaluate(() => ({
@@ -257,7 +257,7 @@ try {
   check('segment Dyson conserve', end.dyson.D1 && end.dyson.D1.done === true, end.dyson);
   check('colonies PERDUES (aucun actif ne les couvre)',
         Object.keys(end.planets).length === 0 && end.astro === 1, [end.planets, end.astro]);
-  check('libres = 70 - 64', end.libres === 6, end.libres);
+  check('libres = 70 - 69', end.libres === 1, end.libres);
   await page.screenshot({ path: shot('apres-reprise') });
 
   // ---------- 8. licences et actifs de transport / oleoduc
@@ -409,7 +409,7 @@ try {
     spent: allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()),
   }));
   check('multi-run 2 : reprise rabattue sur l\'etape atteinte (4, pas 7)', rep2.pick === 4 && rep2.on.join() === '4', rep2);
-  check('multi-run 2 : reprise facturee 16 %, pas 40 %', rep2.cost === Math.ceil(.16 * rep2.budget), rep2);
+  check('multi-run 2 : reprise facturee 24 % (3 etapes sautees), pas 48 %', rep2.cost === Math.ceil(.24 * rep2.budget), rep2);
   check('multi-run 2 : seule la reprise est immobilisee', rep2.spent === rep2.cost, rep2);
   await page.screenshot({ path: shot('multirun-reprise-rabattue') });
   await restructurer();
@@ -442,6 +442,39 @@ try {
   const apresR = await lireHf();
   check('ligne au-dessus du plafond : effectif intact apres rechargement', apresR.hf === 16 && apresR.hf_for === 5, apresR);
   check('ligne au-dessus du plafond : debit intact apres rechargement', Math.abs(apresR.debit / avantR.debit - 1) < 1e-9, [avantR.debit, apresR.debit]);
+
+  // 9b bis. Transport conserve au-dela du plafond du nouveau run : les Optimisations des etages
+  //     superieurs (camion..navette) doublaient ses plafonds et ne sont pas conservees. Ecrete a la
+  //     restructuration ; la Ligne peut en revanche avoir repris l'Optimisation de son etape.
+  await nouvellePartie();
+  await panneau(() => {
+    state.stage = 6; state.tab = 6;
+    state.cnt = { wagon: 1, camion: 1, train: 1, avion: 1, navette: 1, fleet_s2: 30, cap_s2: 500, spd_s2: 3, pipe_dia: 200, pipe_pump: 200 };
+    state.valeur = 1e17;
+  });
+  const capsAvant = await page.evaluate(() => ({ fleet: capOf(M.fleet_s2), cap: capOf(M.cap_s2), dia: capOf(M.pipe_dia) }));
+  await page.click('#presBody [data-actif="logistique"]');
+  await page.click('#presBody [data-actif="oleoduc"]');
+  await restructurer();
+  const ecr = await page.evaluate(() => ({ cnt: { ...state.cnt }, fleet: capOf(M.fleet_s2), cap: capOf(M.cap_s2), dia: capOf(M.pipe_dia), pump: capOf(M.pipe_pump) }));
+  check('transport conserve : plafonds reellement plus bas qu\'avant', ecr.fleet < capsAvant.fleet && ecr.cap < capsAvant.cap && ecr.dia < capsAvant.dia, [capsAvant, ecr]);
+  check('transport conserve : flotte et capacite ecretees au plafond', ecr.cnt.fleet_s2 === ecr.fleet && ecr.cnt.cap_s2 === ecr.cap, ecr);
+  check('transport conserve : oleoduc ecrete au plafond', ecr.cnt.pipe_dia === ecr.dia && ecr.cnt.pipe_pump === ecr.pump, ecr);
+  check('transport conserve : niveau sous le plafond intact', ecr.cnt.spd_s2 === 3, ecr.cnt.spd_s2);
+
+  await nouvellePartie();
+  await panneau(() => {
+    state.stage = 6; state.tab = 6;
+    state.cnt = { wagon: 1, camion: 1, train: 1, avion: 1, navette: 1, cap_s2: 500 };
+    state.valeur = 1e17;
+  });
+  await page.click('#presBody [data-actif="logistique"]');
+  await page.click('#presBody [data-actif="ligne"]');
+  await page.click('#presBody [data-apick="ligne"][data-n="3"]');
+  await restructurer();
+  const ecrL = await page.evaluate(() => ({ cap_s2: state.cnt.cap_s2, camion: state.cnt.camion, plafond: capOf(M.cap_s2), sansCamion: M.cap_s2.maxCount }));
+  check('ligne etape 3 + convois : l\'Optimisation conservee releve le plafond d\'ecretage',
+        ecrL.camion === 1 && ecrL.cap_s2 === ecrL.plafond && ecrL.plafond === 2 * ecrL.sansCamion, ecrL);
 
   // 9c. Trois runs joues au bot de reference (meme logique que bot.txt, mais rejouable sans
   //     repartir d'une page neuve), jusqu'a l'etape 5 ET au moins 1 brevet a gagner -- apres deux

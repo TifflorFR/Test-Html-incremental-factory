@@ -1277,7 +1277,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.11.1';
+const GAME_VERSION='0.12.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -1767,7 +1767,7 @@ const ACTIFS=[
     if(m.s!==n||m.clickUp||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)return;
     if(old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; }); }},
  {id:'logistique', n:'Réseau de convois', s:4, pct:.08,
-  d:'Flottes, vitesses, capacités et débits de toutes les étapes, véhicules en circulation et tampons compris. Rachète des niveaux déjà payés — ne relève aucun plafond.',
+  d:'Flottes, vitesses, capacités et débits de toutes les étapes, véhicules en circulation et tampons compris, dans la limite des plafonds du nouveau run : ce que seules les Optimisations permettaient est perdu.',
   keep:(ns,old)=>{ MACH.forEach(m=>{
     if((m.fleet||m.spdUp||m.capUp||m.xferUp)&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; });
     ns.veh=old.veh;
@@ -1775,7 +1775,7 @@ const ACTIFS=[
        chemins, sinon cet actif rachèterait en douce une partie de l'oléoduc, qui se paie à part. */
     for(const k in old.buf) if(k!==PIPE.id) ns.buf[k]=old.buf[k]; }},
  {id:'oleoduc', n:'Oléoduc', s:4, pct:.06,
-  d:'Diamètre et pompage de l\'oléoduc sont conservés, amorçage et pétrole en transit compris.',
+  d:'Diamètre et pompage de l\'oléoduc sont conservés dans la limite du plafond du nouveau run, amorçage et pétrole en transit compris.',
   keep:(ns,old)=>{ MACH.forEach(m=>{ if(m.pipeUp&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; });
     ns.pipe=old.pipe; ns.buf[PIPE.id]=old.buf[PIPE.id]||0; }},
  {id:'ameliorations', n:'Portefeuille d\'améliorations', s:4, pct:.18,
@@ -1795,9 +1795,9 @@ const ACTBY={}; ACTIFS.forEach(a=>ACTBY[a.id]=a);
    croît de 10 par ordre de grandeur de valeur produite : un prix fixe calibré pour l'étape 4
    serait négligeable à l'étape 7, et la colonne « actifs » cesserait d'être un arbitrage au moment
    précis où elle devient intéressante. En pourcentage, le taux de change ne bouge jamais — tout
-   racheter coûte toujours 79 % du budget, reprise d'étape non comprise. Minimum 1 brevet : un
+   racheter coûte toujours 83 % du budget, reprise d'étape non comprise. Minimum 1 brevet : un
    actif gratuit ne pèserait plus rien dans la décision. */
-function actifPct(a,n){ return a.pctPer ? a.pctPer*Math.max(0,(n||2)-2) : a.pct; }
+function actifPct(a,n){ return a.pctPer ? a.pctPer*Math.max(0,(n||2)-1) : a.pct; }   // n-1 étapes sautées
 function actifCost(a,budget,n){ return Math.max(1,Math.ceil(actifPct(a,n)*budget)); }
 function pickClamp(a,v){ return a.pick===undefined?undefined:Math.max(a.pick,Math.min(8,v||a.pick)); }
 /* Total immobilisé par une répartition. Sert au panneau (brouillon en cours d'édition) comme à
@@ -1828,6 +1828,14 @@ function doPrestige(){
   for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
   state=ns;
   ACTIFS.forEach(a=>{ if(ns.actifs[a.id]) a.keep(ns,old,pickClamp(a,ns.actifPick[a.id])); });
+  /* Écrêtage du transport conservé. Ses plafonds doublent avec chaque Optimisation d'étage
+     supérieur, que ni le Réseau de convois ni l'Oléoduc ne conservent : les niveaux repris
+     dépassaient donc le plafond du nouveau run. tickPaths les bornait déjà en silence (40 niveaux
+     de diamètre dont 34 utiles) et la flotte, elle, ne l'était pas du tout (13 véhicules pour un
+     plafond de 8). On ramène l'effectif au plafond, une fois tous les actifs appliqués puisque la
+     Ligne peut, elle, avoir repris l'Optimisation de son étape. */
+  MACH.forEach(m=>{ if(!(m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp))return;
+    const c=capOf(m); if((ns.cnt[m.id]||0)>c)ns.cnt[m.id]=c; });
   // flow et prodAvg sont des variables de module, pas des champs de state : sans ce reset
   // explicite elles gardent les débits du run précédent pendant toute la fenêtre de moyenne
   // (AVG_WINDOW = 10 s), et rateMet() les lit directement — tous les jalons des étapes 2 à 6
