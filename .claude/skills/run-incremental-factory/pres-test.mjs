@@ -2,11 +2,12 @@
  * Vérification de bout en bout de la restructuration à budget (index.html, §5).
  * Complète driver.mjs : celui-ci pilote le jeu, celui-là vérifie un système précis.
  *
- *   node pres-test.mjs        # 42 assertions, sortie 1 si l'une échoue
+ *   node pres-test.mjs        # sortie 1 si une assertion échoue
  *
  * Couvre le calcul du budget, les plafonds de licence, le prix des actifs en pourcentage,
  * le périmètre exact de chaque actif (ce qui survit ET ce qui doit disparaître), le cycle
- * sauvegarde/rechargement, et la migration des sauvegardes antérieures à 0.10.0 — laquelle
+ * sauvegarde/rechargement, des scénarios multi-runs (ce qu'une répartition laisse au run
+ * suivant, dont trois runs joués au bot), et la migration des sauvegardes antérieures à 0.10.0 — laquelle
  * a déjà attrapé une régression silencieuse (le test de migration portait sur `state`, que
  * restore() vient de compléter par freshState(), au lieu de porter sur la sauvegarde lue).
  * Les captures partent dans shots/pres-NN-*.png.
@@ -348,6 +349,179 @@ try {
   check('oleoduc seul : vehicules PERDUS', seulPipe.cap === undefined, seulPipe);
   check('oleoduc seul : tampon de chemin NON repris', !seulPipe.bufPath, seulPipe.bufPath);
   check('oleoduc seul : petrole en transit conserve', seulPipe.bufPipe === 25, seulPipe);
+
+  // ---------- 9. scenarios multi-runs : ce qu'une repartition laisse au run suivant
+  const nouvellePartie = async () => {
+    await page.goto(`http://localhost:${PORT}/nope`);
+    await page.evaluate(() => localStorage.removeItem('if:save'));
+    await startFresh();
+    await page.click('#btnDev');
+    await page.click('#devAll');
+    await closePops();
+  };
+  // Pose l'etat voulu puis ouvre le panneau. Les pop-ups d'etape se rejouent a chaque saut d'etape.
+  const panneau = async (setup) => {
+    await page.evaluate(setup);
+    await page.evaluate(() => { recompute(); structuralDirty = true; render(); });
+    await page.waitForTimeout(250);
+    await closePops();
+    await page.click('#btnPrestige');
+    await page.waitForSelector('#presOverlay', { state: 'visible' });
+  };
+  const restructurer = async () => {
+    await page.click('#presBody [data-presgo]');
+    await page.waitForTimeout(250);
+    await closePops();
+  };
+  const lignes = () => page.evaluate(() => ({
+    lic: [...document.querySelectorAll('#presBody [data-lic][data-d="1"]')].map(x => x.dataset.lic),
+    act: [...document.querySelectorAll('#presBody [data-actif]')].map(x => x.dataset.actif),
+  }));
+
+  // 9a. Run 1 a l'etape 7 : licence Recherche + portefeuille scientifique, puis reprise reglee sur 7
+  //     et decochee (le choix d'etape reste dans la repartition). Run 2 restructure a l'etape 4,
+  //     ou ces deux lignes ne sont normalement pas encore revelees.
+  await nouvellePartie();
+  await panneau(() => { state.stage = 7; state.tab = 7; state.cnt = {}; state.research = { B1: 1, B2: 1 }; state.valeur = 1e14; });
+  for (let i = 0; i < 10; i++) await page.click('#presBody [data-lic="recherche"][data-d="1"]');
+  await page.click('#presBody [data-actif="science"]');
+  await page.click('#presBody [data-actif="reprise"]');
+  await page.click('#presBody [data-apick="reprise"][data-n="7"]');
+  await page.click('#presBody [data-actif="reprise"]');
+  await restructurer();
+  const r1 = await page.evaluate(() => ({ stage: state.stage, lic: state.licences, act: state.actifs, pick: state.actifPick }));
+  check('multi-run 1 : Recherche 10 + science, reprise decochee (choix 7 garde)',
+        r1.stage === 1 && r1.lic.recherche === 10 && r1.act.science && !r1.act.reprise && r1.pick.reprise === 7, r1);
+
+  await panneau(() => { state.stage = 4; state.tab = 4; state.valeur = 1e15; });
+  const vis2 = await lignes();
+  check('multi-run 2 (etape 4) : licence Recherche allouee reste visible', vis2.lic.includes('recherche'), vis2.lic);
+  check('multi-run 2 (etape 4) : actif science pris reste visible', vis2.act.includes('science'), vis2.act);
+  await page.click('#presBody [data-lic="recherche"][data-d="-10"]');
+  await page.click('#presBody [data-actif="science"]');
+  const vis2b = await lignes();
+  check('multi-run 2 : une ligne ramenee a zero ne disparait pas', vis2b.lic.includes('recherche') && vis2b.act.includes('science'), vis2b);
+  await page.click('#presBody [data-actif="reprise"]');
+  const rep2 = await page.evaluate(() => ({
+    pick: presDraft.pick.reprise, budget: presBudget(),
+    cost: actifCost(ACTBY.reprise, presBudget(), pickClamp(ACTBY.reprise, presDraft.pick.reprise)),
+    on: [...document.querySelectorAll('#presBody [data-apick="reprise"].on')].map(x => x.dataset.n),
+    spent: allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()),
+  }));
+  check('multi-run 2 : reprise rabattue sur l\'etape atteinte (4, pas 7)', rep2.pick === 4 && rep2.on.join() === '4', rep2);
+  check('multi-run 2 : reprise facturee 16 %, pas 40 %', rep2.cost === Math.ceil(.16 * rep2.budget), rep2);
+  check('multi-run 2 : seule la reprise est immobilisee', rep2.spent === rep2.cost, rep2);
+  await page.screenshot({ path: shot('multirun-reprise-rabattue') });
+  await restructurer();
+  const r2 = await page.evaluate(() => ({ stage: state.stage, lic: state.licences, act: state.actifs, research: state.research, lab: cache.mach.lab }));
+  check('multi-run 2 : reprise a l\'etape 4, pas a l\'etape 7', r2.stage === 4, r2.stage);
+  check('multi-run 2 : licence Recherche retiree', !r2.lic.recherche && r2.lab === 1, r2);
+  check('multi-run 2 : science decoche -> arbre de recherche perdu', !r2.act.science && Object.keys(r2.research).length === 0, r2);
+
+  // 9b. Ligne conservee au-dessus de son plafond (Optimisations superieures non conservees) :
+  //     l'effectif doit survivre au rechargement, pas etre converti en niveaux de Production.
+  await nouvellePartie();
+  await panneau(() => {
+    state.stage = 6; state.tab = 6;
+    state.cnt = { hf: 16, hf_for: 5, wagon: 1, camion: 1, train: 1, avion: 1, navette: 1 };
+    state.valeur = 1e17;
+  });
+  await page.click('#presBody [data-actif="ligne"]');
+  await page.click('#presBody [data-apick="ligne"][data-n="2"]');
+  await restructurer();
+  const lireHf = () => page.evaluate(() => ({ hf: state.cnt.hf, hf_for: state.cnt.hf_for, cap: capOf(M.hf), debit: state.cnt.hf * cache.force.hf }));
+  const avantR = await lireHf();
+  check('ligne au-dessus du plafond : 16 hauts-fourneaux, plafond 1', avantR.hf === 16 && avantR.cap === 1, avantR);
+  await page.evaluate(() => save());
+  await page.waitForTimeout(200);
+  await page.goto(`http://localhost:${PORT}/index.html`);
+  await page.waitForSelector('#introResume', { state: 'visible' });
+  await page.click('#introResume');
+  await page.waitForSelector('#btnDev');
+  await closePops();
+  const apresR = await lireHf();
+  check('ligne au-dessus du plafond : effectif intact apres rechargement', apresR.hf === 16 && apresR.hf_for === 5, apresR);
+  check('ligne au-dessus du plafond : debit intact apres rechargement', Math.abs(apresR.debit / avantR.debit - 1) < 1e-9, [avantR.debit, apresR.debit]);
+
+  // 9c. Trois runs joues au bot de reference (meme logique que bot.txt, mais rejouable sans
+  //     repartir d'une page neuve), jusqu'a l'etape 5 ET au moins 1 brevet a gagner -- apres deux
+  //     restructurations, l'etape 5 ne suffit plus a depasser le total deja encaisse. Chacun
+  //     restructure avec une repartition differente. A chaque
+  //     restructuration : brevets = formule, libres = budget - immobilise, et chaque licence
+  //     applique exactement son taux (recompute avec puis sans la repartition).
+  // partie vierge, sans le panneau de dev : c'est la valeur reellement produite qui fait le budget
+  await page.goto(`http://localhost:${PORT}/nope`);
+  await page.evaluate(() => localStorage.removeItem('if:save'));
+  await startFresh();
+  await page.evaluate(() => {
+    window.__jouer = (jusqua, maxMin) => {
+      const val = c => Object.keys(c).reduce((a, k) => a + c[k] * (RES[k].v || 1), 0);
+      const acheter = () => { for (let g = 0; g < 40; g++) { let best = null;
+        MACH.forEach(m => { if (remainingCap(m) <= 0 || (m.need && state.stage < m.need) || m.s > state.stage) return;
+          const c = bulkCost(m, 1); if (!afford(c)) return; const v = val(c); if (!best || v < best.v) best = { t: 'm', m, c, v }; });
+        UP.forEach(u => { if (state.ups[u.id] || u.s > state.stage || !afford(u.c)) return;
+          const v = val(u.c); if (!best || v < best.v) best = { t: 'u', m: u, c: u.c, v }; });
+        if (!best) return; pay(best.c);
+        if (best.t === 'm') state.cnt[best.m.id] = (state.cnt[best.m.id] || 0) + 1; else state.ups[best.m.id] = true;
+        recompute(); } };
+      let t = 0;
+      for (let i = 0; i < maxMin * 120 && (state.stage < jusqua || brevetsGain() < 1); i++) {
+        const veines = CLICKABLE.filter(cl => clickUnlocked(cl)), gain = state.click * cache.click * cache.prestige;
+        for (let c = 0; c < 3; c++) { const cl = veines[c % veines.length]; if (cl) { state.res[cl.r] += gain; state.valeur += gain * RES[cl.r].v; } }
+        tick(0.5); t += 0.5; if (i % 4 === 0) acheter();
+      }
+      return { min: t / 60, stage: state.stage, gain: brevetsGain() };
+    };
+    window.__ratios = () => {
+      const L = state.licences, avec = JSON.parse(JSON.stringify(cache));
+      state.licences = {}; recompute(); const sans = JSON.parse(JSON.stringify(cache));
+      state.licences = L; recompute();
+      const P = (x, n) => Math.pow(x, n || 0), ecarts = [];
+      const cmp = (nom, a, b, att) => { if (Math.abs(a / b / att - 1) > 1e-9) ecarts.push(nom + ' ' + (a / b) + ' != ' + att); };
+      cmp('global', avec.global, sans.global, P(1.06, L.cadence));
+      cmp('manuel', avec.prestige, sans.prestige, P(1.15, L.outillage));
+      cmp('etape1', avec.stage[1], sans.stage[1], P(1.2, L.extraction));
+      [2, 3].forEach(s => cmp('etape' + s, avec.stage[s], sans.stage[s], P(1.12, L.metallurgie)));
+      [4, 5].forEach(s => cmp('etape' + s, avec.stage[s], sans.stage[s], P(1.12, L.reseau)));
+      [2, 3, 4, 5, 7].forEach(s => { cmp('cap' + s, avec.cap[s], sans.cap[s], P(1.08, L.convois)); cmp('xfer' + s, avec.xfer[s], sans.xfer[s], P(1.08, L.convois)); });
+      cmp('oleoduc', avec.pipe, sans.pipe, P(1.1, L.oleoduc));
+      cmp('labo', avec.mach.lab, sans.mach.lab, P(1.1, L.recherche));
+      return ecarts;
+    };
+  });
+  const plans = [
+    { nom: 'extraction + cadence', lic: { extraction: 20, cadence: 99 }, act: [] },
+    { nom: 'cadence/outillage/metallurgie + stock/outils/ameliorations', lic: { cadence: 20, outillage: 10, metallurgie: 10 }, act: ['stock', 'outils', 'ameliorations'] },
+    { nom: 'transport + reseau', lic: { convois: 15, oleoduc: 12, reseau: 10, cadence: 99 }, act: [] },
+  ];
+  const durees = [];
+  for (let run = 0; run < plans.length; run++) {
+    const jeu = await page.evaluate(() => __jouer(5, 60));
+    durees.push(jeu.min);
+    check(`bot run ${run + 1} : etape 5 atteinte, au moins 1 brevet a gagner`, jeu.stage >= 5 && jeu.gain >= 1, jeu);
+    if (!(jeu.gain >= 1)) break;
+    await panneau(() => {});
+    await page.evaluate(() => { presDraft.lic = {}; presDraft.act = {}; presRender(); });
+    const plan = plans[run];
+    // actifs d'abord : Cadence a 99 absorberait sinon tout le budget
+    for (const id of plan.act) await page.click(`#presBody [data-actif="${id}"]`);
+    for (const [id, n] of Object.entries(plan.lic))
+      for (let i = 0; i < n; i++) {
+        const sel = `#presBody [data-lic="${id}"][data-d="1"]`;
+        if (await page.$eval(sel, e => e.disabled)) break;
+        await page.click(sel);
+      }
+    const pre = await page.evaluate(() => ({ budget: presBudget(), spent: allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()) }));
+    await restructurer();
+    const post = await page.evaluate(() => ({
+      brevets: state.brevets, formule: Math.floor(10 * Math.log10(state.valeurTot / 1e6)),
+      libres: brevetsLibres(), hdr: document.getElementById('hBrevets').textContent, ecarts: __ratios(),
+    }));
+    check(`bot restructuration ${run + 1} (${plan.nom}) : brevets = formule`, post.brevets === post.formule && post.brevets === pre.budget, [post, pre]);
+    check(`bot restructuration ${run + 1} : libres = budget - immobilise`, post.libres === pre.budget - pre.spent && post.hdr.startsWith(post.libres + ' / '), [post, pre]);
+    check(`bot restructuration ${run + 1} : chaque licence applique son taux`, post.ecarts.length === 0, post.ecarts);
+  }
+  check('bot : le run 2 (apres brevets) atteint l\'etape 5 plus vite que le run 1', durees[1] < durees[0], durees);
 
   await browser.close();
   const bad = results.filter(r => !r.ok);

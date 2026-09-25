@@ -1277,7 +1277,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.11.0';
+const GAME_VERSION='0.11.1';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -1856,6 +1856,12 @@ function closePrestige(){ presOn=false; presDraft=null; $('presOverlay').style.d
 function presRender(){
   if(!presDraft)return;
   const ed=prestigeReady(), b=presBudget(), g=brevetsGain();
+  /* L'étape choisie est gardée d'un run à l'autre (reconduire le même choix est le cas fréquent),
+     mais le panneau n'offre que les étapes atteintes pendant CE run. Sans ce rabattement, une
+     reprise réglée sur 7 lors d'un run précédent, puis recochée à l'étape 4, facturait l'étape 7
+     et y envoyait le joueur, alors qu'aucun bouton n'était surligné. Hors restructuration on ne
+     touche à rien : le panneau montre alors la répartition en vigueur telle quelle. */
+  if(ed) ACTIFS.forEach(a=>{ if(a.pick!==undefined&&presDraft.pick[a.id]>state.stage) presDraft.pick[a.id]=state.stage; });
   const spent=allocSpent(presDraft.lic,presDraft.act,presDraft.pick,b), libre=b-spent;
   presSig=b+'|'+ed;
   let h='<div class="presh"><span>budget <b>'+b+'</b> brevets'+
@@ -1870,7 +1876,12 @@ function presRender(){
                                   :' Il faut au moins 1 brevet à gagner — continue à produire de la valeur.')+'</div>';
 
   h+='<div class="sec">Licences<span class="hint">permanentes · 1 brevet par niveau</span></div>';
-  const lics=LICENCES.filter(l=>state.stage>=l.s);
+  /* Une ligne s'affiche aussi quand la répartition EN VIGUEUR l'utilise, même avant son étape de
+     révélation : allouée à l'étape 7, une licence Recherche ou un portefeuille scientifique
+     restaient sinon comptés dans le budget d'une restructuration faite à l'étape 4, invisibles
+     et impossibles à retirer. Le test porte sur `state` et non sur le brouillon, pour qu'une
+     ligne ramenée à zéro ne disparaisse pas sous le curseur. */
+  const lics=LICENCES.filter(l=>state.stage>=l.s||state.licences[l.id]);
   h+=lics.map(l=>{
     const lv=presDraft.lic[l.id]||0, mx=l.max;
     const step=(d,t)=>'<button data-lic="'+l.id+'" data-d="'+d+'"'+
@@ -1883,7 +1894,7 @@ function presRender(){
   }).join('');
 
   h+='<div class="sec">Actifs conservés<span class="hint">immobilisés pour le run à venir, rendus au suivant</span></div>';
-  const acts=ACTIFS.filter(a=>state.stage>=a.s);
+  const acts=ACTIFS.filter(a=>state.stage>=a.s||state.actifs[a.id]);
   h+=acts.map(a=>{
     const on=!!presDraft.act[a.id], n=pickClamp(a,presDraft.pick[a.id]), c=actifCost(a,b,n);
     let pk='';
@@ -3191,8 +3202,13 @@ function restore(raw){
   state.licences=state.licences||{}; state.actifs=state.actifs||{}; state.actifPick=state.actifPick||{};
   /* Migration 0.7.0 — les machines sont désormais plafonnées (1 + boosts) et c'est la Force qui
      porte le scaling. Chaque exemplaire au-delà du premier devient un niveau de Force : comme la
-     Force est additive (u = 1 + niveaux), la production est conservée à l'identique. */
-  MACH.forEach(m=>{ if(!m.r||!m.out||m.lab)return;
+     Force est additive (u = 1 + niveaux), la production est conservée à l'identique.
+     Réservée aux sauvegardes d'avant 0.10.0 (sans `presV` dans la sauvegarde lue, même raison que
+     plus haut) : depuis l'actif Ligne de production, un effectif au-dessus du plafond est un état
+     légitime — la ligne est conservée sans les Optimisations d'étage supérieur qui doublaient son
+     plafond. Lancée à chaque chargement, la conversion transformait 16 hauts-fourneaux en
+     15 niveaux de Production et divisait leur débit par trois au premier rechargement. */
+  if(d.state.presV===undefined) MACH.forEach(m=>{ if(!m.r||!m.out||m.lab)return;
     const n=state.cnt[m.id]||0; if(n<=1)return;
     const cap=capOf(m); if(n<=cap)return;
     state.cnt[m.id+'_for']=(state.cnt[m.id+'_for']||0)+(n-cap);
