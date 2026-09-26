@@ -564,6 +564,26 @@ try {
   }
   check('bot : le run 2 (apres brevets) atteint l\'etape 5 plus vite que le run 1', durees[1] < durees[0], durees);
 
+  // ---------- 10. moteur : une reserve insuffisante se partage au prorata de la demande
+  // Cas reel qui bloquait l'etape 4 : une Ligne conservee laisse l'usine d'assemblage a Production 77
+  // a cote d'une usine a circuits neuve. Toutes deux prennent l'acier du meme tampon ; l'assemblage,
+  // servi en premier dans MACH, le vidait a chaque impulsion et aucun circuit ne sortait.
+  await nouvellePartie();
+  const partage = await page.evaluate(() => {
+    state.stage = 3; state.tab = 3; state.licences = {}; state.actifs = {};
+    state.cnt = { assem: 1, assem_for: 77, circ: 1 }; state.off = {};
+    recompute();
+    const pa = PATHS.find(p => p.dest === 3 && p.res === 'acier'), pl = PATHS.find(p => p.dest === 3 && p.res === 'lcuivre');
+    const pb = PATHS.find(p => p.dest === 3 && p.res === 'bois');
+    state.buf[pa.id] = 1000; state.buf[pl.id] = 1e12; state.buf[pb.id] = 1e12;
+    state.prodAcc.assem = 0.999; state.prodAcc.circ = 0.999;
+    const c0 = state.res.circuit || 0;
+    tick(0.05);
+    return { assem: M.assem.eff, circ: M.circ.eff, circuits: (state.res.circuit || 0) - c0 };
+  });
+  check('prorata : l\'usine a circuits recoit sa part d\'acier', partage.circ > 0 && partage.circuits > 0, partage);
+  check('prorata : meme fraction servie aux deux consommateurs', Math.abs(partage.assem - partage.circ) < 1e-9, partage);
+
   await browser.close();
   const bad = results.filter(r => !r.ok);
   for (const r of results) console.log((r.ok ? 'OK   ' : 'ECHEC') + '  ' + r.name + (r.ok ? '' : '  -> ' + JSON.stringify(r.detail)));

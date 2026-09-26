@@ -1277,7 +1277,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.13.0';
+const GAME_VERSION='0.14.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -1499,6 +1499,13 @@ function tick(dt){
 
     tickPipe(step);
 
+    /* Deux passes. La première fixe ce que chaque machine VOUDRAIT produire à ce pas (impulsions,
+       Force, multiplicateurs) et totalise la demande de chaque réserve ; la seconde sert les
+       machines. Une seule passe servait dans l'ordre de MACH : quand une réserve ne suffisait pas,
+       la première machine servie la vidait. Mesuré sur une Ligne conservée : l'usine d'assemblage
+       (Production 77) passait avant l'usine à circuits, raflait tout l'acier à chaque impulsion,
+       et l'étape 4 — qui exige des circuits — ne se débloquait jamais. */
+    const jobs=[], dem={};
     for(const m of MACH){
       let n=state.cnt[m.id]||0;
       if(m.labLvl||m.opti||m.global||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp||m.cadenceUp||m.forceUp){m.eff=1;continue;}
@@ -1530,6 +1537,10 @@ function tick(dt){
         state.prodAcc[m.id]=acc-pulses;
         cyc=pulses*(cache.force[m.id]||1)*mMult(m)*lv;
       } else cyc=0;
+      jobs.push({m,n,cyc});
+      if(m.in)for(const k in m.in){ const key=m.s+'|'+k; dem[key]=(dem[key]||0)+m.in[k]*cyc; }
+    }
+    for(const j of jobs){ const m=j.m, n=j.n; let cyc=j.cyc;
       if(m.colon){
         const gain=n*m.colon*step*cache.colon;
         state.systemes=Math.min(100000,state.systemes+gain);
@@ -1545,10 +1556,18 @@ function tick(dt){
            l'ordre de la recette, comme avant. L'ancien choix était trompeur : un chantier de
            fusées annonçait « manque de Moteur » alors que les moteurs s'accumulaient par
            milliards et que le vrai coupable était le plastique, à zéro. Le seul outil de
-           diagnostic du joueur pointait la mauvaise ressource, donc la mauvaise machine. */
+           diagnostic du joueur pointait la mauvaise ressource, donc la mauvaise machine.
+           PRORATA : chaque machine a droit à la réserve disponible divisée par la demande de toutes
+           les machines pas encore servies, elle comprise (dem[key], décrémenté au passage de la
+           demande NOMINALE). Réserve fixe => part exactement proportionnelle à la demande, quel que
+           soit l'ordre. Ce qu'une machine bridée par une AUTRE entrée ne prend pas reste aux
+           suivantes, et ce qu'une machine produit plus tôt dans le pas (plastique de la raffinerie
+           pour les moteurs) profite encore aux suivantes, comme avant. */
         let f=1, miss=null;
         for(const k in m.in){ const need=m.in[k]*cyc; if(need<=0)continue;
-          const r=poolGet(m.s,k)/need;
+          const key=m.s+'|'+k, rest=Math.max(need,dem[key]||0);
+          dem[key]=rest-need;
+          const r=poolGet(m.s,k)/rest;
           if(r<f){ f=r; miss=k; } }
         f=Math.max(0,Math.min(1,f));
         if(f<1){ cyc*=f; m.eff=f; m.miss=miss; } else { m.eff=1; m.miss=null; }
