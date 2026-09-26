@@ -783,13 +783,13 @@ const PATHS=[];
 /* Mode de transport de chaque étape de destination : forme de la voie et des quais, nom des
    véhicules, et leur longueur à l'écran — qui fixe la largeur des quais et l'espacement d'une file.
    Suit les descriptions d'étape (STAGES) : convois miniers, camions, trains, avions cargo, puis
-   vaisseaux coloniaux vers les planètes de l'étape 7. */
+   fusées coloniales vers les planètes de l'étape 7. `lw` = hauteur d'une voie, 12 px par défaut. */
 const TRANSPORT_MODE={
  2:{voie:'piste', n:['convoi minier','convois miniers'], len:20},
  3:{voie:'route', n:['camion','camions'],               len:22},
  4:{voie:'rail',  n:['train','trains'],                 len:40},
  5:{voie:'air',   n:['avion','avions'],                 len:24},
- 7:{voie:'orbite',n:['vaisseau','vaisseaux'],           len:22},
+ 7:{voie:'orbite',n:['fusée','fusées'],                 len:12, lw:16},   // fusées debout : voies plus hautes
 };
 const PIPE_RES='petrole';   // le pétrole voyage par oléoduc, jamais par véhicule
 for(let s=2;s<=8;s++){ const seen={};
@@ -1289,7 +1289,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.16.0';
+const GAME_VERSION='0.16.1';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -2247,13 +2247,21 @@ function drawVehicle(x,cx,cy,dir,stageNum,o){
       if(f>0){ x.fillStyle=load; x.fillRect(-5,-1.6,Math.max(1,10*f),3.2); }
       x.fillStyle='#5b7691'; x.beginPath(); x.moveTo(-3,.8); x.lineTo(5,.8); x.lineTo(1,4.2); x.lineTo(-4,4.2); x.closePath(); x.fill();
       lights(11.2,-11,-.5); break; }
-    case 7: { // Vaisseau colonial : coque effilée, nacelle de fret sous la coque, flamme en marche
-      if(o.moving){ x.fillStyle='rgba(232,112,58,.85)'; x.beginPath(); x.moveTo(-10,-1.6); x.lineTo(-15,0); x.lineTo(-10,1.6); x.fill(); }
+    case 7: { /* Fusée coloniale, VERTICALE : ogive, corps, ailerons, tuyère. Elle penche vers son
+         sens de marche (le miroir inverse l'inclinaison au retour), et se tient droite à quai. La
+         cargaison n'est pas accrochée dehors : c'est la soute vitrée du corps qui se remplit, de
+         bas en haut. */
+      if(!o.docked)x.rotate(.22);
+      if(o.moving){ x.fillStyle='rgba(232,112,58,.85)'; x.beginPath(); x.moveTo(-1.8,7.5); x.lineTo(0,12.5); x.lineTo(1.8,7.5); x.fill(); }
       x.fillStyle=body;
-      x.beginPath(); x.moveTo(-10,-3.2); x.lineTo(4,-3.2); x.lineTo(11,0); x.lineTo(4,2.6); x.lineTo(-10,2.6); x.closePath(); x.fill();
-      x.fillRect(-11,-2.2,1.5,4); x.fillStyle=glass; x.fillRect(4.5,-1.8,2.6,1.4);
-      x.fillStyle='#5b7691'; x.fillRect(-7,2.6,1,1.6); x.fillRect(2,2.6,1,1.6);    // pinces d'arrimage
-      if(f>0){ x.fillStyle=load; x.fillRect(-7.5,4.2,Math.max(1,11*f),3); }
+      x.beginPath(); x.moveTo(0,-11); x.quadraticCurveTo(3.6,-8,3.6,-5); x.lineTo(-3.6,-5); x.quadraticCurveTo(-3.6,-8,0,-11); x.fill();
+      x.fillRect(-3.6,-5,7.2,11);
+      x.beginPath(); x.moveTo(-3.6,2); x.lineTo(-6.5,7); x.lineTo(-3.6,6); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(3.6,2); x.lineTo(6.5,7); x.lineTo(3.6,6); x.closePath(); x.fill();
+      x.fillStyle='#5b7691'; x.fillRect(-2,6,4,1.6);                              // tuyère
+      x.fillStyle=glass; x.fillRect(-2.2,-3.6,4.4,8);                            // soute
+      if(f>0){ const h=8*f; x.fillStyle=load; x.fillRect(-2.2,4.4-h,4.4,h); }
+      x.strokeStyle='rgba(8,17,28,.6)'; x.lineWidth=.6; x.strokeRect(-2.2,-3.6,4.4,8);
       break; }
     default: x.fillStyle=body; x.fillRect(-6,-4,12,8);
   }
@@ -2401,7 +2409,7 @@ function drawLoops(){
     const bw=Math.max(30,Math.min(58,sw*.13));
     const dw=Math.max(tm.len+4,Math.min(44,sw*.065));  // un quai loge le véhicule entier
     const xB1=sx+bw, xL=xB1+dw, xB2=sx+sw-bw, xU=xB2-dw, lane=xU-xL;
-    const LW=12, yR=gy-LW-3;                           // axe de la voie, à hauteur des quais
+    const LW=tm.lw||12, yR=gy-LW-3;                    // axe de la voie, à hauteur des quais
     const yRet=yR-LW/2, yAll=yR+LW/2;                  // voie du haut (retour), du bas (aller)
     x.globalAlpha=p.paused?0.42:1;
 
@@ -2430,7 +2438,7 @@ function drawLoops(){
     (state.veh[p.id]||[]).forEach(v=>{
       if(v.state==='loading'||v.state==='unloading'){
         const qx=v.state==='loading'?xB1+dw/2:xU+dw/2;
-        drawVehicle(x,qx,yR,1,p.dest,{f:v.c/(p.cap||1),tint,blocked:false});
+        drawVehicle(x,qx,yR,1,p.dest,{f:v.c/(p.cap||1),tint,blocked:false,docked:true});
         // jauge au-dessus du quai : se remplit au chargement, se vide au déchargement — une jauge
         // figée = bouchon, et elle clignote passé LOAD_WARN
         const warn=v.state==='loading'&&(v.loadTimer||0)>=LOAD_WARN;
