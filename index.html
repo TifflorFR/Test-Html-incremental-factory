@@ -1277,7 +1277,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.12.0';
+const GAME_VERSION='0.13.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -1754,6 +1754,20 @@ function licRate(l){ const e=l.e;
    moteur générique). Les périmètres ne se recouvrent jamais : « Ligne de production » ignore
    volontairement les véhicules, qui appartiennent à « Réseau logistique », et la Force de frappe,
    qui a son propre actif — sans quoi payer deux fois rachèterait deux fois la même chose. */
+/* Dotation de la Reprise d'étape : ce que le bot de référence (bot.txt — 3 clics/s, achat
+   systématique du moins cher, sans brevet) a DÉPENSÉ en achats, ressource par ressource, depuis le
+   début de la partie jusqu'au jalon de chaque étape. Les jalons sont atteints à 5,7 / 11,1 / 15,6 /
+   23,4 / 30,5 min. Deux chiffres significatifs : c'est un ordre de grandeur de progression, pas un
+   remboursement au centime. S'arrête à l'étape 6 : au-delà, la progression passe par l'arbre de
+   recherche, que le bot ne joue pas — un chiffre extrapolé ne serait pas calibré. Toute
+   modification des coûts (MACH, UP) ou des jalons (UNLOCK) impose de remesurer cette table. */
+const REPRISE_DOT={
+ 2:{bois:3.8e4,pierre:3.5e4,fer:1.1e4,charbon:1.5e3},
+ 3:{bois:2.1e6,pierre:6.6e5,fer:3.1e5,charbon:9.5e3,acier:5.3e3,cuivre:2.6e3},
+ 4:{bois:2.2e7,pierre:8.0e6,fer:2.4e6,charbon:1.5e4,acier:7.3e4,cuivre:1.2e5,lcuivre:1.3e4,module:330},
+ 5:{bois:1.5e9,pierre:6.1e8,fer:1.8e8,charbon:1.5e4,acier:1.3e7,cuivre:8.0e6,lcuivre:1.7e6,module:2.6e5,circuit:4.9e4,moteur:38},
+ 6:{bois:7.2e10,pierre:2.9e10,fer:1.8e9,charbon:1.5e4,acier:3.1e8,cuivre:1.6e7,lcuivre:1.0e7,module:5.3e7,circuit:7.2e6,moteur:9.9e4,plastique:1.1e6,fusee:53},
+};
 const ACTIFS=[
  {id:'stock', n:'Stock de report', s:3, pct:.04,
   d:'10 % de chaque ressource survit à la restructuration.',
@@ -1762,7 +1776,7 @@ const ACTIFS=[
   d:'Les niveaux de Force de frappe sont conservés.',
   keep:(ns,old)=>{ MACH.forEach(m=>{ if(m.clickUp&&old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; }); }},
  {id:'ligne', n:'Ligne de production', s:3, pct:.12, pick:1,
-  d:'Les machines d\'une étape au choix sont conservées, Cadence et Production comprises.',
+  d:'Les machines d\'une étape au choix sont conservées, Cadence et Production comprises, dans la limite des plafonds du nouveau run.',
   keep:(ns,old,n)=>{ MACH.forEach(m=>{
     if(m.s!==n||m.clickUp||m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp)return;
     if(old.cnt[m.id])ns.cnt[m.id]=old.cnt[m.id]; }); }},
@@ -1781,10 +1795,16 @@ const ACTIFS=[
  {id:'ameliorations', n:'Portefeuille d\'améliorations', s:4, pct:.18,
   d:'Toutes les améliorations achetées restent acquises.',
   keep:(ns,old)=>{ ns.ups=old.ups; }},
- {id:'reprise', n:'Reprise d\'étape', s:4, pctPer:.08, pick:2,
-  d:'La partie redémarre directement à l\'étape choisie, sans repasser les jalons. Le prix monte de 8 % du budget par étape sautée.',
-  keep:(ns,old,n)=>{ ns.stage=n; ns.tab=n; for(let i=1;i<=n;i++)ns.seen[i]=true;
-    CLICKABLE.forEach(c=>unlockedClicks[c.r]=true); }},
+ {id:'reprise', n:'Reprise d\'étape', s:4, pctPer:.08, pick:2, pickMax:6,
+  d:'La partie repart de l\'étape 1 avec les ressources qu\'il faut dépenser pour atteindre l\'étape choisie. Le prix monte de 8 % du budget par étape.',
+  /* Ne saute plus l'étape : il la finance. L'ancienne reprise plaçait directement à l'étape choisie
+     et ne faisait rien gagner — mesuré au bot à budget égal, reprendre à l'étape 4 atteignait
+     l'étape 6 en 19 min, contre 10 min en mettant les mêmes brevets en Cadence. Démarrer tard
+     ouvrait d'un coup tous les chemins, qui aspiraient le fer et le bois vers l'aval : après
+     4 min, 130 fer contre 5 100 en partant de l'étape 1. Les jalons restent à franchir ; c'est
+     l'économie qu'on avance, pas le compteur d'étape. Les ressources dotées ne comptent pas
+     comme valeur produite : elles ne rapportent aucun brevet. */
+  keep:(ns,old,n)=>{ const d=REPRISE_DOT[n]; for(const k in d) ns.res[k]=(ns.res[k]||0)+d[k]; }},
  {id:'science', n:'Portefeuille scientifique', s:6, pct:.30,
   d:'L\'arbre de recherche et les segments Dyson construits sont conservés.',
   keep:(ns,old)=>{ ns.research=old.research; ns.dyson=old.dyson; }},
@@ -1797,9 +1817,9 @@ const ACTBY={}; ACTIFS.forEach(a=>ACTBY[a.id]=a);
    précis où elle devient intéressante. En pourcentage, le taux de change ne bouge jamais — tout
    racheter coûte toujours 83 % du budget, reprise d'étape non comprise. Minimum 1 brevet : un
    actif gratuit ne pèserait plus rien dans la décision. */
-function actifPct(a,n){ return a.pctPer ? a.pctPer*Math.max(0,(n||2)-1) : a.pct; }   // n-1 étapes sautées
+function actifPct(a,n){ return a.pctPer ? a.pctPer*Math.max(0,(n||2)-1) : a.pct; }   // n-1 étapes financées
 function actifCost(a,budget,n){ return Math.max(1,Math.ceil(actifPct(a,n)*budget)); }
-function pickClamp(a,v){ return a.pick===undefined?undefined:Math.max(a.pick,Math.min(8,v||a.pick)); }
+function pickClamp(a,v){ return a.pick===undefined?undefined:Math.max(a.pick,Math.min(a.pickMax||8,v||a.pick)); }
 /* Total immobilisé par une répartition. Sert au panneau (brouillon en cours d'édition) comme à
    l'entête (répartition réellement en vigueur), d'où les tables passées en paramètres. */
 function allocSpent(lic,act,pick,budget){
@@ -1828,13 +1848,16 @@ function doPrestige(){
   for(const k in unlockedClicks)if(k!=='bois')delete unlockedClicks[k];
   state=ns;
   ACTIFS.forEach(a=>{ if(ns.actifs[a.id]) a.keep(ns,old,pickClamp(a,ns.actifPick[a.id])); });
-  /* Écrêtage du transport conservé. Ses plafonds doublent avec chaque Optimisation d'étage
-     supérieur, que ni le Réseau de convois ni l'Oléoduc ne conservent : les niveaux repris
-     dépassaient donc le plafond du nouveau run. tickPaths les bornait déjà en silence (40 niveaux
-     de diamètre dont 34 utiles) et la flotte, elle, ne l'était pas du tout (13 véhicules pour un
-     plafond de 8). On ramène l'effectif au plafond, une fois tous les actifs appliqués puisque la
-     Ligne peut, elle, avoir repris l'Optimisation de son étape. */
-  MACH.forEach(m=>{ if(!(m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp))return;
+  /* Écrêtage de tout ce qui est conservé au-dessus d'un plafond. Les plafonds des machines de
+     production et du transport doublent avec chaque Optimisation d'étage supérieur, qu'aucun actif
+     ne conserve en entier : les effectifs repris dépassaient donc le plafond du nouveau run.
+     tickPaths bornait le transport en silence (40 niveaux de diamètre dont 34 utiles), la flotte
+     ne l'était pas (13 véhicules pour un plafond de 8), ni les machines de la Ligne (16
+     hauts-fourneaux pour un plafond de 1). Même règle partout : ce que seules les Optimisations
+     perdues permettaient est perdu. Passe après tous les actifs, la Ligne pouvant avoir repris
+     l'Optimisation de son étape. Cadence et Optimisations ont un plafond fixe, la Production
+     aucun : seuls transport et machines de production sont concernés. */
+  MACH.forEach(m=>{ if(!(m.fleet||m.spdUp||m.capUp||m.xferUp||m.pipeUp||(m.r&&m.out&&!m.lab)))return;
     const c=capOf(m); if((ns.cnt[m.id]||0)>c)ns.cnt[m.id]=c; });
   // flow et prodAvg sont des variables de module, pas des champs de state : sans ce reset
   // explicite elles gardent les débits du run précédent pendant toute la fenêtre de moyenne
@@ -1869,7 +1892,8 @@ function presRender(){
      reprise réglée sur 7 lors d'un run précédent, puis recochée à l'étape 4, facturait l'étape 7
      et y envoyait le joueur, alors qu'aucun bouton n'était surligné. Hors restructuration on ne
      touche à rien : le panneau montre alors la répartition en vigueur telle quelle. */
-  if(ed) ACTIFS.forEach(a=>{ if(a.pick!==undefined&&presDraft.pick[a.id]>state.stage) presDraft.pick[a.id]=state.stage; });
+  if(ed) ACTIFS.forEach(a=>{ const mx=Math.min(state.stage,a.pickMax||8);
+    if(a.pick!==undefined&&presDraft.pick[a.id]>mx) presDraft.pick[a.id]=mx; });
   const spent=allocSpent(presDraft.lic,presDraft.act,presDraft.pick,b), libre=b-spent;
   presSig=b+'|'+ed;
   let h='<div class="presh"><span>budget <b>'+b+'</b> brevets'+
@@ -1908,7 +1932,7 @@ function presRender(){
     let pk='';
     if(a.pick!==undefined){
       let bs='';
-      for(let i=a.pick;i<=state.stage;i++)
+      for(let i=a.pick;i<=Math.min(state.stage,a.pickMax||8);i++)
         bs+='<button class="pk'+(i===n?' on':'')+'" data-apick="'+a.id+'" data-n="'+i+'"'+(ed?'':' disabled')+'>étape '+i+'</button>';
       pk='<div class="toggles">'+bs+'</div>';
     }
@@ -3212,10 +3236,10 @@ function restore(raw){
      porte le scaling. Chaque exemplaire au-delà du premier devient un niveau de Force : comme la
      Force est additive (u = 1 + niveaux), la production est conservée à l'identique.
      Réservée aux sauvegardes d'avant 0.10.0 (sans `presV` dans la sauvegarde lue, même raison que
-     plus haut) : depuis l'actif Ligne de production, un effectif au-dessus du plafond est un état
-     légitime — la ligne est conservée sans les Optimisations d'étage supérieur qui doublaient son
-     plafond. Lancée à chaque chargement, la conversion transformait 16 hauts-fourneaux en
-     15 niveaux de Production et divisait leur débit par trois au premier rechargement. */
+     plus haut) : c'est une conversion unique, pas un contrôle permanent. Lancée à chaque
+     chargement, elle transformait en niveaux de Production tout effectif trouvé au-dessus du
+     plafond — 16 hauts-fourneaux conservés par la Ligne devenaient 15 niveaux de Production, débit
+     divisé par trois au premier rechargement. */
   if(d.state.presV===undefined) MACH.forEach(m=>{ if(!m.r||!m.out||m.lab)return;
     const n=state.cnt[m.id]||0; if(n<=1)return;
     const cap=capOf(m); if(n<=cap)return;

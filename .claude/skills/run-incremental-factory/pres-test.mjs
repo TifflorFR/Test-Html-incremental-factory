@@ -229,26 +229,27 @@ try {
   const budget2 = await page.evaluate(() => presBudget());
   const spent2 = await page.evaluate(() => allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()));
   check('budget = 70 brevets pour 1e13 de valeur', budget2 === 70, budget2);
-  // 4% + 5% + 18% + 30% de 70 = 3 + 4 + 13 + 21 ; reprise etape 6 = 5 etapes sautees = 40% -> 28
+  // 4% + 5% + 18% + 30% de 70 = 3 + 4 + 13 + 21 ; reprise etape 6 = 5 etapes = 40% -> 28
   check('cout des cinq actifs = 69', spent2 === 3 + 4 + 13 + 21 + 28, spent2);
   await page.click('#presBody [data-presgo]');
   await page.waitForTimeout(300);
   const end = await page.evaluate(() => ({
     stage: state.stage, tab: state.tab,
-    acier: state.res.acier, science: state.res.science,
+    acier: state.res.acier, science: state.res.science, bois: state.res.bois, valeur: state.valeur,
+    dot: REPRISE_DOT[6],
     outil: state.cnt.outil_frappe, hf: state.cnt.hf,
     ups: state.ups, research: state.research, dyson: state.dyson,
     planets: state.planets, astro: cache.astro,
     veines: Object.keys(unlockedClicks).length,
     libres: brevetsLibres(),
   }));
-  check('reprise : redemarrage a l\'etape 6', end.stage >= 6 && end.tab === 6, end);
-  // L'etape 7 se rouvre aussitot : son jalon est un noeud de recherche (B2), pas un debit a
-  // tenir, et le portefeuille scientifique vient d'etre rachete. Payer science + reprise donne
-  // donc l'etape suivante par-dessus le marche -- comportement voulu, pas un effet de bord.
-  check('reprise + science : jalon B2 deja franchi, etape 7 rouverte', end.stage === 7, end.stage);
-  check('reprise : toutes les veines rouvertes', end.veines === CLICKABLE_N, end.veines);
-  check('stock : 10 % de l\'acier conserve', Math.abs(end.acier - 500) < 8, end.acier);   // la chaine consomme deja pendant les 300 ms
+  // La reprise ne saute plus l'etape, elle la finance : on repart de l'etape 1 avec la depense
+  // mesuree du bot de reference jusqu'au jalon choisi (REPRISE_DOT).
+  check('reprise : la partie repart a l\'etape 1', end.stage === 1 && end.tab === 1, end.stage);
+  check('reprise : dotation de l\'etape 6 versee', Math.abs(end.bois / end.dot.bois - 1) < 1e-3, [end.bois, end.dot.bois]);
+  check('stock + reprise : acier = 10 % + dotation', Math.abs(end.acier / (500 + end.dot.acier) - 1) < 1e-3, [end.acier, end.dot.acier]);
+  check('reprise : la dotation ne compte pas comme valeur produite', end.valeur < 1e9, end.valeur);
+  check('reprise : toutes les veines rouvertes (seuils couverts par la dotation)', end.veines === CLICKABLE_N, end.veines);
   check('stock : 10 % de la science conservee', end.science === 7777, end.science);
   check('outils : Force de frappe conservee', end.outil === 40, end.outil);
   check('machines de production perdues (ligne non prise)', end.hf === undefined, end.hf);
@@ -378,20 +379,22 @@ try {
     act: [...document.querySelectorAll('#presBody [data-actif]')].map(x => x.dataset.actif),
   }));
 
-  // 9a. Run 1 a l'etape 7 : licence Recherche + portefeuille scientifique, puis reprise reglee sur 7
-  //     et decochee (le choix d'etape reste dans la repartition). Run 2 restructure a l'etape 4,
-  //     ou ces deux lignes ne sont normalement pas encore revelees.
+  // 9a. Run 1 a l'etape 7 : licence Recherche + portefeuille scientifique, puis reprise reglee sur 6
+  //     (son maximum) et decochee -- le choix d'etape reste dans la repartition. Run 2 restructure
+  //     a l'etape 4, ou ces deux lignes ne sont normalement pas encore revelees.
   await nouvellePartie();
   await panneau(() => { state.stage = 7; state.tab = 7; state.cnt = {}; state.research = { B1: 1, B2: 1 }; state.valeur = 1e14; });
   for (let i = 0; i < 10; i++) await page.click('#presBody [data-lic="recherche"][data-d="1"]');
   await page.click('#presBody [data-actif="science"]');
   await page.click('#presBody [data-actif="reprise"]');
-  await page.click('#presBody [data-apick="reprise"][data-n="7"]');
+  const choixReprise = await page.evaluate(() => [...document.querySelectorAll('#presBody [data-apick="reprise"]')].map(x => +x.dataset.n));
+  check('reprise : choix limite a l\'etape 6, meme a l\'etape 7', Math.max(...choixReprise) === 6, choixReprise);
+  await page.click('#presBody [data-apick="reprise"][data-n="6"]');
   await page.click('#presBody [data-actif="reprise"]');
   await restructurer();
   const r1 = await page.evaluate(() => ({ stage: state.stage, lic: state.licences, act: state.actifs, pick: state.actifPick }));
-  check('multi-run 1 : Recherche 10 + science, reprise decochee (choix 7 garde)',
-        r1.stage === 1 && r1.lic.recherche === 10 && r1.act.science && !r1.act.reprise && r1.pick.reprise === 7, r1);
+  check('multi-run 1 : Recherche 10 + science, reprise decochee (choix 6 garde)',
+        r1.stage === 1 && r1.lic.recherche === 10 && r1.act.science && !r1.act.reprise && r1.pick.reprise === 6, r1);
 
   await panneau(() => { state.stage = 4; state.tab = 4; state.valeur = 1e15; });
   const vis2 = await lignes();
@@ -408,18 +411,21 @@ try {
     on: [...document.querySelectorAll('#presBody [data-apick="reprise"].on')].map(x => x.dataset.n),
     spent: allocSpent(presDraft.lic, presDraft.act, presDraft.pick, presBudget()),
   }));
-  check('multi-run 2 : reprise rabattue sur l\'etape atteinte (4, pas 7)', rep2.pick === 4 && rep2.on.join() === '4', rep2);
-  check('multi-run 2 : reprise facturee 24 % (3 etapes sautees), pas 48 %', rep2.cost === Math.ceil(.24 * rep2.budget), rep2);
+  check('multi-run 2 : reprise rabattue sur l\'etape atteinte (4, pas 6)', rep2.pick === 4 && rep2.on.join() === '4', rep2);
+  check('multi-run 2 : reprise facturee 24 %, pas 40 %', rep2.cost === Math.ceil(.24 * rep2.budget), rep2);
   check('multi-run 2 : seule la reprise est immobilisee', rep2.spent === rep2.cost, rep2);
   await page.screenshot({ path: shot('multirun-reprise-rabattue') });
   await restructurer();
-  const r2 = await page.evaluate(() => ({ stage: state.stage, lic: state.licences, act: state.actifs, research: state.research, lab: cache.mach.lab }));
-  check('multi-run 2 : reprise a l\'etape 4, pas a l\'etape 7', r2.stage === 4, r2.stage);
+  const r2 = await page.evaluate(() => ({ stage: state.stage, lic: state.licences, act: state.actifs, research: state.research, lab: cache.mach.lab,
+    bois: state.res.bois, dot4: REPRISE_DOT[4].bois }));
+  check('multi-run 2 : dotation de l\'etape 4, pas de l\'etape 6', r2.stage === 1 && Math.abs(r2.bois / r2.dot4 - 1) < 1e-3, r2);
   check('multi-run 2 : licence Recherche retiree', !r2.lic.recherche && r2.lab === 1, r2);
   check('multi-run 2 : science decoche -> arbre de recherche perdu', !r2.act.science && Object.keys(r2.research).length === 0, r2);
 
   // 9b. Ligne conservee au-dessus de son plafond (Optimisations superieures non conservees) :
-  //     l'effectif doit survivre au rechargement, pas etre converti en niveaux de Production.
+  //     ecretee au plafond du nouveau run, Production conservee. Puis un effectif au-dessus du
+  //     plafond doit survivre au rechargement : la conversion 0.7.0 ne vaut que pour les
+  //     sauvegardes d'avant 0.10.0.
   await nouvellePartie();
   await panneau(() => {
     state.stage = 6; state.tab = 6;
@@ -430,8 +436,10 @@ try {
   await page.click('#presBody [data-apick="ligne"][data-n="2"]');
   await restructurer();
   const lireHf = () => page.evaluate(() => ({ hf: state.cnt.hf, hf_for: state.cnt.hf_for, cap: capOf(M.hf), debit: state.cnt.hf * cache.force.hf }));
+  const ecreteL = await lireHf();
+  check('ligne au-dessus du plafond : ecretee a 1 haut-fourneau, Production conservee', ecreteL.hf === 1 && ecreteL.cap === 1 && ecreteL.hf_for === 5, ecreteL);
+  await page.evaluate(() => { state.cnt.hf = 16; recompute(); });
   const avantR = await lireHf();
-  check('ligne au-dessus du plafond : 16 hauts-fourneaux, plafond 1', avantR.hf === 16 && avantR.cap === 1, avantR);
   await page.evaluate(() => save());
   await page.waitForTimeout(200);
   await page.goto(`http://localhost:${PORT}/index.html`);
@@ -440,8 +448,8 @@ try {
   await page.waitForSelector('#btnDev');
   await closePops();
   const apresR = await lireHf();
-  check('ligne au-dessus du plafond : effectif intact apres rechargement', apresR.hf === 16 && apresR.hf_for === 5, apresR);
-  check('ligne au-dessus du plafond : debit intact apres rechargement', Math.abs(apresR.debit / avantR.debit - 1) < 1e-9, [avantR.debit, apresR.debit]);
+  check('au-dessus du plafond : effectif intact apres rechargement (pas de conversion 0.7.0)', apresR.hf === 16 && apresR.hf_for === 5, apresR);
+  check('au-dessus du plafond : debit intact apres rechargement', Math.abs(apresR.debit / avantR.debit - 1) < 1e-9, [avantR.debit, apresR.debit]);
 
   // 9b bis. Transport conserve au-dela du plafond du nouveau run : les Optimisations des etages
   //     superieurs (camion..navette) doublaient ses plafonds et ne sont pas conservees. Ecrete a la
