@@ -5,46 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Arbre de recherche</title>
 <style>
+/* Habillage « atelier » — mêmes variables que index.html (tôle vert machine-outil, jaune
+   sécurité, afficheurs ambrés). Polices système uniquement : la page s'ouvre hors ligne. */
 :root{
-  --navy-900:#070d16; --navy-800:#0b1522; --navy-700:#101e30; --navy-600:#16293f;
-  --line:#1e3149;
-  --brass:#c9963f; --brass-dim:#8a6829;
-  --ember:#e8703a; --ember-dim:#7d3a1c;
-  --steel:#8fa8bf; --ink:#dfe9f2;
-  --ok:#5fb87a; --warn:#d8a13c; --bad:#c5533f;
-  /* accent par branche — décliné sur navy/laiton/ember */
-  --br-spine:#c9963f;
+  --navy-900:#141615; --navy-800:#1c201e; --navy-700:#262b28; --navy-600:#2f3631;
+  --line:#0c0e0d; --grid:rgba(236,232,218,.035);
+  --brass:#f2b31b; --brass-dim:#8f6a12;
+  --ember:#e0611f; --ember-dim:#7a3512;
+  --steel:#a7ad9f; --ink:#ece8da;
+  --ok:#8cc63f; --warn:#f2b31b; --bad:#e0442b;
+  --plate:#37413a; --plate-hi:#434e46; --plate-lo:#2b332e;
+  --lcd:#0b0f0c; --amber:#ffb640;
+  --hazard:repeating-linear-gradient(-45deg,#f2b31b 0 9px,#141615 9px 18px);
+  --rivet:radial-gradient(circle,#8a948b 0 1.3px,#56605a 1.8px,#0c0e0d 2.4px,transparent 3px);
+  --head:"Bahnschrift","DIN Alternate","DIN 2014","Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* accent par branche : la colonne vertébrale et l'industrie reprennent le jaune et l'orange
+     du thème ; extraction, spatial et expansion gardent leur teinte propre pour rester
+     distinguables d'un coup d'œil sur l'arbre */
+  --br-spine:#f2b31b;
   --br-extraction:#4fa8c9;
-  --br-industrie:#e8703a;
+  --br-industrie:#e0611f;
   --br-spatial:#9b8fd9;
   --br-expansion:#6bd0a3;
-  --br-placeholder:#3c4f66;
+  --br-placeholder:#4a534c;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;height:100%}
 body{
   background:
-    linear-gradient(rgba(120,170,220,.05) 1px, transparent 1px) 0 0/32px 32px,
-    linear-gradient(90deg, rgba(120,170,220,.05) 1px, transparent 1px) 0 0/32px 32px,
-    radial-gradient(900px 600px at 70% -10%, #14263c 0%, var(--navy-900) 60%);
+    linear-gradient(rgba(0,0,0,.35) 2px,transparent 2px) 0 0/240px 240px,
+    linear-gradient(90deg,rgba(0,0,0,.35) 2px,transparent 2px) 0 0/240px 240px,
+    linear-gradient(var(--grid) 1px,transparent 1px) 0 0/32px 32px,
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/32px 32px,
+    radial-gradient(900px 600px at 70% -10%,#2c332e 0%,var(--navy-900) 60%);
+  background-color:var(--navy-900);
   color:var(--ink);
-  font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-family:var(--head);
   font-size:14px; overflow:hidden;
   display:flex; flex-direction:column;
   -webkit-text-size-adjust:100%;
 }
 button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:none}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
 #top{
   flex:0 0 auto; display:flex; align-items:center; gap:12px;
-  padding:10px 14px; border-bottom:1px solid var(--line); background:rgba(7,13,22,.9);
+  padding:13px 14px 10px; border-bottom:1px solid var(--line);
+  background:var(--hazard) top/100% 5px no-repeat,linear-gradient(180deg,#2a302c,#1c201e);
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
 }
-#top .t{font-size:13px;letter-spacing:.1em;color:var(--brass)}
-#top .sci{margin-left:auto;font-size:12px;color:var(--steel)}
-#top .sci b{color:var(--ink)}
-#top .close{border:1px solid var(--line);padding:6px 12px;font-size:11px;letter-spacing:.08em;
-  color:var(--steel);border-radius:2px}
-#top .close:active{border-color:var(--brass-dim);color:var(--ink)}
+#top .t{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+#top .sci{margin-left:auto;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8b9187;
+  background:var(--lcd);border:1px solid var(--line);border-radius:2px;padding:4px 9px;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.8)}
+#top .sci b{color:var(--amber);font-family:var(--mono);font-weight:500;font-size:13px;text-shadow:0 0 6px rgba(255,182,64,.5)}
+#top .close{background:linear-gradient(180deg,#505a53,#3a423c);border:1px solid var(--line);border-bottom-width:3px;
+  padding:6px 12px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);border-radius:3px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+#top .close:hover{border-color:#6b4f0a}
+#top .close:active{transform:translateY(2px);border-bottom-width:1px}
 
 /* La carte défile : à 20 nœuds, tout faire tenir dans un écran de téléphone
    réduirait les nœuds à ~16 px, intouchables. On fixe donc une échelle lisible
@@ -53,7 +73,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:n
 #stage{flex:1 1 auto;position:relative;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
 #stage svg{display:block;margin:auto;touch-action:pan-x pan-y}
 
-.link{fill:none;stroke:var(--line);stroke-width:3}
+.link{fill:none;stroke:#2b322d;stroke-width:3}
 .spoke{fill:none;stroke-width:2.5;opacity:.22}
 
 .node-hit{cursor:pointer}
@@ -74,23 +94,33 @@ button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:n
 
 @media(prefers-reduced-motion:reduce){
   .state-buyable .halo-pulse,.revealing,.shaking{animation:none}
+  *{transition:none!important}
 }
 
 /* panneau fixe en bas — jamais ancré au nœud, donc jamais de débordement en bord d'écran */
 #sheet{
-  flex:0 0 auto; border-top:1px solid var(--brass-dim); background:var(--navy-800);
-  padding:12px 14px calc(12px + env(safe-area-inset-bottom)); display:none;
+  flex:0 0 auto; border-top:4px solid var(--brass);
+  background:
+    var(--rivet) left 6px top 6px/8px 8px no-repeat,
+    var(--rivet) right 6px top 6px/8px 8px no-repeat,
+    linear-gradient(180deg,var(--plate),var(--plate-lo));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 -8px 24px rgba(0,0,0,.45);
+  padding:12px 18px calc(12px + env(safe-area-inset-bottom)); display:none;
 }
 #sheet.show{display:block}
-#sheet .sn{font-size:14px;color:var(--ink);margin-bottom:4px}
-#sheet .sd{font-size:12px;color:var(--steel);line-height:1.5;margin-bottom:8px}
-#sheet .srow{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-top:3px}
-#sheet .lab{color:var(--steel)}
+#sheet .sn{font-size:16px;font-weight:700;letter-spacing:.02em;color:var(--ink);margin-bottom:4px}
+#sheet .sd{font-size:13px;color:#d3d0c3;line-height:1.5;margin-bottom:8px}
+#sheet .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;margin-top:4px}
+#sheet .srow>span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;background:var(--lcd);
+  color:var(--amber);padding:1px 7px;border-radius:2px;box-shadow:inset 0 2px 3px rgba(0,0,0,.8)}
+#sheet .lab{color:var(--steel);letter-spacing:.04em}
+#sheet .srow>span.ok{color:var(--ok)}
+#sheet .srow>span.bad{color:var(--bad)}
 #sheet .ok{color:var(--ok)}
 #sheet .bad{color:var(--bad)}
-#sheet .hintline{margin-top:9px;font-size:11px;color:var(--brass);letter-spacing:.04em}
-#sheet .hintline.muted{color:#5b7691}
-@keyframes costflash{0%,100%{background:transparent}30%{background:rgba(197,83,63,.28)}}
+#sheet .hintline{margin-top:10px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brass)}
+#sheet .hintline.muted{color:#8b9187;font-weight:400;text-transform:none;letter-spacing:.02em}
+@keyframes costflash{0%,100%{background:transparent}30%{background:rgba(224,68,43,.35)}}
 #sheet .costflash{animation:costflash .5s ease-out;border-radius:2px;padding:0 3px;margin:0 -3px}
 </style>
 </head>
