@@ -1277,7 +1277,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.14.0';
+const GAME_VERSION='0.15.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -2215,20 +2215,71 @@ function drawVehicleIcon(x,cx,cy,angleRad,color,stageNum){
   }
   x.restore();
 }
+/* Bâtiments aux deux bouts d'une ligne de transport, en élévation : un pictogramme par étape
+   productrice ou consommatrice, même principe que drawVehicleIcon (données par étape, pas par
+   identifiant de chemin). (x0, gy) = coin bas-gauche, posé sur le sol. */
+const BLDG={1:'MINE',2:'FONDERIE',3:'USINE',4:'ASSEMBLAGE',5:'CHANTIER',6:'STATION',7:'COLONIE',8:'FORGE'};
+function drawBuilding(x,x0,gy,w,h,stageNum){
+  const wall='#132234', edge='#2e4660', lit='rgba(201,150,63,.55)';
+  x.save(); x.fillStyle=wall; x.strokeStyle=edge; x.lineWidth=1;
+  const box=(bx,by,bw,bh)=>{ x.fillRect(bx,by,bw,bh); x.strokeRect(bx+.5,by+.5,bw-1,bh-1); };
+  const win=(bx,by)=>{ x.fillStyle=lit; x.fillRect(bx,by,3,3); x.fillStyle=wall; };
+  switch(stageNum){
+    case 1: { // Mine : chevalement en A au-dessus d'un carreau bas
+      box(x0,gy-h*.38,w,h*.38);
+      const cx=x0+w*.62, top=gy-h;
+      x.beginPath(); x.moveTo(cx-w*.22,gy-h*.38); x.lineTo(cx,top); x.lineTo(cx+w*.22,gy-h*.38);
+      x.moveTo(cx-w*.14,gy-h*.62); x.lineTo(cx+w*.14,gy-h*.62); x.stroke();
+      x.beginPath(); x.arc(cx,top+3,3,0,7); x.stroke();
+      win(x0+w*.15,gy-h*.26); break; }
+    case 2: { // Fonderie : halle + haute cheminée rougeoyante
+      box(x0,gy-h*.55,w*.72,h*.55);
+      box(x0+w*.74,gy-h,w*.16,h);
+      x.fillStyle='rgba(232,112,58,.75)'; x.fillRect(x0+w*.74+1,gy-h+1,w*.16-2,3);
+      win(x0+w*.14,gy-h*.36); win(x0+w*.42,gy-h*.36); break; }
+    case 3: { // Usine : toit en sheds
+      const bh=h*.6; box(x0,gy-bh,w,bh);
+      x.fillStyle=wall; x.beginPath(); x.moveTo(x0,gy-bh);
+      const n=3, tw=w/n;
+      for(let i=0;i<n;i++){ x.lineTo(x0+tw*i,gy-h); x.lineTo(x0+tw*(i+1),gy-bh); }
+      x.closePath(); x.fill(); x.stroke();
+      win(x0+w*.2,gy-bh*.5); win(x0+w*.5,gy-bh*.5); win(x0+w*.8-3,gy-bh*.5); break; }
+    case 4: { // Assemblage : hangar à toit cintré
+      const bh=h*.5; box(x0,gy-bh,w,bh);
+      x.beginPath(); x.moveTo(x0,gy-bh); x.quadraticCurveTo(x0+w/2,gy-h*1.05,x0+w,gy-bh); x.closePath(); x.fill(); x.stroke();
+      x.strokeRect(x0+w*.35+.5,gy-bh*.7+.5,w*.3,bh*.7-1); break; }
+    case 5: { // Chantier : hangar + portique de levage
+      box(x0,gy-h*.5,w*.62,h*.5);
+      const px=x0+w*.7; x.beginPath(); x.moveTo(px,gy); x.lineTo(px,gy-h); x.lineTo(x0+w,gy-h);
+      x.moveTo(x0+w-2,gy-h); x.lineTo(x0+w-2,gy-h*.6); x.stroke();
+      win(x0+w*.2,gy-h*.3); break; }
+    case 6: case 7: { // Station / Colonie : dôme pressurisé, antenne pour la colonie
+      const r=Math.min(w/2,h*.62);
+      x.beginPath(); x.arc(x0+w/2,gy,r,Math.PI,0); x.closePath(); x.fill(); x.stroke();
+      if(stageNum===7){ x.beginPath(); x.moveTo(x0+w/2,gy-r); x.lineTo(x0+w/2,gy-h); x.stroke();
+        x.fillStyle=lit; x.beginPath(); x.arc(x0+w/2,gy-h,2,0,7); x.fill(); }
+      win(x0+w/2-1.5,gy-r*.45); break; }
+    default: box(x0,gy-h*.7,w,h*.7);
+  }
+  x.restore();
+}
+/* Ligne de transport : bâtiment d'origine, quai de chargement, route à 2×1 voie, quai de
+   déchargement, bâtiment de destination. La simulation reste une boucle (v.p ∈ [0,1), chargement
+   en p.load = 0, déchargement en p.unload = 0,5) ; seul le tracé change. L'aller chargé
+   [0 ; 0,5] roule vers la droite sur la voie du bas, le retour à vide ]0,5 ; 1[ revient sur la
+   voie du haut — circulation à droite, vue de dessus. Les files se forment donc devant chaque quai,
+   sur la voie qui y mène : file au départ = manque en amont, file à l'arrivée = aval saturé. */
 function drawLoops(){
   const c=$('loopsC'); if(!c)return;
   const ps=PATHS.filter(p=>p.dest===state.tab); if(!ps.length)return;
-  // --- dimensionnement responsive : la résolution interne suit la taille réelle affichée,
-  //     sinon tout est écrasé horizontalement sur mobile et les files deviennent invisibles.
+  // résolution interne calée sur la taille affichée, sinon tout est écrasé sur mobile
   const dpr=Math.min(2,window.devicePixelRatio||1);
   const CSSW=Math.max(240,c.clientWidth||c.parentElement.clientWidth||320);
-  const MINSLOT=132;
+  const MINSLOT=380;                                   // en dessous, une ligne par rangée
   const cols=Math.max(1,Math.min(ps.length,Math.floor(CSSW/MINSLOT)));
   const rows=Math.ceil(ps.length/cols);
   const slot=CSSW/cols;
-  const R=Math.max(22,Math.min(40,slot*0.28));
-  const rowH=R*2+62;
-  const CSSH=rows*rowH+8;
+  const BH=40, rowH=BH+58, CSSH=rows*rowH+4;
   if(c.width!==Math.round(CSSW*dpr)||c.height!==Math.round(CSSH*dpr)){
     c.width=Math.round(CSSW*dpr); c.height=Math.round(CSSH*dpr);
   }
@@ -2236,71 +2287,113 @@ function drawLoops(){
   const x=c.getContext('2d');
   x.setTransform(dpr,0,0,dpr,0,0);
   x.clearRect(0,0,CSSW,CSSH);
+  const blink=Math.floor(Date.now()/300)%2===0;
   ps.forEach((p,idx)=>{
     const col=idx%cols, row=Math.floor(idx/cols);
-    const cx=slot*(col+.5), cy=row*rowH+R+12;
+    const sx=slot*col+8, sw=slot-16, top=row*rowH+10;
+    const gy=top+BH+6;                                 // niveau du sol, pied des bâtiments
+    const bw=Math.max(30,Math.min(58,sw*.13)), dw=Math.max(14,Math.min(26,sw*.065));
+    const xB1=sx+bw, xL=xB1+dw, xB2=sx+sw-bw, xU=xB2-dw, lane=xU-xL;
+    const LW=10, yR=gy-LW-3;                           // axe de la chaussée, à hauteur des quais
+    const yRet=yR-LW/2, yAll=yR+LW/2;                  // voie du haut (retour), du bas (aller)
     x.globalAlpha=p.paused?0.42:1;
-    const angAt=t=>-Math.PI/2+t*Math.PI*2;
-    const pt=(t,radius)=>{const a=angAt(t),r=radius===undefined?R:radius; return [cx+Math.cos(a)*r, cy+Math.sin(a)*r];};
-    x.strokeStyle='#1c2f45'; x.lineWidth=Math.max(6,R*0.22); x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
-    x.strokeStyle='#22384f'; x.lineWidth=1; x.beginPath(); x.arc(cx,cy,R,0,Math.PI*2); x.stroke();
-    // arc de file en rouge/ambre quand un bouchon est actif, pour le voir d'un coup d'oeil
-    if(p.jamOut||p.jamIn){
-      const pointT=p.jamOut?p.unload:p.load;
-      x.strokeStyle=p.jamOut?'rgba(197,83,63,.55)':'rgba(216,161,60,.55)';
-      x.lineWidth=Math.max(6,R*0.22);
-      x.beginPath(); x.arc(cx,cy,R,angAt(pointT-0.16),angAt(pointT)); x.stroke();
-    }
-    // points de chargement (laiton) et de décharge (braise)
-    const L=pt(p.load), Uo=pt(p.unload);
-    x.fillStyle='#c9963f'; x.beginPath(); x.arc(L[0],L[1],4.5,0,7); x.fill();
-    x.fillStyle='#e8703a'; x.beginPath(); x.arc(Uo[0],Uo[1],4.5,0,7); x.fill();
-    /* Véhicules — silhouette du palier ; rouge terne si bloqué en file.
-       En file d'attente, l'écart réel entre deux véhicules vaut minGap, soit 5 à 9 px seulement
-       sur un petit cercle : sans correction, un véhicule en cacherait un autre. L'ancienne
-       version les décalait en RAYON (empilage en éventail), ce qui projetait toute la file en
-       diagonale HORS de la voie — sur mobile la boucle donnait l'impression d'être cassée.
-       On les écarte désormais LE LONG de la voie : une file reste une file, sur les rails.
-       L'écart d'affichage est borné pour qu'une flotte entière tienne toujours sur le tour. */
-    const arcPx=2*Math.PI*R;
-    const sortedV=[...(state.veh[p.id]||[])].sort((a,b)=>a.p-b.p);
-    const gapAff=Math.min(12/arcPx, 0.9/Math.max(1,sortedV.length));
-    let curseur=null;
-    sortedV.forEach(v=>{
-      const dp = curseur===null ? v.p : Math.max(v.p, curseur+gapAff);
-      curseur=dp;
-      const q=pt(dp%1);
+
+    drawBuilding(x,sx,gy,bw,BH,p.src);
+    drawBuilding(x,xB2,gy,bw,BH,p.dest);
+    x.strokeStyle='#22384f'; x.lineWidth=1;
+    x.beginPath(); x.moveTo(sx,gy+.5); x.lineTo(sx+sw,gy+.5); x.stroke();
+
+    // chaussée : deux voies, rives continues, axe pointillé
+    x.fillStyle='#152232'; x.fillRect(xL,yR-LW-1,lane,LW*2+2);
+    x.strokeStyle='#3a5470'; x.lineWidth=1;
+    x.beginPath(); x.moveTo(xL,yR-LW-.5); x.lineTo(xU,yR-LW-.5); x.moveTo(xL,yR+LW+.5); x.lineTo(xU,yR+LW+.5); x.stroke();
+    x.strokeStyle='#6d86a0'; x.setLineDash([5,5]);
+    x.beginPath(); x.moveTo(xL,yR); x.lineTo(xU,yR); x.stroke(); x.setLineDash([]);
+    // sens de circulation, discret, au milieu de chaque voie
+    x.fillStyle='#2e4660'; const mx=(xL+xU)/2;
+    x.beginPath(); x.moveTo(mx+4,yAll); x.lineTo(mx-2,yAll-3); x.lineTo(mx-2,yAll+3); x.fill();
+    x.beginPath(); x.moveTo(mx-4,yRet); x.lineTo(mx+2,yRet-3); x.lineTo(mx+2,yRet+3); x.fill();
+
+    // quais : aire hachurée entre bâtiment et chaussée ; ambre si rien à charger, rouge si l'aval
+    // refuse la marchandise — la couleur du quai dit d'un coup d'œil de quel côté ça coince
+    const quai=(qx,col0,alert)=>{
+      x.fillStyle='#101c2a'; x.fillRect(qx,yR-LW-3,dw,LW*2+6);
+      x.save(); x.beginPath(); x.rect(qx,yR-LW-3,dw,LW*2+6); x.clip();
+      x.strokeStyle='rgba(143,168,191,.12)'; x.lineWidth=2;
+      for(let k=-LW*2;k<dw+LW*2;k+=6){ x.beginPath(); x.moveTo(qx+k,yR+LW+3); x.lineTo(qx+k+LW*2+6,yR-LW-3); x.stroke(); }
+      x.restore();
+      x.strokeStyle=alert&&blink?alert:col0; x.lineWidth=alert?2:1.2;
+      x.strokeRect(qx+.5,yR-LW-2.5,dw-1,LW*2+5);
+    };
+    quai(xB1,'#c9963f',p.jamIn?'#d8a13c':null);
+    quai(xU,'#e8703a',p.jamOut?'#c5533f':null);
+
+    // stock à l'arrivée : silo accolé au bâtiment de destination
+    const f=Math.max(0,Math.min(1,(state.buf[p.id]||0)/(p.bufMax||1)));
+    const sh=BH*.8, sxs=xB2+2, sy=gy-sh;
+    x.fillStyle='#0b1522'; x.fillRect(sxs,sy,5,sh);
+    x.fillStyle=f>.92?'#c5533f':f>.05?'#5fb87a':'#d8a13c'; x.fillRect(sxs,sy+sh*(1-f),5,sh*f);
+    x.strokeStyle='#2e4660'; x.lineWidth=1; x.strokeRect(sxs+.5,sy+.5,4,sh-1);
+
+    /* Véhicules. Au quai : posés sur l'aire. Sur la route : espacés vers l'ARRIÈRE depuis le quai
+       vers lequel ils roulent, pour qu'une file reste une file lisible au lieu de s'empiler sur
+       quelques pixels (en file, l'écart réel minGap ne vaut que quelques pixels à l'écran). */
+    // drawVehicleIcon attend l'angle RADIAL de l'ancienne boucle (il ajoute un quart de tour pour
+    // suivre la tangente) : un cap de marche θ se passe donc en θ − π/2. Camion, convoi et train
+    // ont l'avant en +x, mais avions et vaisseaux (étape 5 et au-delà) ont le nez en −y : sans le
+    // quart de tour de plus, ils avançaient en crabe.
+    const cap=th=>th-Math.PI/2+(p.dest>=5?Math.PI/2:0);
+    const gapL=Math.min(.45,13/Math.max(1,lane));
+    const allerV=[], retourV=[];
+    (state.veh[p.id]||[]).forEach(v=>{
       const loaded=v.state==='traveling_loaded'||v.state==='unloading';
       const col2=v.blocked?'#b8564a':(loaded?'#dfe9f2':'#5a7186');
-      drawVehicleIcon(x,q[0],q[1],angAt(dp%1),col2,p.dest);
       if(v.state==='loading'||v.state==='unloading'){
+        const qx=v.state==='loading'?xB1+dw/2:xU+dw/2;
+        drawVehicleIcon(x,qx,yR,cap(0),col2,p.dest);
         x.strokeStyle=v.state==='loading'?'#c9963f':'#e8703a'; x.lineWidth=1.5;
-        x.beginPath(); x.arc(q[0],q[1],7.5,0,Math.PI*2); x.stroke();
-        // jauge de remplissage : visible uniquement pendant un palier (masquée en trajet).
-        // Elle se remplit en chargement, se vide en déchargement — une jauge figée = bouchon.
-        const warn = v.state==='loading' && (v.loadTimer||0)>=LOAD_WARN;
-        if(!warn || Math.floor(Date.now()/220)%2===0){
-          const gw=16, gh=3, gx=q[0]-gw/2, gy=q[1]-13;
+        x.beginPath(); x.arc(qx,yR,7.5,0,Math.PI*2); x.stroke();
+        // jauge de remplissage au-dessus du quai : se remplit au chargement, se vide au
+        // déchargement — une jauge figée = bouchon, et elle clignote passé LOAD_WARN
+        const warn=v.state==='loading'&&(v.loadTimer||0)>=LOAD_WARN;
+        if(!warn||blink){
+          const gw=16, gh=3, gx=qx-gw/2, gy2=yR-LW-9;
           const f2=Math.max(0,Math.min(1,v.c/(p.cap||1)));
-          x.fillStyle='#0b1522'; x.fillRect(gx-1,gy-1,gw+2,gh+2);
-          x.fillStyle='#22384f'; x.fillRect(gx,gy,gw,gh);
+          x.fillStyle='#0b1522'; x.fillRect(gx-1,gy2-1,gw+2,gh+2);
+          x.fillStyle='#22384f'; x.fillRect(gx,gy2,gw,gh);
           x.fillStyle=warn?'#e8703a':(v.state==='loading'?'#c9963f':'#5fb87a');
-          x.fillRect(gx,gy,gw*f2,gh);
+          x.fillRect(gx,gy2,gw*f2,gh);
         }
+        return;
       }
+      const pp=((v.p%1)+1)%1;
+      if(pp<=.5) allerV.push({v,col2,prog:pp/.5}); else retourV.push({v,col2,prog:(pp-.5)/.5});
     });
+    const rouler=(list,yl,dir)=>{
+      list.sort((a,b)=>b.prog-a.prog);
+      let prev=Infinity;
+      list.forEach(o=>{
+        const d=Math.max(0,Math.min(o.prog,prev-gapL)); prev=d;
+        const px=dir>0?xL+d*lane:xU-d*lane;
+        drawVehicleIcon(x,px,yl,cap(dir>0?0:Math.PI),o.col2,p.dest);
+      });
+    };
+    rouler(allerV,yAll,1);
+    rouler(retourV,yRet,-1);
     x.globalAlpha=1;
-    // étiquettes
-    x.textAlign='center'; x.font='10px ui-monospace,monospace';
-    x.fillStyle='#8fa8bf'; x.fillText(RES[p.res].n+' · '+(p.n||1)+' véh.', cx, cy+R+15);
-    const bw=Math.min(84,slot-18), bx=cx-bw/2, by=cy+R+21, f=Math.max(0,Math.min(1,(state.buf[p.id]||0)/(p.bufMax||1)));
-    x.fillStyle='#16253a'; x.fillRect(bx,by,bw,4);
-    x.fillStyle=f>.92?'#c5533f':f>.05?'#5fb87a':'#d8a13c'; x.fillRect(bx,by,bw*f,4);
+
+    // étiquettes : bâtiments sous leur pied, ressource et état sous la route
+    x.font='8.5px ui-monospace,monospace'; x.fillStyle='#5b7691';
+    x.textAlign='center';
+    x.fillText(BLDG[p.src]||'', sx+bw/2, gy+11);
+    x.fillText(BLDG[p.dest]||'', xB2+bw/2, gy+11);
+    x.font='10px ui-monospace,monospace'; x.fillStyle='#8fa8bf';
+    x.fillText(RES[p.res].n+' · '+(p.n||1)+' véh.', (xL+xU)/2, gy+13);
     x.font='9px ui-monospace,monospace';
-    if(p.paused){ x.fillStyle='#7f97ad'; x.fillText('⏸ boucle à l\'arrêt', cx, by+15); }
+    if(p.paused){ x.fillStyle='#7f97ad'; x.fillText('⏸ ligne à l\'arrêt', (xL+xU)/2, gy+26); }
     else if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
-      x.fillText(p.jamOut?'▲ aval saturé':'▼ rien à charger', cx, by+15); }
-    else { x.fillStyle='#5b7691'; x.fillText(autonomy(state.buf[p.id]||0,p.demMax)+' d\'autonomie', cx, by+15); }
+      x.fillText(p.jamOut?'▲ aval saturé':'▼ rien à charger', (xL+xU)/2, gy+26); }
+    else { x.fillStyle='#5b7691'; x.fillText(autonomy(state.buf[p.id]||0,p.demMax)+' d\'autonomie', (xL+xU)/2, gy+26); }
   });
 }
 function galaxyCanvas(){
