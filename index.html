@@ -235,6 +235,17 @@ nav::-webkit-scrollbar{display:none}
   background:#0c1826;padding:6px 9px;margin-bottom:6px}
 .labctl-tip{font-size:9px;line-height:1.5;color:#5b7691;font-style:italic}
 .toggles{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.tg.sel{border-color:var(--brass);color:#dfe9f2}
+.tgl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#5b7691;align-self:center;margin-right:4px}
+.overlay.pop.fusees .box{max-width:680px}
+.fchoix{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:14px 0}
+.fch{background:#0e1a28;border:1px solid #22384f;color:#c9d6e2;text-align:left;padding:8px;display:grid;gap:4px;cursor:pointer;font:inherit}
+.fch:hover,.fch:focus-visible{border-color:#3a5470}
+.fch.on{border-color:var(--brass);background:#132234}
+.fch canvas{width:100%;height:86px;display:block;background:#060b12}
+.fch b{font-size:12px;font-weight:600}
+.fch span{font-size:11px;line-height:1.4;color:#7f97ad}
+.overlay.pop .go:disabled{opacity:.45;cursor:default}
 .tg{background:#152a41;border:1px solid #2f4d6e;color:var(--ok);border-radius:2px;
     padding:5px 9px;font-size:10px;letter-spacing:.06em;white-space:nowrap}
 .tg:hover{border-color:var(--brass-dim)}
@@ -783,13 +794,22 @@ const PATHS=[];
 /* Mode de transport de chaque étape de destination : forme de la voie et des quais, nom des
    véhicules, et leur longueur à l'écran — qui fixe la largeur des quais et l'espacement d'une file.
    Suit les descriptions d'étape (STAGES) : convois miniers, camions, trains, avions cargo, puis
-   fusées coloniales vers les planètes de l'étape 7. `lw` = hauteur d'une voie, 12 px par défaut. */
+   fusées coloniales vers les planètes de l'étape 7. `lw` = hauteur d'une voie, 12 px par défaut ;
+   `vertical` = ligne dessinée de bas en haut (drawLoopsVertical), `len` y est la hauteur. */
 const TRANSPORT_MODE={
  2:{voie:'piste', n:['convoi minier','convois miniers'], len:20},
  3:{voie:'route', n:['camion','camions'],               len:22},
  4:{voie:'rail',  n:['train','trains'],                 len:40},
  5:{voie:'air',   n:['avion','avions'],                 len:24},
- 7:{voie:'orbite',n:['fusée','fusées'],                 len:12, lw:16},   // fusées debout : voies plus hautes
+ 7:{voie:'orbite',n:['fusée','fusées'],                 len:30, vertical:true},   // ligne verticale, voir drawLoopsVertical
+};
+/* Fusées de l'étape 7 : quatre dessins au choix du joueur, proposé à l'arrivée à l'étape
+   (choixFusee). Purement visuel ; state.fusee garde la lettre retenue. */
+const FUSEES={
+ A:{n:'Aiguille ionique', d:'Coque effilée, jet ionique. Cellules de soute allumées une à une ; jambes de train sorties à la descente.'},
+ B:{n:'Cargo annulaire',  d:'Noyau et anneau de stabilisation. Trois hublots de soute ; rétrofusées sur l\'anneau à la descente.'},
+ C:{n:'Navette delta',    d:'Corps en flèche, deux réacteurs. Chevrons de soute ; redescend nez en bas, bouclier rougeoyant.'},
+ D:{n:'Noyau hexagonal',  d:'Soute hexagonale, trois nacelles de plasma. Nacelles en trépied et feux d\'appontage à la descente.'},
 };
 const PIPE_RES='petrole';   // le pétrole voyage par oléoduc, jamais par véhicule
 for(let s=2;s<=8;s++){ const seen={};
@@ -1242,14 +1262,21 @@ const POPS={
  8:{t:'CARTE GALACTIQUE',b:"Dernière étape : la galaxie entière s'étend devant toi, soit 100 000 systèmes à coloniser. Chaque système conquis ajoute +3 au multiplicateur de production de tes planètes. Améliore ta vitesse de colonisation pour accélérer la conquête.",
     o:"Prendre le contrôle de la galaxie. Fin de la partie — mais le compteur, lui, ne s'arrête jamais vraiment."},
 };
+/* Choix demandés au joueur à l'arrivée d'une étape, après son pop-up. Reposés au chargement tant
+   qu'ils ne sont pas faits : une partie déjà au-delà de l'étape n'a jamais vu la question. */
+const CHOIX_POP={7:{fait:()=>!!state.fusee, ouvrir:done=>choixFusee(done)}};
 let popQueue=[], popOpen=false;
 function queuePop(stage){
-  if(!POPS[stage]||state.pop[stage])return;
-  state.pop[stage]=true; popQueue.push(stage); showNextPop();
+  if(POPS[stage]&&!state.pop[stage]){ state.pop[stage]=true; popQueue.push(stage); }
+  const ch=CHOIX_POP[stage];
+  if(ch&&!ch.fait()&&!popQueue.includes(ch.ouvrir)) popQueue.push(ch.ouvrir);
+  showNextPop();
 }
 function showNextPop(){
   if(popOpen||!popQueue.length)return;
-  const st=popQueue.shift(), P=POPS[st]; popOpen=true;
+  const st=popQueue.shift(); popOpen=true;
+  if(typeof st==='function'){ st(()=>{ popOpen=false; showNextPop(); }); return; }
+  const P=POPS[st];
   const o=document.createElement('div'); o.className='overlay pop';
   o.innerHTML='<div class="box">'+
     '<div class="pst">Étape '+st+' — '+STAGES[st-1].nom+'</div>'+
@@ -1280,6 +1307,7 @@ function freshState(brevets=0,valeurTot=0){
        été racheté pour le run en cours, `actifPick` l'étape choisie pour les actifs qui en
        demandent une. `presV` marque les sauvegardes déjà migrées (voir restore). */
     licences:{}, actifs:{}, actifPick:{}, presV:1,
+    fusee:null,                       // dessin de fusée choisi à l'étape 7 (FUSEES), purement visuel
     valeur:0, valeurTot, brevets,
     speed:1, buyMode:1, t:Date.now(), won:false
   };
@@ -1289,7 +1317,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.16.1';
+const GAME_VERSION='0.17.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -1871,7 +1899,7 @@ function doPrestige(){
   /* Réglages du joueur, pas de la partie : les perdre à chaque restructuration était une
      régression silencieuse — le format des nombres revenait en « court » au rechargement suivant
      et l'écran de victoire se rejouait. */
-  ns.speed=old.speed; ns.numFmt=old.numFmt; ns.buyMode=old.buyMode; ns.won=old.won;
+  ns.speed=old.speed; ns.numFmt=old.numFmt; ns.buyMode=old.buyMode; ns.won=old.won; ns.fusee=old.fusee;
   ns.licences=Object.assign({},presDraft.lic);
   ns.actifs=Object.assign({},presDraft.act);
   ns.actifPick=Object.assign({},presDraft.pick);
@@ -2247,22 +2275,6 @@ function drawVehicle(x,cx,cy,dir,stageNum,o){
       if(f>0){ x.fillStyle=load; x.fillRect(-5,-1.6,Math.max(1,10*f),3.2); }
       x.fillStyle='#5b7691'; x.beginPath(); x.moveTo(-3,.8); x.lineTo(5,.8); x.lineTo(1,4.2); x.lineTo(-4,4.2); x.closePath(); x.fill();
       lights(11.2,-11,-.5); break; }
-    case 7: { /* Fusée coloniale, VERTICALE : ogive, corps, ailerons, tuyère. Elle penche vers son
-         sens de marche (le miroir inverse l'inclinaison au retour), et se tient droite à quai. La
-         cargaison n'est pas accrochée dehors : c'est la soute vitrée du corps qui se remplit, de
-         bas en haut. */
-      if(!o.docked)x.rotate(.22);
-      if(o.moving){ x.fillStyle='rgba(232,112,58,.85)'; x.beginPath(); x.moveTo(-1.8,7.5); x.lineTo(0,12.5); x.lineTo(1.8,7.5); x.fill(); }
-      x.fillStyle=body;
-      x.beginPath(); x.moveTo(0,-11); x.quadraticCurveTo(3.6,-8,3.6,-5); x.lineTo(-3.6,-5); x.quadraticCurveTo(-3.6,-8,0,-11); x.fill();
-      x.fillRect(-3.6,-5,7.2,11);
-      x.beginPath(); x.moveTo(-3.6,2); x.lineTo(-6.5,7); x.lineTo(-3.6,6); x.closePath(); x.fill();
-      x.beginPath(); x.moveTo(3.6,2); x.lineTo(6.5,7); x.lineTo(3.6,6); x.closePath(); x.fill();
-      x.fillStyle='#5b7691'; x.fillRect(-2,6,4,1.6);                              // tuyère
-      x.fillStyle=glass; x.fillRect(-2.2,-3.6,4.4,8);                            // soute
-      if(f>0){ const h=8*f; x.fillStyle=load; x.fillRect(-2.2,4.4-h,4.4,h); }
-      x.strokeStyle='rgba(8,17,28,.6)'; x.lineWidth=.6; x.strokeRect(-2.2,-3.6,4.4,8);
-      break; }
     default: x.fillStyle=body; x.fillRect(-6,-4,12,8);
   }
   x.restore();
@@ -2376,6 +2388,199 @@ function drawQuai(x,mode,qx,dw,yR,LW,col0,alert,blink){
   x.strokeStyle=alert&&blink?alert:col0; x.lineWidth=alert?2:1.2;
   x.strokeRect(qx+.5,top+.5,dw-1,h-1);
 }
+/* Fusées de l'étape 7, VERTICALES (nez en haut, repère centré, ~26 px de haut). Quatre dessins au
+   choix du joueur (FUSEES, state.fusee). up = montée chargée, sinon descente à vide ; chaque sens a
+   son dessin. La cargaison est logée DANS le corps, à la couleur de la ressource. `moving` allume
+   la propulsion — éteinte à quai. */
+const FUSEE_DESSIN={
+ A(x,up,f,tint,t,mv,K){ // Aiguille ionique
+  if(up&&mv){ const L=10+Math.sin(t*30)*1.5, g=x.createLinearGradient(0,9,0,9+L);
+    g.addColorStop(0,'rgba(200,245,255,.95)'); g.addColorStop(1,'rgba(127,227,255,0)');
+    x.fillStyle=g; x.beginPath(); x.moveTo(-2,9.5); x.lineTo(0,9.5+L); x.lineTo(2,9.5); x.fill(); }
+  if(!up){ if(mv){ x.fillStyle='rgba(232,112,58,.8)'; x.beginPath(); x.moveTo(-1.2,9.5); x.lineTo(0,12.5); x.lineTo(1.2,9.5); x.fill(); }
+    x.strokeStyle=K.trim; x.lineWidth=1.1; x.beginPath(); x.moveTo(-2.6,5); x.lineTo(-6,11); x.moveTo(2.6,5); x.lineTo(6,11);
+    x.moveTo(-7.2,11); x.lineTo(-4.8,11); x.moveTo(4.8,11); x.lineTo(7.2,11); x.stroke(); }
+  x.fillStyle=K.body; x.beginPath(); x.moveTo(0,-15); x.lineTo(2.7,-8); x.lineTo(2.7,8.5); x.lineTo(-2.7,8.5); x.lineTo(-2.7,-8); x.closePath(); x.fill();
+  if(up){ x.fillStyle=K.trim; x.beginPath(); x.moveTo(2.7,3); x.lineTo(5.2,9); x.lineTo(2.7,7.5); x.fill();
+    x.beginPath(); x.moveTo(-2.7,3); x.lineTo(-5.2,9); x.lineTo(-2.7,7.5); x.fill(); }
+  x.strokeStyle='#7fe3ff'; x.lineWidth=.8; x.beginPath(); x.ellipse(0,9,2.8,1,0,0,7); x.stroke();
+  const lit=Math.ceil(4*f-1e-6);                        // colonne de cellules, allumées une à une
+  for(let i=0;i<4;i++){ x.fillStyle=i<lit?tint:K.glass; x.fillRect(-1.1,2.8-i*3.3,2.2,2.6); } },
+ B(x,up,f,tint,t,mv,K){ // Cargo annulaire
+  if(up&&mv){ const L=9+Math.sin(t*26)*1.4, g=x.createLinearGradient(0,9,0,9+L);
+    g.addColorStop(0,'rgba(255,214,150,.95)'); g.addColorStop(1,'rgba(232,112,58,0)');
+    x.fillStyle=g; x.beginPath(); x.moveTo(-2.4,9); x.lineTo(0,9+L); x.lineTo(2.4,9); x.fill(); }
+  x.strokeStyle=K.trim; x.lineWidth=1.6; x.beginPath(); x.ellipse(0,-1,8.5,2.6,0,Math.PI,2*Math.PI); x.stroke();
+  x.fillStyle=K.body; x.beginPath(); x.moveTo(-3.3,8.5); x.lineTo(-3.3,-9); x.quadraticCurveTo(-3.3,-14,0,-14.5);
+  x.quadraticCurveTo(3.3,-14,3.3,-9); x.lineTo(3.3,8.5); x.closePath(); x.fill();
+  x.fillStyle=K.trim; x.fillRect(-2.2,8.5,4.4,1.4);
+  const lit=Math.ceil(3*f-1e-6);                        // trois hublots de soute
+  [4.5,-.5,-5.5].forEach((y,i)=>{ x.fillStyle=i<lit?tint:K.glass; x.beginPath(); x.arc(0,y,1.7,0,7); x.fill(); });
+  x.strokeStyle=K.body; x.lineWidth=1.6; x.beginPath(); x.ellipse(0,-1,8.5,2.6,0,0,Math.PI); x.stroke();
+  if(up&&mv){ const a=(t*6)%(2*Math.PI); x.fillStyle='#7fe3ff'; x.fillRect(Math.cos(a)*8.5-.8,-1+Math.sin(a)*2.6-.8,1.6,1.6); }
+  if(!up&&mv){ x.fillStyle='rgba(127,227,255,.85)';
+    [-8.5,8.5].forEach(px=>{ x.beginPath(); x.moveTo(px-1,-1.5); x.lineTo(px,-6.5); x.lineTo(px+1,-1.5); x.fill(); }); } },
+ C(x,up,f,tint,t,mv,K){ // Navette delta : redescend retournée, nez en bas, bouclier rougeoyant
+  x.save(); if(!up) x.rotate(Math.PI);
+  if(up&&mv){ [-3,3].forEach((px,i)=>{ const L=8+Math.sin(t*28+i)*1.3, g=x.createLinearGradient(0,7,0,7+L);
+    g.addColorStop(0,'rgba(200,245,255,.9)'); g.addColorStop(1,'rgba(127,227,255,0)');
+    x.fillStyle=g; x.beginPath(); x.moveTo(px-1.3,7); x.lineTo(px,7+L); x.lineTo(px+1.3,7); x.fill(); }); }
+  x.fillStyle=K.body; x.beginPath(); x.moveTo(0,-14); x.lineTo(7.5,8); x.lineTo(3,6.2); x.lineTo(0,8); x.lineTo(-3,6.2); x.lineTo(-7.5,8); x.closePath(); x.fill();
+  if(!up&&mv){ const g=x.createRadialGradient(0,-12,0,0,-12,6); g.addColorStop(0,'rgba(255,170,90,.95)'); g.addColorStop(1,'rgba(232,112,58,0)');
+    x.fillStyle=g; x.beginPath(); x.arc(0,-12,6,0,7); x.fill(); }
+  x.fillStyle=K.trim; x.fillRect(-3.8,6,2,1.6); x.fillRect(1.8,6,2,1.6);
+  const lit=Math.ceil(3*f-1e-6);                        // trois chevrons vitrés
+  [3,-1.5,-6].forEach((y,i)=>{ x.strokeStyle=i<lit?tint:K.glass; x.lineWidth=1.8;
+    x.beginPath(); x.moveTo(-2.4,y+1.6); x.lineTo(0,y-.4); x.lineTo(2.4,y+1.6); x.stroke(); });
+  x.restore(); },
+ D(x,up,f,tint,t,mv,K){ // Noyau hexagonal : nacelles serrées à la montée, en trépied à la descente
+  const pods=up?[-4.2,0,4.2]:[-7.5,0,7.5];
+  if(up&&mv){ pods.forEach((px,i)=>{ const L=7+Math.sin(t*32+i*2)*1.2, g=x.createLinearGradient(0,8,0,8+L);
+    g.addColorStop(0,'rgba(210,190,255,.95)'); g.addColorStop(1,'rgba(127,227,255,0)');
+    x.fillStyle=g; x.beginPath(); x.moveTo(px-1.2,8.5); x.lineTo(px,8.5+L); x.lineTo(px+1.2,8.5); x.fill(); }); }
+  if(!up){ x.strokeStyle=K.trim; x.lineWidth=1; x.beginPath(); x.moveTo(-3,4); x.lineTo(-7.5,5); x.moveTo(3,4); x.lineTo(7.5,5); x.stroke(); }
+  x.fillStyle=K.trim; pods.forEach(px=>x.fillRect(px-1.6,3.5,3.2,5));
+  if(!up&&Math.floor(t*3)%2===0){ x.fillStyle='#ffd27a'; [-7.5,7.5].forEach(px=>x.fillRect(px-.7,2,1.4,1.4)); }
+  x.fillStyle=K.body; x.beginPath(); x.moveTo(0,-15); x.lineTo(4.5,-8.5); x.lineTo(-4.5,-8.5); x.closePath(); x.fill();
+  const hex=r=>{ x.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/6+i*Math.PI/3; x.lineTo(Math.cos(a)*r,-2+Math.sin(a)*r); } x.closePath(); };
+  x.fillStyle=K.body; hex(6.6); x.fill();
+  x.fillStyle=K.glass; hex(4.6); x.fill();
+  if(f>0){ x.save(); hex(4.6); x.clip(); x.fillStyle=tint; const h=9.2*f; x.fillRect(-5,2.6-h,10,h); x.restore(); } },
+};
+function drawFusee(x,cx,cy,up,o){
+  const K={body:o.blocked?'#b8564a':'#9fb4c8', trim:'#4c6784', glass:'#10283a'};
+  x.save(); x.translate(cx,cy); if(o.scale)x.scale(o.scale,o.scale);
+  (FUSEE_DESSIN[state.fusee]||FUSEE_DESSIN[o.k]||FUSEE_DESSIN.A)(x,up,Math.max(0,Math.min(1,o.f||0)),o.tint||'#c9963f',o.t||0,!!o.moving,K);
+  x.restore();
+}
+/* Étape 7 : la ligne est VERTICALE, une colonne par ressource — usine en bas, aire de lancement,
+   corridor à deux voies, aire d'appontage, colonie en haut. Montée chargée sur la voie de droite,
+   descente à vide sur celle de gauche. Même lecture que les lignes horizontales : v.p ∈ [0 ; 0,5]
+   = aller, ]0,5 ; 1[ = retour, quais en 0 et 0,5 ; les files se forment devant chaque aire. */
+function drawLoopsVertical(c,ps){
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const CSSW=Math.max(240,c.clientWidth||c.parentElement.clientWidth||320);
+  const slot=CSSW/ps.length, CSSH=380;
+  if(c.width!==Math.round(CSSW*dpr)||c.height!==Math.round(CSSH*dpr)){
+    c.width=Math.round(CSSW*dpr); c.height=Math.round(CSSH*dpr);
+  }
+  c.style.height=CSSH+'px';
+  const x=c.getContext('2d');
+  x.setTransform(dpr,0,0,dpr,0,0);
+  x.clearRect(0,0,CSSW,CSSH);
+  const now=Date.now()/1000, blink=Math.floor(now/.3)%2===0, tm=TRANSPORT_MODE[7];
+  ps.forEach((p,idx)=>{
+    const cx=slot*(idx+.5), bw=Math.min(74,slot*.62);
+    const gyH=56, yU=gyH+15;                            // pied de la colonie, aire d'appontage
+    const gyB=CSSH-52, yL=gyB-46;                        // pied de l'usine, aire de lancement
+    const laneR=cx+10, laneL=cx-10, span=(yL-14)-(yU+14);
+    x.globalAlpha=p.paused?0.42:1;
+    x.fillStyle='rgba(223,233,242,.45)';                 // étoiles fixes, propres à la colonne
+    for(let k=0;k<40;k++) x.fillRect(slot*idx+((k*73.13+idx*17)%slot),(k*37.71)%(CSSH-60),1,1);
+    // corridor : deux trajectoires balisées
+    x.fillStyle='rgba(8,17,28,.8)'; x.fillRect(cx-20,yU+9,40,yL-yU-18);
+    [[laneR,.45],[laneL,.3]].forEach(([lx,a])=>{ x.strokeStyle='rgba(95,184,200,'+a+')'; x.lineWidth=1; x.setLineDash([6,4]);
+      x.beginPath(); x.moveTo(lx,yL-9); x.lineTo(lx,yU+9); x.stroke(); x.setLineDash([]); });
+    for(let y=yU+18,n=0;y<yL-12;y+=20,n++){ const on=(n+Math.floor(now*4))%4===0;
+      x.fillStyle=on?'#8fd0e8':'#23455a'; x.fillRect(cx-21,y,2,2); x.fillRect(cx+19,y,2,2); }
+    x.fillStyle='#2e4660'; const my=(yU+yL)/2;
+    x.beginPath(); x.moveTo(laneR,my-5); x.lineTo(laneR-3,my+1); x.lineTo(laneR+3,my+1); x.fill();
+    x.beginPath(); x.moveTo(laneL,my+5); x.lineTo(laneL-3,my-1); x.lineTo(laneL+3,my-1); x.fill();
+    // bâtiments et aires ; bordure ambre au lancement, braise à l'appontage, clignotante si ça coince
+    drawBuilding(x,cx-bw/2,gyB,bw,34,p.src);
+    drawBuilding(x,cx-bw/2,gyH,bw,34,p.dest);
+    const aire=(ay,col0,alert)=>{
+      x.fillStyle='#0f1b29'; x.fillRect(cx-22,ay-9,44,18);
+      x.strokeStyle='rgba(95,184,200,.4)'; x.lineWidth=1; x.beginPath(); x.ellipse(cx,ay,15,6,0,0,7); x.stroke();
+      x.strokeStyle=alert&&blink?alert:col0; x.lineWidth=alert?2:1.3; x.strokeRect(cx-21.5,ay-8.5,43,17);
+    };
+    aire(yL,'#c9963f',p.jamIn?'#d8a13c':null);
+    aire(yU,'#e8703a',p.jamOut?'#c5533f':null);
+    // stock à l'arrivée : silo accolé à la colonie
+    const f=Math.max(0,Math.min(1,(state.buf[p.id]||0)/(p.bufMax||1)));
+    const sxs=cx+bw/2+3, sh=28, sy=gyH-sh;
+    x.fillStyle='#0b1522'; x.fillRect(sxs,sy,5,sh);
+    x.fillStyle=f>.92?'#c5533f':f>.05?'#5fb87a':'#d8a13c'; x.fillRect(sxs,sy+sh*(1-f),5,sh*f);
+    x.strokeStyle='#2e4660'; x.lineWidth=1; x.strokeRect(sxs+.5,sy+.5,4,sh-1);
+
+    const tint=RES[p.res].tint, gap=Math.min(.45,(tm.len+3)/Math.max(1,span));
+    const monte=[], descend=[];
+    (state.veh[p.id]||[]).forEach(v=>{
+      if(v.state==='loading'||v.state==='unloading'){
+        const ay=v.state==='loading'?yL:yU, f2=Math.max(0,Math.min(1,v.c/(p.cap||1)));
+        drawFusee(x,cx,ay-2,true,{f:f2,tint,t:now,moving:false});
+        // jauge verticale à droite de l'aire : monte au chargement, descend au déchargement ;
+        // figée = bouchon, clignotante passé LOAD_WARN
+        const warn=v.state==='loading'&&(v.loadTimer||0)>=LOAD_WARN;
+        if(!warn||blink){
+          const gx=cx+25, gh=16, gy2=ay-8;
+          x.fillStyle='#22384f'; x.fillRect(gx,gy2,3,gh);
+          x.fillStyle=warn?'#e8703a':(v.state==='loading'?'#c9963f':'#5fb87a');
+          x.fillRect(gx,gy2+gh*(1-f2),3,gh*f2);
+        }
+        return;
+      }
+      const pp=((v.p%1)+1)%1;
+      if(pp<=.5) monte.push({v,prog:pp/.5}); else descend.push({v,prog:(pp-.5)/.5});
+    });
+    const voler=(list,lx,up)=>{
+      list.sort((a,b)=>b.prog-a.prog);
+      let prev=Infinity;
+      list.forEach(o=>{ const d=Math.max(0,Math.min(o.prog,prev-gap)); prev=d;
+        const y=up?(yL-14)-d*span:(yU+14)+d*span;
+        drawFusee(x,lx,y,up,{f:up?1:0,tint,t:now+idx,moving:!o.v.blocked,blocked:o.v.blocked}); });
+    };
+    voler(monte,laneR,true);
+    voler(descend,laneL,false);
+    x.globalAlpha=1;
+
+    x.textAlign='center'; x.font='8.5px ui-monospace,monospace'; x.fillStyle='#5b7691';
+    x.fillText(BLDG[p.dest]||'',cx,10);
+    x.fillText(BLDG[p.src]||'',cx,gyB+11);
+    const nv=p.n||1;
+    x.font='10px ui-monospace,monospace'; x.fillStyle='#8fa8bf';
+    x.fillText(RES[p.res].n+' · '+nv+' '+tm.n[nv>1?1:0],cx,gyB+26);
+    x.font='9px ui-monospace,monospace';
+    if(p.paused){ x.fillStyle='#7f97ad'; x.fillText('⏸ à l\'arrêt',cx,gyB+39); }
+    else if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
+      x.fillText(p.jamOut?'▲ aval saturé':'▼ rien à charger',cx,gyB+39); }
+    else { x.fillStyle='#5b7691'; x.fillText(autonomy(state.buf[p.id]||0,p.demMax)+' d\'autonomie',cx,gyB+39); }
+  });
+}
+/* Choix de la fusée à l'arrivée à l'étape 7 — purement visuel, modifiable ensuite dans la section
+   Transport. Passe par la file des pop-ups (voir queuePop) : il suit le pop-up d'étape et ne s'ouvre
+   jamais par-dessus un autre. `done` rend la main à la file. */
+function choixFusee(done){
+  let sel=state.fusee||null, vivant=true;
+  const o=document.createElement('div'); o.className='overlay pop fusees';
+  o.innerHTML='<div class="box">'+
+    '<div class="pst">Étape 7 — '+STAGES[6].nom+'</div>'+
+    '<h2>CHOISIS TA FUSÉE</h2>'+
+    '<p>Le fret vers les planètes part à la verticale : lancement depuis l\'usine, appontage à la colonie. '+
+    'Chaque fusée monte chargée et redescend à vide ; sa soute prend la couleur de la ressource. '+
+    'Choix purement visuel, modifiable à tout moment dans la section Transport.</p>'+
+    '<div class="fchoix">'+Object.keys(FUSEES).map(k=>
+      '<button class="fch" data-fch="'+k+'"><canvas></canvas><b>'+k+' · '+FUSEES[k].n+'</b><span>'+FUSEES[k].d+'</span></button>').join('')+
+    '</div><button class="go" id="fOk"'+(sel?'':' disabled')+'>Choisir</button></div>';
+  document.body.appendChild(o);
+  const btns=[...o.querySelectorAll('[data-fch]')];
+  const marquer=()=>btns.forEach(b=>b.classList.toggle('on',b.dataset.fch===sel));
+  btns.forEach(b=>b.onclick=()=>{ sel=b.dataset.fch; marquer(); o.querySelector('#fOk').disabled=false; });
+  marquer();
+  const anim=()=>{ if(!vivant)return; const t=Date.now()/1000;
+    btns.forEach(b=>{ const c=b.querySelector('canvas'), dpr=Math.min(2,window.devicePixelRatio||1);
+      const W=c.clientWidth||140, H=c.clientHeight||86;
+      if(c.width!==Math.round(W*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); }
+      const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,W,H);
+      const k=b.dataset.fch;
+      [[W*.3,true,1],[W*.72,false,0]].forEach(([px,up,f])=>{
+        x.save(); x.translate(px,H/2-4); x.scale(2,2); FUSEE_DESSIN[k](x,up,f,'#c9963f',t,true,{body:'#9fb4c8',trim:'#4c6784',glass:'#10283a'}); x.restore(); });
+    });
+    requestAnimationFrame(anim); };
+  requestAnimationFrame(anim);
+  o.querySelector('#fOk').onclick=()=>{ if(!sel)return; state.fusee=sel; vivant=false; o.remove();
+    structuralDirty=true; save(); done(); };
+}
 /* Ligne de transport : bâtiment d'origine, quai de chargement, voie à 2×1, quai de déchargement,
    bâtiment de destination. La simulation reste une boucle (v.p ∈ [0,1), chargement en
    p.load = 0, déchargement en p.unload = 0,5) ; seul le tracé change. L'aller chargé [0 ; 0,5]
@@ -2385,6 +2590,7 @@ function drawQuai(x,mode,qx,dw,yR,LW,col0,alert,blink){
 function drawLoops(){
   const c=$('loopsC'); if(!c)return;
   const ps=PATHS.filter(p=>p.dest===state.tab); if(!ps.length)return;
+  if((TRANSPORT_MODE[state.tab]||{}).vertical) return drawLoopsVertical(c,ps);
   // résolution interne calée sur la taille affichée, sinon tout est écrasé sur mobile
   const dpr=Math.min(2,window.devicePixelRatio||1);
   const CSSW=Math.max(240,c.clientWidth||c.parentElement.clientWidth||320);
@@ -3203,6 +3409,9 @@ function render(){
          return '<button class="tg'+(off?' off':'')+'" data-pathoff="'+x.id+'">'+
                 (off?'⏸':'⏵')+' '+RES[x.res].i+' '+RES[x.res].n+'</button>';
        }).join('')+'</div>';
+    if((TRANSPORT_MODE[s]||{}).vertical)
+      h+='<div class="toggles"><span class="tgl">Fusée</span>'+Object.keys(FUSEES).map(k=>
+        '<button class="tg'+((state.fusee||'A')===k?' sel':'')+'" data-fusee="'+k+'">'+k+' · '+FUSEES[k].n+'</button>').join('')+'</div>';
   }
 
   // Véhicules — flotte, vitesse, capacité, débit, oléoduc
@@ -3235,6 +3444,7 @@ function render(){
 function bind(){
   $('panel').querySelectorAll('[data-openresearch]').forEach(b=>b.onclick=()=>openResearch());
   $('panel').querySelectorAll('[data-galfull]').forEach(b=>b.onclick=()=>galFull(true));
+  $('panel').querySelectorAll('[data-fusee]').forEach(b=>b.onclick=()=>{ state.fusee=b.dataset.fusee; structuralDirty=true; });
   $('panel').querySelectorAll('[data-pathoff]').forEach(b=>b.onclick=()=>{
     const k='path_'+b.dataset.pathoff; state.off[k]=!state.off[k]; structuralDirty=true; });
   $('panel').querySelectorAll('[data-pipeoff]').forEach(b=>b.onclick=()=>{

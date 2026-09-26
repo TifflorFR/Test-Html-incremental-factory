@@ -54,9 +54,12 @@ try {
   page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE: ' + m.text()); });
 
   // queuePop() rejoue une pop-up par étape déjà atteinte au chargement : elles couvrent l'écran
-  // et interceptent tous les clics tant qu'on ne les a pas toutes fermées.
+  // et interceptent tous les clics tant qu'on ne les a pas toutes fermées. Le choix de fusée
+  // (étape 7) passe par la même file : on y retient la fusée A.
   const closePops = async () => {
     for (let i = 0; i < 10; i++) {
+      const fk = await page.$('#fOk');
+      if (fk && await fk.isVisible()) { await page.click('[data-fch="A"]'); await fk.click(); await page.waitForTimeout(120); continue; }
       const ok = await page.$('#popOk');
       if (!ok || !(await ok.isVisible())) return;
       await ok.click(); await page.waitForTimeout(120);
@@ -583,6 +586,37 @@ try {
   });
   check('prorata : l\'usine a circuits recoit sa part d\'acier', partage.circ > 0 && partage.circuits > 0, partage);
   check('prorata : meme fraction servie aux deux consommateurs', Math.abs(partage.assem - partage.circ) < 1e-9, partage);
+
+  // ---------- 11. choix de la fusee a l'etape 7 : pose apres le pop-up, reglage conserve
+  await nouvellePartie();
+  await page.evaluate(() => { state.stage = 7; state.tab = 7; state.fusee = null; state.pop = {}; save(); });
+  await page.waitForTimeout(200);
+  await page.goto(`http://localhost:${PORT}/index.html`);
+  await page.waitForSelector('#introResume', { state: 'visible' });
+  await page.click('#introResume');
+  await page.waitForSelector('#btnDev');
+  // les pop-ups d'etape d'abord, le choix ensuite : on ferme a la main jusqu'au choix
+  for (let i = 0; i < 10 && !(await page.$('#fOk')); i++) { await page.click('#popOk'); await page.waitForTimeout(120); }
+  const choix = await page.evaluate(() => ({
+    options: [...document.querySelectorAll('[data-fch]')].map(b => b.dataset.fch),
+    desactive: document.getElementById('fOk').disabled,
+  }));
+  check('fusee : choix propose a l\'etape 7, quatre options', choix.options.join() === 'A,B,C,D', choix);
+  check('fusee : bouton Choisir inactif tant que rien n\'est choisi', choix.desactive === true, choix);
+  await page.screenshot({ path: shot('choix-fusee') });
+  await page.click('[data-fch="C"]');
+  await page.click('#fOk');
+  await page.waitForTimeout(200);
+  await closePops();
+  const apresChoix = await page.evaluate(() => ({ fusee: state.fusee, ouvert: !!document.getElementById('fOk'),
+    boutons: [...document.querySelectorAll('[data-fusee]')].map(b => b.dataset.fusee + (b.classList.contains('sel') ? '*' : '')) }));
+  check('fusee : choix C enregistre, fenetre fermee', apresChoix.fusee === 'C' && !apresChoix.ouvert, apresChoix);
+  check('fusee : selecteur de la section Transport sur C', apresChoix.boutons.join() === 'A,B,C*,D', apresChoix.boutons);
+  await page.click('[data-fusee="D"]');
+  check('fusee : changement depuis la section Transport', await page.evaluate(() => state.fusee) === 'D', null);
+  await panneau(() => { state.valeur = 1e15; });
+  await restructurer();
+  check('fusee : choix conserve a la restructuration', await page.evaluate(() => state.fusee) === 'D', null);
 
   await browser.close();
   const bad = results.filter(r => !r.ok);
