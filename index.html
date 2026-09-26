@@ -470,21 +470,22 @@ function toast(msg){const d=document.createElement('div');d.className='toast';d.
    2. DONNÉES — ressources, étapes, machines, améliorations
    ========================================================================== */
 const MILESTONE=25;
+/* `tint` : couleur de la cargaison dessinée sur les véhicules de transport (voir drawVehicle). */
 const RES={
-  bois:      {n:'Bois',       i:'🪵', v:1,   s:1},
-  pierre:    {n:'Pierre',     i:'🪨', v:1,   s:1},
-  fer:       {n:'Fer',        i:'⛏️', v:2,   s:1},
-  charbon:   {n:'Charbon',    i:'⚫', v:2,   s:1},
-  cuivre:    {n:'Cuivre',     i:'🟠', v:3,   s:2},
-  acier:     {n:'Acier',      i:'🧱', v:8,  s:2},
-  lcuivre:   {n:'L. cuivre',  i:'🟫', v:10,  s:2},
-  module:    {n:'Module',     i:'📦', v:25,  s:3},
-  circuit:   {n:'Circuit',    i:'🔌', v:35,  s:3},
-  petrole:   {n:'Pétrole',    i:'🛢️', v:6,   s:4},
-  plastique: {n:'Plastique',  i:'🧪', v:10,  s:4},
-  moteur:    {n:'Moteur',     i:'⚙️', v:200, s:4},
-  fusee:     {n:'Fusée',      i:'🚀', v:1500,s:5},
-  science:   {n:'Science',    i:'🔬', v:400, s:6},
+  bois:      {n:'Bois',       i:'🪵', v:1,   s:1, tint:'#8a5a32'},
+  pierre:    {n:'Pierre',     i:'🪨', v:1,   s:1, tint:'#8b8d90'},
+  fer:       {n:'Fer',        i:'⛏️', v:2,   s:1, tint:'#9aa4ad'},
+  charbon:   {n:'Charbon',    i:'⚫', v:2,   s:1, tint:'#44444c'},
+  cuivre:    {n:'Cuivre',     i:'🟠', v:3,   s:2, tint:'#d07a3a'},
+  acier:     {n:'Acier',      i:'🧱', v:8,  s:2, tint:'#b8c4ce'},
+  lcuivre:   {n:'L. cuivre',  i:'🟫', v:10,  s:2, tint:'#b0603a'},
+  module:    {n:'Module',     i:'📦', v:25,  s:3, tint:'#c9963f'},
+  circuit:   {n:'Circuit',    i:'🔌', v:35,  s:3, tint:'#5fb87a'},
+  petrole:   {n:'Pétrole',    i:'🛢️', v:6,   s:4, tint:'#2b2b2b'},
+  plastique: {n:'Plastique',  i:'🧪', v:10,  s:4, tint:'#e6e0d0'},
+  moteur:    {n:'Moteur',     i:'⚙️', v:200, s:4, tint:'#7d8a96'},
+  fusee:     {n:'Fusée',      i:'🚀', v:1500,s:5, tint:'#dfe9f2'},
+  science:   {n:'Science',    i:'🔬', v:400, s:6, tint:'#6fa8dc'},
 };
 
 const STAGES=[
@@ -779,6 +780,17 @@ const LOAD_WARN=4;        // s avant que la jauge du véhicule se mette à clign
 const PRODSTAGE={};
 MACH.forEach(m=>{ if(m.out)for(const k in m.out) if(PRODSTAGE[k]===undefined||m.s<PRODSTAGE[k])PRODSTAGE[k]=m.s; });
 const PATHS=[];
+/* Mode de transport de chaque étape de destination : forme de la voie et des quais, nom des
+   véhicules, et leur longueur à l'écran — qui fixe la largeur des quais et l'espacement d'une file.
+   Suit les descriptions d'étape (STAGES) : convois miniers, camions, trains, avions cargo, puis
+   vaisseaux coloniaux vers les planètes de l'étape 7. */
+const TRANSPORT_MODE={
+ 2:{voie:'piste', n:['convoi minier','convois miniers'], len:20},
+ 3:{voie:'route', n:['camion','camions'],               len:22},
+ 4:{voie:'rail',  n:['train','trains'],                 len:40},
+ 5:{voie:'air',   n:['avion','avions'],                 len:24},
+ 7:{voie:'orbite',n:['vaisseau','vaisseaux'],           len:22},
+};
 const PIPE_RES='petrole';   // le pétrole voyage par oléoduc, jamais par véhicule
 for(let s=2;s<=8;s++){ const seen={};
   MACH.filter(m=>m.s===s&&m.in).forEach(m=>{ for(const k in m.in){
@@ -1277,7 +1289,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.15.0';
+const GAME_VERSION='0.16.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -2186,37 +2198,69 @@ function upRow(u){
     '<button class="buy" data-up="'+u.id+'" '+(afford(u.c)?'':'disabled')+'><span>Rechercher</span><span class="px">'+px+'</span></button>')+'</div>';
 }
 
-function drawVehicleIcon(x,cx,cy,angleRad,color,stageNum){
-  x.save(); x.translate(cx,cy); x.rotate(angleRad+Math.PI/2); x.fillStyle=color; x.strokeStyle=color;
+/* Véhicules de transport, vus de CÔTÉ — la seule vue qui reste lisible à 20 px (cabine, roues,
+   cargaison). Dessinés tournés vers la droite, retournés en miroir pour le retour : un design par
+   sens, phares à l'avant et feux à l'arrière suivant le sens de marche. `f` = remplissage de 0 à 1 :
+   la cargaison, à la couleur de la ressource, monte au chargement et descend au déchargement.
+   (cx, cy) = centre de la voie ; les roues posent à cy + 5. */
+function drawVehicle(x,cx,cy,dir,stageNum,o){
+  const body=o.blocked?'#b8564a':'#8fa8bf', dark='#0b1522', glass='#1e3448', load=o.tint||'#c9963f';
+  const f=Math.max(0,Math.min(1,o.f||0));
+  x.save(); x.translate(cx,cy); if(dir<0)x.scale(-1,1);
+  const wheel=(wx,wy,r)=>{ x.fillStyle=dark; x.beginPath(); x.arc(wx,wy,r,0,7); x.fill();
+    x.strokeStyle=body; x.lineWidth=.8; x.stroke(); };
+  const lights=(front,rear,ly)=>{ x.fillStyle='#f2d27a'; x.fillRect(front,ly,1.2,1.4);
+    x.fillStyle='#c5533f'; x.fillRect(rear,ly,1.2,1.4); };
   switch(stageNum){
-    case 2: // Camion : caisse + cabine
-      x.fillRect(-4,-3,8,6); x.fillRect(2.5,-2,3,4); break;
-    case 3: // Convoi : deux caisses reliées
-      x.fillRect(-6,-2.5,4,5); x.fillRect(1,-2.5,4,5);
-      x.lineWidth=1; x.beginPath(); x.moveTo(-2,0); x.lineTo(1,0); x.stroke(); break;
-    case 4: // Train : caisse allongée à trois segments
-      x.fillRect(-7,-2.5,14,5);
-      x.strokeStyle='#08111c'; x.lineWidth=1;
-      x.beginPath(); x.moveTo(-2.3,-2.5); x.lineTo(-2.3,2.5); x.moveTo(2.3,-2.5); x.lineTo(2.3,2.5); x.stroke(); break;
-    case 5: // Avion : chevron/aile
-      x.beginPath(); x.moveTo(0,-6); x.lineTo(5,4); x.lineTo(0,1.5); x.lineTo(-5,4); x.closePath(); x.fill(); break;
-    case 6: // Fusée-navette : ogive + corps
-      x.beginPath(); x.moveTo(0,-7); x.lineTo(3,1); x.lineTo(-3,1); x.closePath(); x.fill();
-      x.fillRect(-2,1,4,4); break;
-    case 7: // Vaisseau colonial rudimentaire : capsule trapue + réservoirs latéraux
-      x.beginPath(); x.moveTo(0,-6); x.lineTo(2.5,-1); x.lineTo(2.5,4); x.lineTo(-2.5,4); x.lineTo(-2.5,-1); x.closePath(); x.fill();
-      x.fillRect(-5,0,2,4); x.fillRect(3,0,2,4); break;
-    case 8: // Vaisseau de distorsion avancé : flèche effilée + ailes en delta
-      x.beginPath(); x.moveTo(0,-8); x.lineTo(2,-1); x.lineTo(2,3); x.lineTo(-2,3); x.lineTo(-2,-1); x.closePath(); x.fill();
-      x.beginPath(); x.moveTo(-2,-1); x.lineTo(-7,5); x.lineTo(-2,3); x.closePath(); x.fill();
-      x.beginPath(); x.moveTo(2,-1); x.lineTo(7,5); x.lineTo(2,3); x.closePath(); x.fill(); break;
-    default:
-      x.fillRect(-3,-3,6,6);
+    case 2: { // Benne minière : cabine avancée, benne basculante, tas de minerai
+      x.fillStyle=body; x.fillRect(-9,1,18,1.6);                              // châssis
+      x.beginPath(); x.moveTo(-9,-4); x.lineTo(2,-4); x.lineTo(1,1); x.lineTo(-8,1); x.closePath(); x.fill();
+      x.fillRect(3,-5,6,6); x.fillStyle=glass; x.fillRect(5.2,-4,3,2.4);
+      if(f>0){ x.fillStyle=load; x.beginPath(); x.moveTo(-8.5,-4);
+        x.quadraticCurveTo(-3.5,-4-7*f,1.5,-4); x.closePath(); x.fill(); }
+      wheel(-5.5,3.4,2.1); wheel(5.5,3.4,2.1); lights(8.8,-9,-1); break; }
+    case 3: { // Semi-remorque : tracteur + conteneur (plateau nu au retour)
+      x.fillStyle=body; x.fillRect(-11,0,15,1.6);                             // plateau
+      x.fillRect(4.5,-5,5.5,6.6); x.fillStyle=glass; x.fillRect(6.6,-4,2.8,2.4);
+      x.fillStyle=body; x.fillRect(3.5,-1,1.5,2.6);
+      if(f>0){ const h=7*f; x.fillStyle=load; x.fillRect(-10.5,-h,14,h);
+        x.strokeStyle='rgba(8,17,28,.45)'; x.lineWidth=.7;
+        for(let k=-8;k<3;k+=3){ x.beginPath(); x.moveTo(k,-h+.5); x.lineTo(k,-.2); x.stroke(); } }
+      wheel(-8.5,3.3,1.9); wheel(-4.5,3.3,1.9); wheel(7,3.3,1.9); lights(9.8,-11,-.8); break; }
+    case 4: { // Train : locomotive + deux wagons-trémies, recentré (il s'étend de −23,5 à +16)
+      x.translate(3.75,0); x.fillStyle=body; x.fillRect(5,-5.5,11,7); x.fillRect(4,-6.5,7,1.2);    // loco
+      x.fillStyle=glass; x.fillRect(12.2,-4.2,2.6,2.4);
+      x.fillStyle=body;
+      [-6.5,-18.5].forEach(wx=>{
+        x.beginPath(); x.moveTo(wx-5,-4.5); x.lineTo(wx+5,-4.5); x.lineTo(wx+4,1.5); x.lineTo(wx-4,1.5); x.closePath(); x.fill();
+        if(f>0){ x.fillStyle=load; x.beginPath(); x.moveTo(wx-4.6,-4.5);
+          x.quadraticCurveTo(wx,-4.5-5*f,wx+4.6,-4.5); x.closePath(); x.fill(); x.fillStyle=body; }
+        wheel(wx-2.6,2.8,1.4); wheel(wx+2.6,2.8,1.4); });
+      x.fillRect(-1.5,-.5,6.5,1); x.fillRect(-13.5,-.5,2,1);                  // attelages
+      wheel(7.5,2.8,1.6); wheel(13.5,2.8,1.6); lights(15.8,-23.5,-3.5); break; }
+    case 5: { // Avion cargo : fuselage, dérive, aile ; conteneurs visibles par la porte de soute
+      x.fillStyle=body;
+      x.beginPath(); x.moveTo(-11,-2.5); x.lineTo(7,-2.5); x.quadraticCurveTo(12,-2.2,12,.2);
+      x.quadraticCurveTo(12,2.5,7,2.5); x.lineTo(-9,2.5); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(-11,-2.5); x.lineTo(-9,-8); x.lineTo(-6,-8); x.lineTo(-4,-2.5); x.closePath(); x.fill();
+      x.fillStyle=glass; x.fillRect(8.5,-1.8,2,1.2);
+      if(f>0){ x.fillStyle=load; x.fillRect(-5,-1.6,Math.max(1,10*f),3.2); }
+      x.fillStyle='#5b7691'; x.beginPath(); x.moveTo(-3,.8); x.lineTo(5,.8); x.lineTo(1,4.2); x.lineTo(-4,4.2); x.closePath(); x.fill();
+      lights(11.2,-11,-.5); break; }
+    case 7: { // Vaisseau colonial : coque effilée, nacelle de fret sous la coque, flamme en marche
+      if(o.moving){ x.fillStyle='rgba(232,112,58,.85)'; x.beginPath(); x.moveTo(-10,-1.6); x.lineTo(-15,0); x.lineTo(-10,1.6); x.fill(); }
+      x.fillStyle=body;
+      x.beginPath(); x.moveTo(-10,-3.2); x.lineTo(4,-3.2); x.lineTo(11,0); x.lineTo(4,2.6); x.lineTo(-10,2.6); x.closePath(); x.fill();
+      x.fillRect(-11,-2.2,1.5,4); x.fillStyle=glass; x.fillRect(4.5,-1.8,2.6,1.4);
+      x.fillStyle='#5b7691'; x.fillRect(-7,2.6,1,1.6); x.fillRect(2,2.6,1,1.6);    // pinces d'arrimage
+      if(f>0){ x.fillStyle=load; x.fillRect(-7.5,4.2,Math.max(1,11*f),3); }
+      break; }
+    default: x.fillStyle=body; x.fillRect(-6,-4,12,8);
   }
   x.restore();
 }
 /* Bâtiments aux deux bouts d'une ligne de transport, en élévation : un pictogramme par étape
-   productrice ou consommatrice, même principe que drawVehicleIcon (données par étape, pas par
+   productrice ou consommatrice, même principe que drawVehicle (données par étape, pas par
    identifiant de chemin). (x0, gy) = coin bas-gauche, posé sur le sol. */
 const BLDG={1:'MINE',2:'FONDERIE',3:'USINE',4:'ASSEMBLAGE',5:'CHANTIER',6:'STATION',7:'COLONIE',8:'FORGE'};
 function drawBuilding(x,x0,gy,w,h,stageNum){
@@ -2263,12 +2307,73 @@ function drawBuilding(x,x0,gy,w,h,stageNum){
   }
   x.restore();
 }
-/* Ligne de transport : bâtiment d'origine, quai de chargement, route à 2×1 voie, quai de
-   déchargement, bâtiment de destination. La simulation reste une boucle (v.p ∈ [0,1), chargement
-   en p.load = 0, déchargement en p.unload = 0,5) ; seul le tracé change. L'aller chargé
-   [0 ; 0,5] roule vers la droite sur la voie du bas, le retour à vide ]0,5 ; 1[ revient sur la
-   voie du haut — circulation à droite, vue de dessus. Les files se forment donc devant chaque quai,
-   sur la voie qui y mène : file au départ = manque en amont, file à l'arrivée = aval saturé. */
+/* Voie entre les deux quais, selon le mode de transport de l'étape (TRANSPORT_MODE) : piste en
+   terre, route, double voie ferrée, couloir aérien balisé, corridor orbital. Deux voies dans tous
+   les cas — aller en bas, retour en haut. */
+function drawVoie(x,mode,xL,xU,yR,LW,t){
+  const top=yR-LW-1, h=LW*2+2, yA=yR+LW/2, yT=yR-LW/2;
+  const line=(y,col,w,dash)=>{ x.strokeStyle=col; x.lineWidth=w; x.setLineDash(dash||[]);
+    x.beginPath(); x.moveTo(xL,y); x.lineTo(xU,y); x.stroke(); x.setLineDash([]); };
+  switch(mode){
+    case 'piste':
+      x.fillStyle='#231c15'; x.fillRect(xL,top,xU-xL,h);
+      [yA,yT].forEach(y=>{ line(y-3,'#3a2e22',1.2); line(y+3,'#3a2e22',1.2); });   // ornières
+      line(yR,'#4a3a2a',1,[2,6]); break;
+    case 'rail':
+      x.fillStyle='#141a22'; x.fillRect(xL,top,xU-xL,h);                       // ballast
+      [yA,yT].forEach(y=>{
+        x.fillStyle='#3a3226'; for(let k=xL+2;k<xU;k+=5) x.fillRect(k,y-4.5,1.6,9);  // traverses
+        line(y-3,'#6d86a0',1); line(y+3,'#6d86a0',1); }); break;
+    case 'air':
+      // pas de chaussée : des balises le long de deux couloirs, qui s'allument à tour de rôle
+      [yA,yT].forEach((y,i)=>{ line(y,'rgba(63,127,154,.35)',1,[1,5]);
+        for(let k=xL+6,n=0;k<xU;k+=18,n++){ const on=(n+Math.floor(t*4)+(i?2:0))%4===0;
+          x.fillStyle=on?'#8fd0e8':'#23455a'; x.fillRect(k,y-.8,1.8,1.8); } }); break;
+    case 'orbite':
+      x.fillStyle='#060b12'; x.fillRect(xL,top,xU-xL,h);
+      x.fillStyle='rgba(223,233,242,.55)';                                      // étoiles fixes
+      for(let k=0;k<(xU-xL)/7;k++){ const sx=xL+((k*73)%(xU-xL)), sy=top+((k*37)%h); x.fillRect(sx,sy,1,1); }
+      line(yA,'rgba(95,184,200,.45)',1,[6,4]); line(yT,'rgba(95,184,200,.3)',1,[6,4]); break;
+    default: // route
+      x.fillStyle='#152232'; x.fillRect(xL,top,xU-xL,h);
+      line(yR-LW-.5,'#3a5470',1); line(yR+LW+.5,'#3a5470',1);
+      line(yR,'#6d86a0',1,[5,5]);
+  }
+  // sens de circulation, discret, au milieu de chaque voie
+  x.fillStyle='#2e4660'; const mx=(xL+xU)/2;
+  x.beginPath(); x.moveTo(mx+4,yA); x.lineTo(mx-2,yA-3); x.lineTo(mx-2,yA+3); x.fill();
+  x.beginPath(); x.moveTo(mx-4,yT); x.lineTo(mx+2,yT-3); x.lineTo(mx+2,yT+3); x.fill();
+}
+/* Quai, selon le mode : aire hachurée (piste, route), quai de gare à bande de sécurité (rail),
+   bout de piste à bandes de seuil (air), aire d'appontage cerclée (orbite). Bordure ambre au
+   chargement, braise au déchargement ; elle clignote quand le quai coince. */
+function drawQuai(x,mode,qx,dw,yR,LW,col0,alert,blink){
+  const top=yR-LW-3, h=LW*2+6;
+  x.fillStyle='#101c2a'; x.fillRect(qx,top,dw,h);
+  x.save(); x.beginPath(); x.rect(qx,top,dw,h); x.clip();
+  if(mode==='rail'){
+    x.fillStyle='#1a2636'; x.fillRect(qx,top,dw,h);
+    x.fillStyle='rgba(216,161,60,.55)'; x.fillRect(qx,top+1,dw,1.5); x.fillRect(qx,top+h-2.5,dw,1.5);
+  } else if(mode==='air'){
+    x.fillStyle='#16202c'; x.fillRect(qx,top+2,dw,h-4);
+    x.fillStyle='rgba(223,233,242,.35)'; for(let k=top+4;k<top+h-4;k+=4) x.fillRect(qx+2,k,dw-4,1.4);
+  } else if(mode==='orbite'){
+    x.strokeStyle='rgba(95,184,200,.45)'; x.lineWidth=1;
+    x.beginPath(); x.arc(qx+dw/2,yR,Math.min(dw,h)/2-2,0,7); x.stroke();
+  } else {
+    x.strokeStyle='rgba(143,168,191,.12)'; x.lineWidth=2;
+    for(let k=-h;k<dw+h;k+=6){ x.beginPath(); x.moveTo(qx+k,top+h); x.lineTo(qx+k+h,top); x.stroke(); }
+  }
+  x.restore();
+  x.strokeStyle=alert&&blink?alert:col0; x.lineWidth=alert?2:1.2;
+  x.strokeRect(qx+.5,top+.5,dw-1,h-1);
+}
+/* Ligne de transport : bâtiment d'origine, quai de chargement, voie à 2×1, quai de déchargement,
+   bâtiment de destination. La simulation reste une boucle (v.p ∈ [0,1), chargement en
+   p.load = 0, déchargement en p.unload = 0,5) ; seul le tracé change. L'aller chargé [0 ; 0,5]
+   file vers la droite sur la voie du bas, le retour à vide ]0,5 ; 1[ revient sur la voie du haut
+   — circulation à droite ; voies vues de dessus, véhicules vus de côté. Les files se forment donc devant chaque quai, sur la
+   voie qui y mène : file au départ = manque en amont, file à l'arrivée = aval saturé. */
 function drawLoops(){
   const c=$('loopsC'); if(!c)return;
   const ps=PATHS.filter(p=>p.dest===state.tab); if(!ps.length)return;
@@ -2279,7 +2384,7 @@ function drawLoops(){
   const cols=Math.max(1,Math.min(ps.length,Math.floor(CSSW/MINSLOT)));
   const rows=Math.ceil(ps.length/cols);
   const slot=CSSW/cols;
-  const BH=40, rowH=BH+58, CSSH=rows*rowH+4;
+  const BH=42, rowH=BH+62, CSSH=rows*rowH+4;
   if(c.width!==Math.round(CSSW*dpr)||c.height!==Math.round(CSSH*dpr)){
     c.width=Math.round(CSSW*dpr); c.height=Math.round(CSSH*dpr);
   }
@@ -2287,14 +2392,16 @@ function drawLoops(){
   const x=c.getContext('2d');
   x.setTransform(dpr,0,0,dpr,0,0);
   x.clearRect(0,0,CSSW,CSSH);
-  const blink=Math.floor(Date.now()/300)%2===0;
+  const now=Date.now()/1000, blink=Math.floor(now/.3)%2===0;
   ps.forEach((p,idx)=>{
+    const tm=TRANSPORT_MODE[p.dest]||TRANSPORT_MODE[3];
     const col=idx%cols, row=Math.floor(idx/cols);
-    const sx=slot*col+8, sw=slot-16, top=row*rowH+10;
+    const sx=slot*col+8, sw=slot-16, top=row*rowH+14;
     const gy=top+BH+6;                                 // niveau du sol, pied des bâtiments
-    const bw=Math.max(30,Math.min(58,sw*.13)), dw=Math.max(14,Math.min(26,sw*.065));
+    const bw=Math.max(30,Math.min(58,sw*.13));
+    const dw=Math.max(tm.len+4,Math.min(44,sw*.065));  // un quai loge le véhicule entier
     const xB1=sx+bw, xL=xB1+dw, xB2=sx+sw-bw, xU=xB2-dw, lane=xU-xL;
-    const LW=10, yR=gy-LW-3;                           // axe de la chaussée, à hauteur des quais
+    const LW=12, yR=gy-LW-3;                           // axe de la voie, à hauteur des quais
     const yRet=yR-LW/2, yAll=yR+LW/2;                  // voie du haut (retour), du bas (aller)
     x.globalAlpha=p.paused?0.42:1;
 
@@ -2302,31 +2409,9 @@ function drawLoops(){
     drawBuilding(x,xB2,gy,bw,BH,p.dest);
     x.strokeStyle='#22384f'; x.lineWidth=1;
     x.beginPath(); x.moveTo(sx,gy+.5); x.lineTo(sx+sw,gy+.5); x.stroke();
-
-    // chaussée : deux voies, rives continues, axe pointillé
-    x.fillStyle='#152232'; x.fillRect(xL,yR-LW-1,lane,LW*2+2);
-    x.strokeStyle='#3a5470'; x.lineWidth=1;
-    x.beginPath(); x.moveTo(xL,yR-LW-.5); x.lineTo(xU,yR-LW-.5); x.moveTo(xL,yR+LW+.5); x.lineTo(xU,yR+LW+.5); x.stroke();
-    x.strokeStyle='#6d86a0'; x.setLineDash([5,5]);
-    x.beginPath(); x.moveTo(xL,yR); x.lineTo(xU,yR); x.stroke(); x.setLineDash([]);
-    // sens de circulation, discret, au milieu de chaque voie
-    x.fillStyle='#2e4660'; const mx=(xL+xU)/2;
-    x.beginPath(); x.moveTo(mx+4,yAll); x.lineTo(mx-2,yAll-3); x.lineTo(mx-2,yAll+3); x.fill();
-    x.beginPath(); x.moveTo(mx-4,yRet); x.lineTo(mx+2,yRet-3); x.lineTo(mx+2,yRet+3); x.fill();
-
-    // quais : aire hachurée entre bâtiment et chaussée ; ambre si rien à charger, rouge si l'aval
-    // refuse la marchandise — la couleur du quai dit d'un coup d'œil de quel côté ça coince
-    const quai=(qx,col0,alert)=>{
-      x.fillStyle='#101c2a'; x.fillRect(qx,yR-LW-3,dw,LW*2+6);
-      x.save(); x.beginPath(); x.rect(qx,yR-LW-3,dw,LW*2+6); x.clip();
-      x.strokeStyle='rgba(143,168,191,.12)'; x.lineWidth=2;
-      for(let k=-LW*2;k<dw+LW*2;k+=6){ x.beginPath(); x.moveTo(qx+k,yR+LW+3); x.lineTo(qx+k+LW*2+6,yR-LW-3); x.stroke(); }
-      x.restore();
-      x.strokeStyle=alert&&blink?alert:col0; x.lineWidth=alert?2:1.2;
-      x.strokeRect(qx+.5,yR-LW-2.5,dw-1,LW*2+5);
-    };
-    quai(xB1,'#c9963f',p.jamIn?'#d8a13c':null);
-    quai(xU,'#e8703a',p.jamOut?'#c5533f':null);
+    drawVoie(x,tm.voie,xL,xU,yR,LW,now);
+    drawQuai(x,tm.voie,xB1,dw,yR,LW,'#c9963f',p.jamIn?'#d8a13c':null,blink);
+    drawQuai(x,tm.voie,xU,dw,yR,LW,'#e8703a',p.jamOut?'#c5533f':null,blink);
 
     // stock à l'arrivée : silo accolé au bâtiment de destination
     const f=Math.max(0,Math.min(1,(state.buf[p.id]||0)/(p.bufMax||1)));
@@ -2335,29 +2420,22 @@ function drawLoops(){
     x.fillStyle=f>.92?'#c5533f':f>.05?'#5fb87a':'#d8a13c'; x.fillRect(sxs,sy+sh*(1-f),5,sh*f);
     x.strokeStyle='#2e4660'; x.lineWidth=1; x.strokeRect(sxs+.5,sy+.5,4,sh-1);
 
-    /* Véhicules. Au quai : posés sur l'aire. Sur la route : espacés vers l'ARRIÈRE depuis le quai
-       vers lequel ils roulent, pour qu'une file reste une file lisible au lieu de s'empiler sur
-       quelques pixels (en file, l'écart réel minGap ne vaut que quelques pixels à l'écran). */
-    // drawVehicleIcon attend l'angle RADIAL de l'ancienne boucle (il ajoute un quart de tour pour
-    // suivre la tangente) : un cap de marche θ se passe donc en θ − π/2. Camion, convoi et train
-    // ont l'avant en +x, mais avions et vaisseaux (étape 5 et au-delà) ont le nez en −y : sans le
-    // quart de tour de plus, ils avançaient en crabe.
-    const cap=th=>th-Math.PI/2+(p.dest>=5?Math.PI/2:0);
-    const gapL=Math.min(.45,13/Math.max(1,lane));
+    /* Véhicules. À quai : posés sur l'aire, tournés vers le départ, cargaison au remplissage réel.
+       Sur la voie : espacés vers l'ARRIÈRE depuis le quai vers lequel ils roulent, d'une longueur
+       de véhicule, pour qu'une file reste une file lisible (en file, l'écart réel minGap ne vaut
+       que quelques pixels à l'écran). */
+    const tint=RES[p.res].tint;
+    const gapL=Math.min(.45,(tm.len+3)/Math.max(1,lane));
     const allerV=[], retourV=[];
     (state.veh[p.id]||[]).forEach(v=>{
-      const loaded=v.state==='traveling_loaded'||v.state==='unloading';
-      const col2=v.blocked?'#b8564a':(loaded?'#dfe9f2':'#5a7186');
       if(v.state==='loading'||v.state==='unloading'){
         const qx=v.state==='loading'?xB1+dw/2:xU+dw/2;
-        drawVehicleIcon(x,qx,yR,cap(0),col2,p.dest);
-        x.strokeStyle=v.state==='loading'?'#c9963f':'#e8703a'; x.lineWidth=1.5;
-        x.beginPath(); x.arc(qx,yR,7.5,0,Math.PI*2); x.stroke();
-        // jauge de remplissage au-dessus du quai : se remplit au chargement, se vide au
-        // déchargement — une jauge figée = bouchon, et elle clignote passé LOAD_WARN
+        drawVehicle(x,qx,yR,1,p.dest,{f:v.c/(p.cap||1),tint,blocked:false});
+        // jauge au-dessus du quai : se remplit au chargement, se vide au déchargement — une jauge
+        // figée = bouchon, et elle clignote passé LOAD_WARN
         const warn=v.state==='loading'&&(v.loadTimer||0)>=LOAD_WARN;
         if(!warn||blink){
-          const gw=16, gh=3, gx=qx-gw/2, gy2=yR-LW-9;
+          const gw=16, gh=3, gx=qx-gw/2, gy2=yR-LW-10;
           const f2=Math.max(0,Math.min(1,v.c/(p.cap||1)));
           x.fillStyle='#0b1522'; x.fillRect(gx-1,gy2-1,gw+2,gh+2);
           x.fillStyle='#22384f'; x.fillRect(gx,gy2,gw,gh);
@@ -2367,7 +2445,7 @@ function drawLoops(){
         return;
       }
       const pp=((v.p%1)+1)%1;
-      if(pp<=.5) allerV.push({v,col2,prog:pp/.5}); else retourV.push({v,col2,prog:(pp-.5)/.5});
+      if(pp<=.5) allerV.push({v,prog:pp/.5}); else retourV.push({v,prog:(pp-.5)/.5});
     });
     const rouler=(list,yl,dir)=>{
       list.sort((a,b)=>b.prog-a.prog);
@@ -2375,20 +2453,21 @@ function drawLoops(){
       list.forEach(o=>{
         const d=Math.max(0,Math.min(o.prog,prev-gapL)); prev=d;
         const px=dir>0?xL+d*lane:xU-d*lane;
-        drawVehicleIcon(x,px,yl,cap(dir>0?0:Math.PI),o.col2,p.dest);
+        drawVehicle(x,px,yl,dir,p.dest,{f:dir>0?1:0,tint,blocked:o.v.blocked,moving:!o.v.blocked});
       });
     };
     rouler(allerV,yAll,1);
     rouler(retourV,yRet,-1);
     x.globalAlpha=1;
 
-    // étiquettes : bâtiments sous leur pied, ressource et état sous la route
+    // étiquettes : bâtiments sous leur pied, ressource et état sous la voie
     x.font='8.5px ui-monospace,monospace'; x.fillStyle='#5b7691';
     x.textAlign='center';
     x.fillText(BLDG[p.src]||'', sx+bw/2, gy+11);
     x.fillText(BLDG[p.dest]||'', xB2+bw/2, gy+11);
+    const nv=p.n||1;
     x.font='10px ui-monospace,monospace'; x.fillStyle='#8fa8bf';
-    x.fillText(RES[p.res].n+' · '+(p.n||1)+' véh.', (xL+xU)/2, gy+13);
+    x.fillText(RES[p.res].n+' · '+nv+' '+tm.n[nv>1?1:0], (xL+xU)/2, gy+13);
     x.font='9px ui-monospace,monospace';
     if(p.paused){ x.fillStyle='#7f97ad'; x.fillText('⏸ ligne à l\'arrêt', (xL+xU)/2, gy+26); }
     else if(p.jamOut||p.jamIn){ x.fillStyle=p.jamOut?'#c5533f':'#d8a13c';
