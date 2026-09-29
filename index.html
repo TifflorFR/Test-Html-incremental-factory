@@ -467,6 +467,14 @@ footer{
 .acct .msg.err{color:var(--bad)}
 .acct .who{font-family:var(--mono);color:var(--amber);font-size:14px;word-break:break-all}
 .acct .close{display:block;margin:14px 0 0 auto}
+.overlay.acct .box.lb{max-width:480px;max-height:86vh;overflow-y:auto}
+.lbt{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+.lbt td{padding:6px 8px;border-bottom:1px solid rgba(0,0,0,.35)}
+.lbt td:first-child{width:3em;text-align:right;font-family:var(--mono);color:var(--steel)}
+.lbt td:last-child{text-align:right;font-family:var(--mono);color:var(--amber);white-space:nowrap}
+.lbt tr.me td{background:rgba(242,179,27,.12)}
+.lbt tr.me td:nth-child(2){color:var(--brass);font-weight:700}
+.lbnote{margin-top:12px;font-size:12px;color:var(--steel);line-height:1.5}
 .presh{display:flex;gap:8px 14px;align-items:baseline;flex-wrap:wrap;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   color:#8b9187;background:var(--lcd);border:1px solid var(--line);padding:7px 10px;border-radius:2px;
   box-shadow:inset 0 2px 4px rgba(0,0,0,.8)}
@@ -539,6 +547,7 @@ footer{
   <div class="steps"><span>Minage</span><span>Fonderie</span><span>Usine</span><span>National</span><span>International</span><span>Orbite</span><span>Colonisation</span><span>Galaxie</span></div>
   <button class="go" id="introNew">Commencer</button>
   <button class="alt" id="introResume" style="display:none">Reprendre la partie</button>
+  <button class="alt" id="introLb">Classement</button>
   <button class="alt" id="introAcct">Se connecter · sauvegarde en ligne</button>
   <div class="foot">Se joue hors ligne, tout tient dans ce fichier. La partie se sauvegarde toute seule&nbsp;: <span id="introStore">—</span>.<br>Le bouton « test » en bas accélère le jeu jusqu'à ×1000 pour voir toutes les étapes.</div>
 </div></div>
@@ -566,6 +575,7 @@ footer{
     <div class="mult">×<b id="hGlobal">1</b> global</div>
     <div class="mult">valeur <b id="hValeur">0</b></div>
     <div class="mult">brevets <b id="hBrevets">0</b></div>
+    <div class="mult" title="Temps de jeu compté pour le classement">temps <b id="hTps">0</b></div>
   </div>
   <div class="resbar" id="resbar"></div>
   <div class="belt" id="belt"></div>
@@ -580,6 +590,15 @@ footer{
   <div class="box">
     <h2>RESTRUCTURATION</h2>
     <div id="presBody"></div>
+  </div>
+</div>
+
+<div class="overlay acct" id="lbOverlay" style="display:none">
+  <div class="box lb">
+    <h2>CLASSEMENT</h2>
+    <p>Temps de jeu pour assimiler la galaxie, du premier clic aux 100 000 systèmes.</p>
+    <div id="lbBody"></div>
+    <button class="mini close" id="lbClose">fermer</button>
   </div>
 </div>
 
@@ -601,6 +620,7 @@ footer{
     <button class="mini prestige" id="btnPrestige" style="display:none">restructurer</button>
     <div class="sp"></div>
     <button class="mini" id="btnFmt">nombres : court</button>
+    <button class="mini" id="btnLb">classement</button>
     <button class="mini" id="btnAcct">compte</button>
     <button class="mini" id="btnExport">sauvegarde</button>
     <button class="mini" id="btnDev">test</button>
@@ -628,6 +648,11 @@ footer{
 const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc','Ud','Dd','Td'];  // échelle courte US
 let numFmt='court';   // 'court' | 'sci' | 'ing'
 let numMode='court';                       // 'court' | 'sci' | 'ing'
+/* Chrono du classement : « 1 h 04 min 09 s », heures omises en dessous d'une heure */
+function fmtDuree(sec){
+  sec=Math.max(0,Math.floor(sec)); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60, p=n=>(n<10?'0':'')+n;
+  return (h?h+' h '+p(m):m)+' min '+p(s)+' s';
+}
 function fmt(n){
   if(n===undefined||n===null||isNaN(n))return'0';
   if(n<0)return'-'+fmt(-n);
@@ -1479,7 +1504,12 @@ function freshState(brevets=0,valeurTot=0){
     licences:{}, actifs:{}, actifPick:{}, presV:1,
     fusee:null,                       // dessin de fusée choisi à l'étape 7 (FUSEES), purement visuel
     valeur:0, valeurTot, brevets,
-    speed:1, buyMode:1, t:Date.now(), won:false
+    speed:1, buyMode:1, t:Date.now(), won:false,
+    /* Chrono du classement : secondes de jeu RÉEL au premier plan (le jeu est suspendu sinon, §1),
+       cumulées sur toute la partie, restructurations comprises. `horsCourse` : outils de test,
+       import de code ou sauvegarde antérieure au chrono — la partie se joue, mais le temps ne
+       s'inscrit pas. `fini` : temps figé à la victoire ; `finiEnvoye` : déjà soumis au classement. */
+    tps:0, horsCourse:false, fini:null, finiEnvoye:false
   };
 }
 state=freshState();
@@ -1487,7 +1517,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.19.0';
+const GAME_VERSION='0.20.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -2070,6 +2100,7 @@ function doPrestige(){
      régression silencieuse — le format des nombres revenait en « court » au rechargement suivant
      et l'écran de victoire se rejouait. */
   ns.speed=old.speed; ns.numFmt=old.numFmt; ns.buyMode=old.buyMode; ns.won=old.won; ns.fusee=old.fusee;
+  ns.tps=old.tps; ns.horsCourse=old.horsCourse; ns.fini=old.fini; ns.finiEnvoye=old.finiEnvoye;
   ns.licences=Object.assign({},presDraft.lic);
   ns.actifs=Object.assign({},presDraft.act);
   ns.actifPick=Object.assign({},presDraft.pick);
@@ -2203,11 +2234,19 @@ function presBind(){
 
 function victory(){
   state.won=true;
+  if(!state.horsCourse) state.fini=Math.floor(state.tps);
+  const chrono=state.fini!==null
+    ? '<p style="margin-top:14px">Temps de jeu : <b style="color:var(--amber);font-family:var(--mono)">'+fmtDuree(state.fini)+'</b></p><p id="vicLb" style="font-size:13px">'+
+      (CLOUD.pseudo?'Inscription au classement…':'Connecte-toi (bouton « compte ») pour inscrire ce temps au classement.')+'</p>'
+    : '<p style="margin-top:14px;font-size:13px">Chrono hors course (outils de test, import de code ou partie commencée avant le classement).</p>';
   const o=document.createElement('div'); o.className='overlay';
   o.innerHTML='<div class="box"><h2>GALAXIE ASSIMILÉE</h2><p>100 000 systèmes. Le multiplicateur planétaire vaut ×'+fmt(1+3*state.systemes)+
-    ', la production globale ×'+fmt(cache.global)+', et il ne reste plus rien à dézoomer.</p><p style="margin-top:14px;color:var(--brass)">C\'est déjà pas mal.</p>'+
-    '<button class="mini" style="margin-top:18px" onclick="this.closest(\'.overlay\').remove()">continuer à regarder les chiffres monter</button></div>';
+    ', la production globale ×'+fmt(cache.global)+', et il ne reste plus rien à dézoomer.</p><p style="margin-top:14px;color:var(--brass)">C\'est déjà pas mal.</p>'+chrono+
+    '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px"><button class="mini" data-lb>voir le classement</button>'+
+    '<button class="mini" onclick="this.closest(\'.overlay\').remove()">continuer à regarder les chiffres monter</button></div></div>';
+  o.querySelector('[data-lb]').onclick=()=>{ o.remove(); openLb(); };
   document.body.appendChild(o);
+  save(); lbSubmit();
 }
 
 /* ==========================================================================
@@ -3711,6 +3750,7 @@ function paint(){
     o.r.className='r '+(f>1e-6?'pos':f<-1e-6?'neg':'zero'); }
   $('hGlobal').textContent=fmt(cache.global);
   $('hValeur').textContent=fmt(state.valeur+state.valeurTot);
+  $('hTps').textContent=state.horsCourse?'hors course':fmtDuree(state.fini!==null?state.fini:state.tps);
   // brevets LIBRES sur total : le total seul ne dit plus rien depuis qu'il faut l'allouer (§5)
   $('hBrevets').textContent=brevetsLibres()+' / '+state.brevets+(brevetsGain()>0?' (+'+brevetsGain()+')':'');
   /* Le bouton ouvre le panneau de répartition dès que la restructuration existe, même quand elle
@@ -3838,6 +3878,17 @@ const CLOUD=(()=>{
     async signUp(pseudo,pw){ await auth('inscription',{pseudo:pseudo.trim(),password:pw}); await this.signIn(pseudo,pw); },
     async signOut(){ const t=sess&&sess.at; keep(null); if(t)try{ await auth('logout',{},t); }catch(e){} },
     async pull(){ const rows=await rest('GET'); return rows[0]?rows[0].data:null; },
+    get uid(){ return sess&&sess.uid; },
+    /* Classement : lecture publique (pas besoin de compte) ; l'écriture passe par submit_time côté
+       base, qui prend le pseudo dans le compte et ne garde que le meilleur temps. */
+    async top(n){ const r=await fetch(API+'/rest/v1/leaderboard?select=user_id,pseudo,seconds&order=seconds.asc,finished_at.asc&limit='+n,{headers:{apikey:KEY}});
+      if(!r.ok)throw new Error('Erreur serveur '+r.status); return r.json(); },
+    async rankOf(sec){ const r=await fetch(API+'/rest/v1/leaderboard?select=user_id&seconds=lt.'+sec,{method:'HEAD',headers:{apikey:KEY,Prefer:'count=exact'}});
+      return 1+(+((r.headers.get('content-range')||'').split('/')[1])||0); },
+    async submit(sec){ const t=await token(); if(!t)throw new Error('non connecté');
+      const r=await fetch(API+'/rest/v1/rpc/submit_time',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+t,'Content-Type':'application/json'},
+        body:JSON.stringify({p_seconds:sec,p_version:GAME_VERSION})});
+      if(!r.ok)throw new Error('Erreur serveur '+r.status); return r.json(); },
     /* keepalive (envoi pendant la fermeture de l'onglet) plafonne le corps à 64 Ko côté navigateur */
     async push(data,ka){ await rest('POST',{user_id:sess.uid,data,version:GAME_VERSION,updated_at:new Date().toISOString()},ka&&data.length<60000); }
   };
@@ -3891,6 +3942,9 @@ function restore(raw){
     state.cnt[m.id]=cap;
   });
   if(state.numFmt)numFmt=state.numFmt;
+  /* 0.20.0 — le chrono n'existait pas : impossible de savoir depuis quand la partie tourne, elle
+     est donc hors course (test sur d.state, même raison que presV plus haut). */
+  if(d.state.tps===undefined){ state.tps=0; state.horsCourse=true; }
   Object.assign(unlockedClicks,d.unlockedClicks||{});
   flow={}; prodAvg={}; pathTaken={}; pathAcc=0; prodFloat={}; rateReset();   // même raison qu'au prestige : on repart d'une mesure vierge
   recompute();
@@ -3940,12 +3994,44 @@ $('btnExport').onclick=()=>{
   const code=btoa(unescape(encodeURIComponent(snapshot())));
   const r=prompt('Copie ce code pour transférer ta partie sur un autre appareil.\nOu colle un code reçu, puis valide :',code);
   if(!r||r===code)return;
-  try{ restore(decodeURIComponent(escape(atob(r.trim())))); structuralDirty=true; save(); toast('Partie importée'); }
+  /* un code se modifie à la main : une partie importée ne concourt plus */
+  try{ restore(decodeURIComponent(escape(atob(r.trim())))); state.horsCourse=true; structuralDirty=true; save(); toast('Partie importée (hors classement)'); }
   catch(e){ toast('Code illisible'); }
 };
 /* Compte : trois vues dans la même boîte — formulaire, connecté, et choix entre deux parties
    quand le compte en a déjà une et qu'on se connecte en cours de jeu. Ce choix se fait en page,
    pas via ask() : faute de confirm() disponible, ask() répond oui, ce qui écraserait une partie. */
+/* Classement. La soumission est retentée à chaque connexion et à chaque démarrage tant qu'elle
+   n'a pas abouti : une victoire obtenue hors ligne ou sans compte s'inscrit dès que possible. */
+async function lbSubmit(){
+  if(state.fini===null||state.finiEnvoye||!CLOUD.pseudo)return;
+  let msg;
+  try{ const best=await CLOUD.submit(state.fini); state.finiEnvoye=true; save();
+    msg='Temps inscrit au classement'+(best<state.fini?' (ton record reste '+fmtDuree(best)+')':'')+' — rang '+await CLOUD.rankOf(best)+'.'; }
+  catch(e){ msg='Inscription au classement impossible pour l\'instant, nouvel essai à la prochaine connexion.'; }
+  if($('vicLb'))$('vicLb').textContent=msg; else toast(msg);
+}
+async function openLb(){
+  $('lbOverlay').style.display='flex'; const b=$('lbBody');
+  b.innerHTML='<div class="lbnote">Chargement…</div>';
+  let rows;
+  try{ rows=await CLOUD.top(50); }catch(e){ b.innerHTML='<div class="lbnote">Classement injoignable (hors ligne ?).</div>'; return; }
+  const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  let h=rows.length?'<table class="lbt">'+rows.map((r,i)=>'<tr'+(r.user_id===CLOUD.uid?' class="me"':'')+'><td>'+(i+1)+'</td><td>'+esc(r.pseudo)+'</td><td>'+fmtDuree(r.seconds)+'</td></tr>').join('')+'</table>'
+    :'<div class="lbnote">Personne n\'a encore assimilé la galaxie. La place est libre.</div>';
+  const note=!running?''
+    :state.horsCourse?'Ta partie en cours est hors course (outils de test, import ou sauvegarde antérieure au chrono) : recommence une partie pour concourir.'
+    :state.fini!==null?(state.finiEnvoye?'':'Ton temps de '+fmtDuree(state.fini)+' sera inscrit dès que tu seras connecté.')
+    :'Ta partie en cours : '+fmtDuree(state.tps)+'.'+(CLOUD.pseudo?'':' Connecte-toi pour que ton temps final soit inscrit.');
+  if(note)h+='<div class="lbnote">'+note+'</div>';
+  b.innerHTML=h;
+}
+function closeLb(){ $('lbOverlay').style.display='none'; }
+$('btnLb').onclick=openLb;
+$('introLb').onclick=openLb;
+$('lbClose').onclick=closeLb;
+$('lbOverlay').onclick=e=>{ if(e.target.id==='lbOverlay')closeLb(); };
+
 function acctDate(raw){ const t=tsOf(raw); return t?new Date(t).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'date inconnue'; }
 function acctStage(raw){ try{ return STAGES[(JSON.parse(raw).state.stage||1)-1].nom; }catch(e){ return '?'; } }
 function acctView(mode,msg,err,cloudRaw){
@@ -3963,8 +4049,8 @@ function acctView(mode,msg,err,cloudRaw){
     cloudHold=true;
     b.innerHTML='<div class="acct"><p>Ce compte a déjà une partie en ligne, sauvegardée le <b>'+acctDate(cloudRaw)+'</b> (étape : '+acctStage(cloudRaw)+').</p>'+
       '<div class="row"><button class="mini on" id="acctTake">Charger la partie en ligne</button><button class="mini" id="acctKeep">Garder celle-ci et l\'envoyer</button></div>'+m+'</div>';
-    $('acctTake').onclick=()=>{ cloudHold=false; restore(cloudRaw); structuralDirty=true; render(); paint(); save(); acctView('in','Partie en ligne chargée.'); };
-    $('acctKeep').onclick=async()=>{ cloudHold=false; acctView('in',await cloudPush()?'Partie envoyée.':'Envoi impossible pour l\'instant.'); };
+    $('acctTake').onclick=()=>{ cloudHold=false; restore(cloudRaw); structuralDirty=true; render(); paint(); save(); acctView('in','Partie en ligne chargée.'); lbSubmit(); };
+    $('acctKeep').onclick=async()=>{ cloudHold=false; acctView('in',await cloudPush()?'Partie envoyée.':'Envoi impossible pour l\'instant.'); lbSubmit(); };
   } else {
     const last=cloudAt?'dernier envoi à '+new Date(cloudAt).toLocaleTimeString('fr-FR',{timeStyle:'short'}):running?'pas encore d\'envoi dans cette session':'';
     b.innerHTML='<div class="acct"><p>Connecté : <span class="who">'+CLOUD.pseudo.replace(/</g,'&lt;')+'</span></p>'+
@@ -3991,7 +4077,7 @@ async function acctDo(kind){
     return;
   }
   if(c) acctView('conflict','',false,c);
-  else acctView('in',await cloudPush()?'Partie envoyée.':'');
+  else { acctView('in',await cloudPush()?'Partie envoyée.':''); lbSubmit(); }
 }
 function openAcct(){ acctView(CLOUD.pseudo?'in':'login'); $('acctOverlay').style.display='flex';
   if($('acctPseudo'))$('acctPseudo').focus(); }
@@ -4004,11 +4090,12 @@ $('btnAcct').onclick=openAcct;
 $('introAcct').onclick=openAcct;
 $('acctOverlay').onclick=e=>{ if(e.target.id==='acctOverlay'&&!cloudHold)closeAcct(); };
 
+function horsCourse(){ if(!state.horsCourse&&!state.won)toast('Outil de test : cette partie ne compte plus pour le classement'); state.horsCourse=true; }
 document.querySelectorAll('.spd').forEach(b=>b.onclick=()=>{
-  state.speed=+b.dataset.s; document.querySelectorAll('.spd').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
-$('devRes').onclick=()=>{ for(const k in RES) state.res[k]+=1e6*Math.pow(10,Math.max(0,state.stage-2)); structuralDirty=true; toast('Ressources injectées'); };
-$('devStage').onclick=()=>{ if(state.stage<8){ state.stage++; state.tab=state.stage; structuralDirty=true; toast('Étape forcée : '+STAGES[state.stage-1].nom);} };
-$('devAll').onclick=()=>{ state.stage=8; for(const k in unlockedClicks)unlockedClicks[k]=true;
+  state.speed=+b.dataset.s; if(state.speed>1)horsCourse(); document.querySelectorAll('.spd').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
+$('devRes').onclick=()=>{ horsCourse(); for(const k in RES) state.res[k]+=1e6*Math.pow(10,Math.max(0,state.stage-2)); structuralDirty=true; toast('Ressources injectées'); };
+$('devStage').onclick=()=>{ if(state.stage<8){ horsCourse(); state.stage++; state.tab=state.stage; structuralDirty=true; toast('Étape forcée : '+STAGES[state.stage-1].nom);} };
+$('devAll').onclick=()=>{ horsCourse(); state.stage=8; for(const k in unlockedClicks)unlockedClicks[k]=true;
   CLICKABLE.forEach(c=>unlockedClicks[c.r]=true);
   for(const k in RES)state.res[k]+=1e12; recompute(); structuralDirty=true; toast('Toutes les étapes ouvertes'); };
 $('devReset').onclick=()=>{ if(!ask('Effacer la partie ?'))return; STORE.del(); state=freshState();
@@ -4039,6 +4126,7 @@ function loop(now){
   if(!pageAwake()){ last=now; return; }   // §1 — suspension totale, aucun tick exécuté
   const dt=Math.min(DT_MAX,(now-last)/1000); last=now;
   tick(dt);
+  state.tps+=dt;
   painter+=dt;
   if(structuralDirty)render();
   if(painter>0.1){ painter=0; paint(); }
@@ -4066,6 +4154,7 @@ function start(raw){
   if(raw) restore(raw);            // §1 — aucun rattrapage : on reprend l'état tel quel
   recompute(); structuralDirty=true; render(); paint();
   for(let st=1;st<=state.stage;st++) queuePop(st);   // rattrape les étapes déjà atteintes
+  lbSubmit();
   setInterval(save,10000);
   document.addEventListener('visibilitychange',()=>{ if(document.hidden){ save(); cloudPush(true); } syncAwake(); });
   window.addEventListener('blur',()=>{ awake=false; save(); syncAwake(); });
