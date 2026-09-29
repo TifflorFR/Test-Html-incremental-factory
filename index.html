@@ -3798,23 +3798,25 @@ const CLOUD=(()=>{
   const API='https://lxcxifshaxoebgxmpzlo.supabase.co', KEY='sb_publishable_7g43Ec4iyvdp4pHaHwB4uA_V2dEOH2V', SK='if:auth';
   let sess=null;
   try{ sess=JSON.parse(localStorage.getItem(SK)||'null'); }catch(e){}
+  /* Comptes par pseudo : Auth exige un email, on en dérive un interne, jamais montré ni écrit
+     (.invalid est un domaine réservé). Doit rester identique à DOMAIN dans
+     supabase/functions/inscription, qui crée les comptes déjà confirmés. */
+  const pseudoEmail=p=>p.trim().toLowerCase()+'@joueurs.incremental-factory.invalid';
   const keep=s=>{ sess=s; try{ s?localStorage.setItem(SK,JSON.stringify(s)):localStorage.removeItem(SK); }catch(e){} };
-  const MSG={ invalid_credentials:'Email ou mot de passe incorrect.',
-    email_not_confirmed:'Email pas encore confirmé : clique sur le lien reçu par mail, puis reconnecte-toi.',
-    user_already_exists:'Un compte existe déjà avec cet email.',
+  const MSG={ invalid_credentials:'Pseudo ou mot de passe incorrect.',
+    pseudo_taken:'Ce pseudo est déjà pris.',
+    pseudo_invalid:'Pseudo : 3 à 20 caractères, lettres, chiffres, - ou _.',
     weak_password:'Mot de passe trop faible (6 caractères minimum).',
-    email_address_invalid:'Adresse email invalide.', validation_failed:'Email ou mot de passe invalide.',
-    over_email_send_rate_limit:'Trop de tentatives, réessaie dans quelques minutes.',
     over_request_rate_limit:'Trop de tentatives, réessaie dans quelques minutes.' };
   async function auth(path,body,tok){
     const h={apikey:KEY,'Content-Type':'application/json'}; if(tok)h.Authorization='Bearer '+tok;
-    const r=await fetch(API+'/auth/v1/'+path,{method:'POST',headers:h,body:JSON.stringify(body||{})});
+    const r=await fetch(API+(path==='inscription'?'/functions/v1/':'/auth/v1/')+path,{method:'POST',headers:h,body:JSON.stringify(body||{})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok){ const c=j.error_code||j.code; const e=new Error(MSG[c]||j.msg||j.error_description||j.message||('Erreur '+r.status)); e.status=r.status; throw e; }
     return j;
   }
   const fromTok=j=>({at:j.access_token, rt:j.refresh_token, exp:j.expires_at||(Date.now()/1000+j.expires_in),
-                     email:j.user&&j.user.email, uid:j.user&&j.user.id});
+                     pseudo:j.user&&j.user.user_metadata&&j.user.user_metadata.pseudo, uid:j.user&&j.user.id});
   async function token(){
     if(!sess)return null;
     if(sess.exp*1000-60000>Date.now())return sess.at;
@@ -3831,10 +3833,9 @@ const CLOUD=(()=>{
     return method==='GET'?r.json():null;
   }
   return {
-    get email(){ return sess&&sess.email; },
-    async signIn(email,pw){ keep(fromTok(await auth('token?grant_type=password',{email,password:pw}))); },
-    /* false : le projet exige une confirmation par email avant la première connexion */
-    async signUp(email,pw){ const j=await auth('signup',{email,password:pw}); if(!j.access_token)return false; keep(fromTok(j)); return true; },
+    get pseudo(){ return sess&&String(sess.pseudo||'joueur'); },
+    async signIn(pseudo,pw){ keep(fromTok(await auth('token?grant_type=password',{email:pseudoEmail(pseudo),password:pw}))); },
+    async signUp(pseudo,pw){ await auth('inscription',{pseudo:pseudo.trim(),password:pw}); await this.signIn(pseudo,pw); },
     async signOut(){ const t=sess&&sess.at; keep(null); if(t)try{ await auth('logout',{},t); }catch(e){} },
     async pull(){ const rows=await rest('GET'); return rows[0]?rows[0].data:null; },
     /* keepalive (envoi pendant la fermeture de l'onglet) plafonne le corps à 64 Ko côté navigateur */
@@ -3846,7 +3847,7 @@ const tsOf=raw=>{ try{ return JSON.parse(raw).ts||0; }catch(e){ return 0; } };
 /* Jamais avant start() : sur l'écran d'accueil, `state` est un freshState() qui écraserait la
    partie en ligne. Jamais non plus pendant la Recherche, pour la même raison que save(). */
 async function cloudPush(ka){
-  if(!CLOUD.email||!running||researchOpen||cloudHold)return false;
+  if(!CLOUD.pseudo||!running||researchOpen||cloudHold)return false;
   cloudTry=Date.now();
   try{ await CLOUD.push(snapshot(),ka); cloudAt=Date.now(); return true; }catch(e){ return false; }
 }
@@ -3951,9 +3952,10 @@ function acctView(mode,msg,err,cloudRaw){
   const b=$('acctBody'), m='<div class="msg'+(err?' err':'')+'" id="acctMsg">'+(msg||'')+'</div>';
   if(mode==='login'){
     b.innerHTML='<form class="acct" id="acctForm"><p>Connecte-toi pour sauvegarder ta partie en ligne et la reprendre sur un autre appareil. Sans compte, le jeu marche exactement pareil.</p>'+
-      '<label for="acctEmail">Email</label><input id="acctEmail" type="email" autocomplete="username" required>'+
+      '<label for="acctPseudo">Pseudo</label><input id="acctPseudo" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_\\-]{3,20}" title="3 à 20 caractères : lettres, chiffres, - ou _" required>'+
       '<label for="acctPw">Mot de passe</label><input id="acctPw" type="password" autocomplete="current-password" minlength="6" required>'+
       '<div class="row"><button class="mini on" type="submit">Se connecter</button><button class="mini" type="button" id="acctSignup">Créer un compte</button></div>'+
+      '<p style="font-size:12px;color:var(--steel);margin-top:10px">Aucun email demandé : garde bien ton mot de passe, il ne peut pas être récupéré.</p>'+
       m+'<button class="mini close" type="button" id="acctClose">fermer</button></form>';
     $('acctForm').onsubmit=e=>{ e.preventDefault(); acctDo('in'); };
     $('acctSignup').onclick=()=>{ if($('acctForm').reportValidity())acctDo('up'); };
@@ -3965,7 +3967,7 @@ function acctView(mode,msg,err,cloudRaw){
     $('acctKeep').onclick=async()=>{ cloudHold=false; acctView('in',await cloudPush()?'Partie envoyée.':'Envoi impossible pour l\'instant.'); };
   } else {
     const last=cloudAt?'dernier envoi à '+new Date(cloudAt).toLocaleTimeString('fr-FR',{timeStyle:'short'}):running?'pas encore d\'envoi dans cette session':'';
-    b.innerHTML='<div class="acct"><p>Connecté : <span class="who">'+CLOUD.email.replace(/</g,'&lt;')+'</span></p>'+
+    b.innerHTML='<div class="acct"><p>Connecté : <span class="who">'+CLOUD.pseudo.replace(/</g,'&lt;')+'</span></p>'+
       '<p>La partie part en ligne toutes les minutes et à la fermeture de l\'onglet'+(last?' — '+last:'')+'.</p>'+
       '<div class="row">'+(running?'<button class="mini on" id="acctPush">Envoyer maintenant</button>':'')+'<button class="mini" id="acctOut">Se déconnecter</button></div>'+
       m+'<button class="mini close" id="acctClose">fermer</button></div>';
@@ -3976,12 +3978,10 @@ function acctView(mode,msg,err,cloudRaw){
   if($('acctClose'))$('acctClose').onclick=closeAcct;
 }
 async function acctDo(kind){
-  const email=$('acctEmail').value.trim(), pw=$('acctPw').value, msg=$('acctMsg');
+  const pseudo=$('acctPseudo').value, pw=$('acctPw').value, msg=$('acctMsg');
   msg.className='msg'; msg.textContent=kind==='up'?'Création du compte…':'Connexion…';
   try{
-    if(kind==='up' && !await CLOUD.signUp(email,pw)){
-      msg.textContent='Compte créé. Clique sur le lien de confirmation reçu par mail, puis reviens te connecter ici.'; return; }
-    if(kind==='in') await CLOUD.signIn(email,pw);
+    await (kind==='up'?CLOUD.signUp(pseudo,pw):CLOUD.signIn(pseudo,pw));
   }catch(e){ msg.className='msg err'; msg.textContent=e.status?e.message:'Serveur injoignable (hors ligne ?).'; return; }
   acctSync();
   let c=null; try{ c=await CLOUD.pull(); }catch(e){}
@@ -3993,12 +3993,12 @@ async function acctDo(kind){
   if(c) acctView('conflict','',false,c);
   else acctView('in',await cloudPush()?'Partie envoyée.':'');
 }
-function openAcct(){ acctView(CLOUD.email?'in':'login'); $('acctOverlay').style.display='flex';
-  if($('acctEmail'))$('acctEmail').focus(); }
+function openAcct(){ acctView(CLOUD.pseudo?'in':'login'); $('acctOverlay').style.display='flex';
+  if($('acctPseudo'))$('acctPseudo').focus(); }
 function closeAcct(){ $('acctOverlay').style.display='none'; }
 function acctSync(){
-  $('btnAcct').textContent=CLOUD.email?'compte ✓':'compte';
-  $('introAcct').textContent=CLOUD.email?'Compte : '+CLOUD.email:'Se connecter · sauvegarde en ligne';
+  $('btnAcct').textContent=CLOUD.pseudo?'compte ✓':'compte';
+  $('introAcct').textContent=CLOUD.pseudo?'Compte : '+CLOUD.pseudo:'Se connecter · sauvegarde en ligne';
 }
 $('btnAcct').onclick=openAcct;
 $('introAcct').onclick=openAcct;
@@ -4084,7 +4084,7 @@ function start(raw){
   $('introStore').textContent=STORE.label;
   $('intro').style.display='flex';
   introSync();
-  if(CLOUD.email){ try{ const c=await CLOUD.pull(); if(c&&tsOf(c)>tsOf(bootRaw)){ bootRaw=c; introSync(); } }catch(e){} }
+  if(CLOUD.pseudo){ try{ const c=await CLOUD.pull(); if(c&&tsOf(c)>tsOf(bootRaw)){ bootRaw=c; introSync(); } }catch(e){} }
   let armed=false;
   const nb=$('introNew');
   nb.onclick=()=>{
