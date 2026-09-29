@@ -452,6 +452,21 @@ footer{
 .overlay.pres{align-items:flex-start}
 .overlay.pres .box{max-width:660px;width:100%;text-align:left;max-height:88vh;overflow-y:auto;margin:auto}
 .overlay.pres h2{text-align:left;margin-bottom:12px}
+
+/* ---------- compte / sauvegarde cloud ---------- */
+.overlay.acct{z-index:250}   /* au-dessus de l'écran d'accueil (#intro, 200) d'où on peut aussi l'ouvrir */
+.overlay.acct .box{max-width:420px;width:100%;text-align:left}
+.overlay.acct h2{text-align:left}
+.acct label{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--steel);margin:12px 0 4px}
+.acct input{width:100%;background:var(--lcd);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:14px;
+  padding:9px 10px;border-radius:2px;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+.acct input:focus{outline:2px solid var(--brass);outline-offset:-1px}
+.acct .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.acct .row .mini{flex:1 1 140px;padding:9px 10px}
+.acct .msg{min-height:1.5em;margin-top:12px;font-size:12px;line-height:1.5;color:var(--steel)}
+.acct .msg.err{color:var(--bad)}
+.acct .who{font-family:var(--mono);color:var(--amber);font-size:14px;word-break:break-all}
+.acct .close{display:block;margin:14px 0 0 auto}
 .presh{display:flex;gap:8px 14px;align-items:baseline;flex-wrap:wrap;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   color:#8b9187;background:var(--lcd);border:1px solid var(--line);padding:7px 10px;border-radius:2px;
   box-shadow:inset 0 2px 4px rgba(0,0,0,.8)}
@@ -524,6 +539,7 @@ footer{
   <div class="steps"><span>Minage</span><span>Fonderie</span><span>Usine</span><span>National</span><span>International</span><span>Orbite</span><span>Colonisation</span><span>Galaxie</span></div>
   <button class="go" id="introNew">Commencer</button>
   <button class="alt" id="introResume" style="display:none">Reprendre la partie</button>
+  <button class="alt" id="introAcct">Se connecter · sauvegarde en ligne</button>
   <div class="foot">Se joue hors ligne, tout tient dans ce fichier. La partie se sauvegarde toute seule&nbsp;: <span id="introStore">—</span>.<br>Le bouton « test » en bas accélère le jeu jusqu'à ×1000 pour voir toutes les étapes.</div>
 </div></div>
 
@@ -567,6 +583,13 @@ footer{
   </div>
 </div>
 
+<div class="overlay acct" id="acctOverlay" style="display:none">
+  <div class="box">
+    <h2>COMPTE</h2>
+    <div id="acctBody"></div>
+  </div>
+</div>
+
 <div class="wrap">
   <nav id="tabs"></nav>
   <div class="panel" id="panel"></div>
@@ -578,6 +601,7 @@ footer{
     <button class="mini prestige" id="btnPrestige" style="display:none">restructurer</button>
     <div class="sp"></div>
     <button class="mini" id="btnFmt">nombres : court</button>
+    <button class="mini" id="btnAcct">compte</button>
     <button class="mini" id="btnExport">sauvegarde</button>
     <button class="mini" id="btnDev">test</button>
   </div>
@@ -1463,7 +1487,7 @@ state=freshState();
 /* Compteur de version — géré manuellement à partir de cette MAJ (page Recherche).
    MAJOR.MINOR.PATCH : MINOR pour toute nouvelle fonctionnalité, PATCH pour un correctif/
    réglage isolé. Incrémenter à chaque livraison, jamais rétroactivement. */
-const GAME_VERSION='0.18.0';
+const GAME_VERSION='0.19.0';
 
 let cache={global:1,astro:1,prestige:1,stage:{},mach:{},colon:1,cap:{},xfer:{},pipe:1};
 function recompute(){
@@ -3762,7 +3786,70 @@ function snapshot(){ return JSON.stringify({v:1,ts:Date.now(),state,unlockedClic
    simplement le clic qui transfère le focus dans l'iframe), ou pagehide écraserait le
    localStorage avec ce `state` périmé — perdant silencieusement tout achat fait dans
    l'arbre depuis l'ouverture, y compris ceux déjà écrits par l'iframe. */
-async function save(){ if(researchOpen)return; try{ await STORE.set(snapshot()); }catch(e){} }
+async function save(){ if(researchOpen)return; try{ await STORE.set(snapshot()); }catch(e){}
+  if(Date.now()-cloudTry>60000) cloudPush(); }
+
+/* Sauvegarde en ligne (Supabase), optionnelle et posée PAR-DESSUS STORE, qui reste la référence
+   hors ligne. Appels REST directs plutôt que la librairie supabase-js : pas de dépendance CDN, le
+   jeu reste jouable en fichier local ; sans réseau chaque appel échoue en silence.
+   La clé publiable est faite pour être exposée dans le client : ce qui protège les parties, c'est
+   la RLS de la table `saves` (une ligne par compte, accessible à son seul propriétaire). */
+const CLOUD=(()=>{
+  const API='https://lxcxifshaxoebgxmpzlo.supabase.co', KEY='sb_publishable_7g43Ec4iyvdp4pHaHwB4uA_V2dEOH2V', SK='if:auth';
+  let sess=null;
+  try{ sess=JSON.parse(localStorage.getItem(SK)||'null'); }catch(e){}
+  const keep=s=>{ sess=s; try{ s?localStorage.setItem(SK,JSON.stringify(s)):localStorage.removeItem(SK); }catch(e){} };
+  const MSG={ invalid_credentials:'Email ou mot de passe incorrect.',
+    email_not_confirmed:'Email pas encore confirmé : clique sur le lien reçu par mail, puis reconnecte-toi.',
+    user_already_exists:'Un compte existe déjà avec cet email.',
+    weak_password:'Mot de passe trop faible (6 caractères minimum).',
+    email_address_invalid:'Adresse email invalide.', validation_failed:'Email ou mot de passe invalide.',
+    over_email_send_rate_limit:'Trop de tentatives, réessaie dans quelques minutes.',
+    over_request_rate_limit:'Trop de tentatives, réessaie dans quelques minutes.' };
+  async function auth(path,body,tok){
+    const h={apikey:KEY,'Content-Type':'application/json'}; if(tok)h.Authorization='Bearer '+tok;
+    const r=await fetch(API+'/auth/v1/'+path,{method:'POST',headers:h,body:JSON.stringify(body||{})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ const c=j.error_code||j.code; const e=new Error(MSG[c]||j.msg||j.error_description||j.message||('Erreur '+r.status)); e.status=r.status; throw e; }
+    return j;
+  }
+  const fromTok=j=>({at:j.access_token, rt:j.refresh_token, exp:j.expires_at||(Date.now()/1000+j.expires_in),
+                     email:j.user&&j.user.email, uid:j.user&&j.user.id});
+  async function token(){
+    if(!sess)return null;
+    if(sess.exp*1000-60000>Date.now())return sess.at;
+    try{ keep(fromTok(await auth('token?grant_type=refresh_token',{refresh_token:sess.rt}))); }
+    catch(e){ if(e.status>=400&&e.status<500)keep(null); throw e; }   // refus du serveur = session morte ; panne réseau = on garde tout
+    return sess.at;
+  }
+  async function rest(method,body,keepalive){
+    const t=await token(); if(!t)throw new Error('non connecté');
+    const r=await fetch(API+'/rest/v1/saves'+(method==='GET'?'?select=data':''),{method,keepalive:!!keepalive,
+      headers:{apikey:KEY,Authorization:'Bearer '+t,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+      body:body&&JSON.stringify(body)});
+    if(!r.ok)throw new Error('Erreur serveur '+r.status);
+    return method==='GET'?r.json():null;
+  }
+  return {
+    get email(){ return sess&&sess.email; },
+    async signIn(email,pw){ keep(fromTok(await auth('token?grant_type=password',{email,password:pw}))); },
+    /* false : le projet exige une confirmation par email avant la première connexion */
+    async signUp(email,pw){ const j=await auth('signup',{email,password:pw}); if(!j.access_token)return false; keep(fromTok(j)); return true; },
+    async signOut(){ const t=sess&&sess.at; keep(null); if(t)try{ await auth('logout',{},t); }catch(e){} },
+    async pull(){ const rows=await rest('GET'); return rows[0]?rows[0].data:null; },
+    /* keepalive (envoi pendant la fermeture de l'onglet) plafonne le corps à 64 Ko côté navigateur */
+    async push(data,ka){ await rest('POST',{user_id:sess.uid,data,version:GAME_VERSION,updated_at:new Date().toISOString()},ka&&data.length<60000); }
+  };
+})();
+let cloudTry=0, cloudAt=0, cloudHold=false;   // cloudHold : choix entre deux parties en attente, rien ne part
+const tsOf=raw=>{ try{ return JSON.parse(raw).ts||0; }catch(e){ return 0; } };
+/* Jamais avant start() : sur l'écran d'accueil, `state` est un freshState() qui écraserait la
+   partie en ligne. Jamais non plus pendant la Recherche, pour la même raison que save(). */
+async function cloudPush(ka){
+  if(!CLOUD.email||!running||researchOpen||cloudHold)return false;
+  cloudTry=Date.now();
+  try{ await CLOUD.push(snapshot(),ka); cloudAt=Date.now(); return true; }catch(e){ return false; }
+}
 function restore(raw){
   const d=JSON.parse(raw);
   Object.assign(state,d.state);
@@ -3855,6 +3942,68 @@ $('btnExport').onclick=()=>{
   try{ restore(decodeURIComponent(escape(atob(r.trim())))); structuralDirty=true; save(); toast('Partie importée'); }
   catch(e){ toast('Code illisible'); }
 };
+/* Compte : trois vues dans la même boîte — formulaire, connecté, et choix entre deux parties
+   quand le compte en a déjà une et qu'on se connecte en cours de jeu. Ce choix se fait en page,
+   pas via ask() : faute de confirm() disponible, ask() répond oui, ce qui écraserait une partie. */
+function acctDate(raw){ const t=tsOf(raw); return t?new Date(t).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'date inconnue'; }
+function acctStage(raw){ try{ return STAGES[(JSON.parse(raw).state.stage||1)-1].nom; }catch(e){ return '?'; } }
+function acctView(mode,msg,err,cloudRaw){
+  const b=$('acctBody'), m='<div class="msg'+(err?' err':'')+'" id="acctMsg">'+(msg||'')+'</div>';
+  if(mode==='login'){
+    b.innerHTML='<form class="acct" id="acctForm"><p>Connecte-toi pour sauvegarder ta partie en ligne et la reprendre sur un autre appareil. Sans compte, le jeu marche exactement pareil.</p>'+
+      '<label for="acctEmail">Email</label><input id="acctEmail" type="email" autocomplete="username" required>'+
+      '<label for="acctPw">Mot de passe</label><input id="acctPw" type="password" autocomplete="current-password" minlength="6" required>'+
+      '<div class="row"><button class="mini on" type="submit">Se connecter</button><button class="mini" type="button" id="acctSignup">Créer un compte</button></div>'+
+      m+'<button class="mini close" type="button" id="acctClose">fermer</button></form>';
+    $('acctForm').onsubmit=e=>{ e.preventDefault(); acctDo('in'); };
+    $('acctSignup').onclick=()=>{ if($('acctForm').reportValidity())acctDo('up'); };
+  } else if(mode==='conflict'){
+    cloudHold=true;
+    b.innerHTML='<div class="acct"><p>Ce compte a déjà une partie en ligne, sauvegardée le <b>'+acctDate(cloudRaw)+'</b> (étape : '+acctStage(cloudRaw)+').</p>'+
+      '<div class="row"><button class="mini on" id="acctTake">Charger la partie en ligne</button><button class="mini" id="acctKeep">Garder celle-ci et l\'envoyer</button></div>'+m+'</div>';
+    $('acctTake').onclick=()=>{ cloudHold=false; restore(cloudRaw); structuralDirty=true; render(); paint(); save(); acctView('in','Partie en ligne chargée.'); };
+    $('acctKeep').onclick=async()=>{ cloudHold=false; acctView('in',await cloudPush()?'Partie envoyée.':'Envoi impossible pour l\'instant.'); };
+  } else {
+    const last=cloudAt?'dernier envoi à '+new Date(cloudAt).toLocaleTimeString('fr-FR',{timeStyle:'short'}):running?'pas encore d\'envoi dans cette session':'';
+    b.innerHTML='<div class="acct"><p>Connecté : <span class="who">'+CLOUD.email.replace(/</g,'&lt;')+'</span></p>'+
+      '<p>La partie part en ligne toutes les minutes et à la fermeture de l\'onglet'+(last?' — '+last:'')+'.</p>'+
+      '<div class="row">'+(running?'<button class="mini on" id="acctPush">Envoyer maintenant</button>':'')+'<button class="mini" id="acctOut">Se déconnecter</button></div>'+
+      m+'<button class="mini close" id="acctClose">fermer</button></div>';
+    if($('acctPush'))$('acctPush').onclick=async()=>{ $('acctMsg').textContent='Envoi…'; const ok=await cloudPush();
+      acctView('in',ok?'Partie envoyée.':'Envoi impossible (hors ligne ?).',!ok); };
+    $('acctOut').onclick=async()=>{ if(running)await cloudPush(); await CLOUD.signOut(); acctSync(); acctView('login','Déconnecté. La partie reste sauvegardée dans ce navigateur.'); };
+  }
+  if($('acctClose'))$('acctClose').onclick=closeAcct;
+}
+async function acctDo(kind){
+  const email=$('acctEmail').value.trim(), pw=$('acctPw').value, msg=$('acctMsg');
+  msg.className='msg'; msg.textContent=kind==='up'?'Création du compte…':'Connexion…';
+  try{
+    if(kind==='up' && !await CLOUD.signUp(email,pw)){
+      msg.textContent='Compte créé. Clique sur le lien de confirmation reçu par mail, puis reviens te connecter ici.'; return; }
+    if(kind==='in') await CLOUD.signIn(email,pw);
+  }catch(e){ msg.className='msg err'; msg.textContent=e.status?e.message:'Serveur injoignable (hors ligne ?).'; return; }
+  acctSync();
+  let c=null; try{ c=await CLOUD.pull(); }catch(e){}
+  if(!running){                      // écran d'accueil : on reprendra la plus récente des deux
+    if(c&&tsOf(c)>tsOf(bootRaw)){ bootRaw=c; introSync(); acctView('in','Partie en ligne récupérée : « Reprendre la partie ».'); }
+    else acctView('in');
+    return;
+  }
+  if(c) acctView('conflict','',false,c);
+  else acctView('in',await cloudPush()?'Partie envoyée.':'');
+}
+function openAcct(){ acctView(CLOUD.email?'in':'login'); $('acctOverlay').style.display='flex';
+  if($('acctEmail'))$('acctEmail').focus(); }
+function closeAcct(){ $('acctOverlay').style.display='none'; }
+function acctSync(){
+  $('btnAcct').textContent=CLOUD.email?'compte ✓':'compte';
+  $('introAcct').textContent=CLOUD.email?'Compte : '+CLOUD.email:'Se connecter · sauvegarde en ligne';
+}
+$('btnAcct').onclick=openAcct;
+$('introAcct').onclick=openAcct;
+$('acctOverlay').onclick=e=>{ if(e.target.id==='acctOverlay'&&!cloudHold)closeAcct(); };
+
 document.querySelectorAll('.spd').forEach(b=>b.onclick=()=>{
   state.speed=+b.dataset.s; document.querySelectorAll('.spd').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
 $('devRes').onclick=()=>{ for(const k in RES) state.res[k]+=1e6*Math.pow(10,Math.max(0,state.stage-2)); structuralDirty=true; toast('Ressources injectées'); };
@@ -3898,6 +4047,8 @@ function loop(now){
      quelques dizaines de milliers de points est négligeable à côté du tick. */
   if(GAL.full||(state.tab===8&&$('galHost'))) drawGalaxy();
 }
+let bootRaw=null;   // partie proposée à l'accueil : la plus récente entre ce navigateur et le compte en ligne
+function introSync(){ if(bootRaw)$('introResume').style.display='block'; }
 function startSafe(raw){
   try{ start(raw); }
   catch(e){
@@ -3916,10 +4067,10 @@ function start(raw){
   recompute(); structuralDirty=true; render(); paint();
   for(let st=1;st<=state.stage;st++) queuePop(st);   // rattrape les étapes déjà atteintes
   setInterval(save,10000);
-  document.addEventListener('visibilitychange',()=>{ if(document.hidden)save(); syncAwake(); });
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden){ save(); cloudPush(true); } syncAwake(); });
   window.addEventListener('blur',()=>{ awake=false; save(); syncAwake(); });
   window.addEventListener('focus',()=>{ awake=true; syncAwake(); });
-  window.addEventListener('pagehide',save);
+  window.addEventListener('pagehide',()=>{ save(); cloudPush(true); });
   syncAwake();
 }
 (async()=>{
@@ -3928,14 +4079,16 @@ function start(raw){
   $('hVer').textContent=GAME_VERSION;
   document.querySelector('.spd[data-s="1"]').classList.add('on');
   requestAnimationFrame(loop);
-  const raw=await load();
+  bootRaw=await load();
+  acctSync();
   $('introStore').textContent=STORE.label;
   $('intro').style.display='flex';
-  if(raw)$('introResume').style.display='block';
+  introSync();
+  if(CLOUD.email){ try{ const c=await CLOUD.pull(); if(c&&tsOf(c)>tsOf(bootRaw)){ bootRaw=c; introSync(); } }catch(e){} }
   let armed=false;
   const nb=$('introNew');
   nb.onclick=()=>{
-    if(!raw||armed){ startSafe(null); return; }
+    if(!bootRaw||armed){ startSafe(null); return; }
     armed=true;                                   // confirmation en page : pas de window.confirm
     nb.textContent='Confirmer — effacer la sauvegarde';
     nb.classList.add('danger');
@@ -3944,7 +4097,7 @@ function start(raw){
   $('introResume').onclick=()=>{
     if(armed){ armed=false; nb.textContent='Commencer'; nb.classList.remove('danger');
       $('introResume').textContent='Reprendre la partie'; return; }
-    startSafe(raw);
+    startSafe(bootRaw);
   };
 })();
 </script>
